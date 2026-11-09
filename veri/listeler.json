@@ -1,0 +1,65 @@
+{
+  "surum": 1,
+  "listeler": [
+    {
+      "id": "tum-bist",
+      "ad": "Tüm BIST Hisseleri",
+      "dinamik": "bist",
+      "cikarilanlar": []
+    },
+    {
+      "id": "emtia-doviz",
+      "ad": "Altın, Petrol ve Döviz",
+      "semboller": [
+        "OANDA:XAUUSD",
+        "BIST:ALTIN",
+        "TVC:SILVER",
+        "FX:UKOIL",
+        "FX:USOIL",
+        "FX:USDTRY",
+        "FX:EURTRY",
+        "FX:EURUSD",
+        "TVC:DXY"
+      ]
+    },
+    {
+      "id": "endeksler",
+      "ad": "Endeksler",
+      "semboller": [
+        "BIST:XU100",
+        "BIST:XU030",
+        "TVC:DXY"
+      ]
+    },
+    {
+      "id": "kripto",
+      "ad": "Kripto Paralar",
+      "semboller": [
+        "BINANCE:BTCUSDT",
+        "BINANCE:ETHUSDT",
+        "BINANCE:SOLUSDT",
+        "BINANCE:BNBUSDT",
+        "BINANCE:XRPUSDT",
+        "BINANCE:AVAXUSDT",
+        "BINANCE:DOGEUSDT",
+        "BINANCE:ADAUSDT",
+        "BINANCE:LINKUSDT"
+      ]
+    },
+    {
+      "id": "favoriler",
+      "ad": "⭐ Favorilerim",
+      "semboller": [
+        "OANDA:XAUUSD",
+        "BIST:ALTIN",
+        "FX:UKOIL",
+        "BIST:THYAO",
+        "BIST:TUPRS",
+        "BIST:ASELS",
+        "BINANCE:BTCUSDT",
+        "BIST:KARSN",
+        "BIST:DOCO"
+      ]
+    }
+  ]
+}

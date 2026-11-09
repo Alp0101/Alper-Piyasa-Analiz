@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alper'in Piyasa Asistanı (Kendine Özel Y.T.D)</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<header class="ust">
+  <div class="baslik">🛡️ Alper'in Piyasa Asistanı <span class="alt-baslik">Kendine Özel Y.T.D · BIST · Altın · Petrol · Döviz · Kripto</span></div>
+  <div class="ust-sag">
+    <span id="durum" class="durum">Hazırlanıyor...</span>
+    <label class="anahtar"><input type="checkbox" id="otoYenile" checked> Otomatik yenile (1 dk)</label>
+    <button id="yenileBtn" class="btn">⟳ Yenile</button>
+  </div>
+</header>
+
+<div class="duzen">
+  <aside class="yan">
+    <div class="yan-baslik">İzleme Listeleri</div>
+    <ul id="listeler" class="liste-menu"></ul>
+    <div class="yan-butonlar">
+      <button id="yeniListeBtn" class="btn tam">➕ Yeni Liste</button>
+      <button id="adDegistirBtn" class="btn tam ikincil">✏️ Listeyi Yeniden Adlandır</button>
+      <button id="listeSilBtn" class="btn tam tehlike">🗑️ Listeyi Sil</button>
+      <button id="varsayilanBtn" class="btn tam ikincil">↺ Varsayılan Listelere Dön</button>
+    </div>
+    <div class="yan-bilgi">
+      <b>Nasıl okunur?</b><br>
+      <span class="rozet r2">▲▲</span> Güçlü yükseliş
+      <span class="rozet r1">▲</span> Yükseliş<br>
+      <span class="rozet r0">●</span> Kararsız
+      <span class="rozet r-1">▼</span> Düşüş
+      <span class="rozet r-2">▼▼</span> Güçlü düşüş<br><br>
+      Tablodaki yönler <b>hızlı tarama</b> içindir. Bir satıra tıkladığınızda o varlık <b>8 yöntemle</b> ayrıntılı olarak incelenir.
+    </div>
+  </aside>
+
+  <main class="ana">
+    <div class="arac-cubugu">
+      <h2 id="listeBaslik">—</h2>
+      <div class="ekle-kutu">
+        <input id="ekleInput" placeholder="➕ Listeye ekle: hisse, altın, dolar, kripto ara..." autocomplete="off">
+        <div id="ekleSonuc" class="oneri gizli"></div>
+      </div>
+    </div>
+    <div class="filtreler">
+      <input id="aramaInput" class="arama" placeholder="🔍 Tabloda ara (kod veya ad)">
+      <div class="cipler" id="filtreCipler">
+        <button class="cip aktif" data-f="hepsi">Tümü</button>
+        <button class="cip" data-f="firsat">🟢 Fırsat adayları</button>
+        <button class="cip" data-f="tuzak">⚠️ Tuzak / aşırı alım</button>
+        <button class="cip" data-f="yukselis">▲ Tüm zamanlarda yükselişte</button>
+        <button class="cip" data-f="dusus">▼ Tüm zamanlarda düşüşte</button>
+      </div>
+      <select id="hacimFiltre" title="Düşük işlem hacimli (sığ) hisseleri gizler">
+        <option value="0">Tüm hacimler</option>
+        <option value="10000000">Günlük hacim &gt; 10 milyon TL</option>
+        <option value="50000000" selected>Günlük hacim &gt; 50 milyon TL</option>
+        <option value="250000000">Günlük hacim &gt; 250 milyon TL</option>
+      </select>
+    </div>
+    <div class="tablo-kap">
+      <table id="tablo">
+        <thead>
+          <tr>
+            <th data-s="kod">Sembol</th>
+            <th data-s="fiyat" class="sag">Fiyat</th>
+            <th data-s="degisim" class="sag">Günlük %</th>
+            <th data-s="yon.s2" class="orta" title="2 saatlik grafik yönü">2 Saat</th>
+            <th data-s="yon.s4" class="orta" title="4 saatlik grafik yönü">4 Saat</th>
+            <th data-s="yon.g1" class="orta" title="Günlük grafik yönü">24 Saat</th>
+            <th data-s="rsi.s4" class="sag" title="4 saatlik RSI (70 üstü pahalı, 30 altı ucuz)">RSI 4S</th>
+            <th data-s="goreceliHacim" class="sag" title="Bugünkü hacim / 10 günlük ortalama">Hacim Katı</th>
+            <th data-s="ayKonum" title="Son 1 ayın dibine (0) ve tepesine (100) göre konum">1 Ay Konum</th>
+            <th data-s="hizliPuan" class="sag" title="-100 (çok olumsuz) ile +100 (çok olumlu) arası">Puan</th>
+            <th>İşaretler</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tabloGovde"></tbody>
+      </table>
+      <div id="dahaFazla" class="daha gizli"><button class="btn ikincil" id="dahaBtn">Daha fazla göster</button></div>
+      <div id="bosMesaj" class="bos gizli">Bu filtreye uyan varlık yok.</div>
+    </div>
+  </main>
+</div>
+
+<!-- Ayrıntılı analiz paneli -->
+<div id="perde" class="perde gizli"></div>
+<section id="detay" class="detay gizli">
+  <div class="detay-ust">
+    <div>
+      <div id="dAd" class="d-ad"></div>
+      <div id="dAlt" class="d-alt"></div>
+    </div>
+    <div class="detay-butonlar">
+      <a id="dTv" class="btn ikincil" target="_blank" rel="noopener">📈 TradingView'de aç</a>
+      <button id="dFavori" class="btn ikincil">⭐ Favorilere ekle</button>
+      <button id="dKapat" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div id="dIcerik" class="detay-icerik"></div>
+</section>
+
+<div id="bildirim" class="bildirim gizli"></div>
+<script src="panel.js"></script>
+</body>
+</html>
+

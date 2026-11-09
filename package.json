@@ -1,0 +1,10 @@
+{
+  "name": "alperin-piyasa-asistani",
+  "version": "1.0.0",
+  "description": "Alperin Piyasa Asistani (Kendine Ozel Y.T.D)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js --tarayicisiz"
+  },
+  "dependencies": {}
+}

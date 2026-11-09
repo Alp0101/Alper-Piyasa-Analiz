@@ -1,0 +1,146 @@
+// Piyasa Asistanı – yerel sunucu (http://localhost:3737)
+'use strict';
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const V = require('./veri');
+const { sembolBilgisi, varsayilanListeler } = require('./semboller');
+const { analizEt } = require('./analiz');
+const { geriyeTest } = require('./backtest');
+
+const PORT = process.env.PORT || 3737;
+const KOK = __dirname;
+const LISTE_DOSYA = path.join(KOK, 'veri', 'listeler.json');
+
+// ---------------- Listeler ----------------
+function listeleriOku() {
+  try { return JSON.parse(fs.readFileSync(LISTE_DOSYA, 'utf8')); }
+  catch (_) { const v = varsayilanListeler(); listeleriYaz(v); return v; }
+}
+function listeleriYaz(v) {
+  fs.mkdirSync(path.dirname(LISTE_DOSYA), { recursive: true });
+  const gecici = LISTE_DOSYA + '.tmp';
+  fs.writeFileSync(gecici, JSON.stringify(v, null, 2), 'utf8');
+  fs.renameSync(gecici, LISTE_DOSYA);
+}
+function listeDogrula(v) {
+  if (!v || !Array.isArray(v.listeler)) throw new Error('Geçersiz liste verisi');
+  v.listeler.forEach(l => {
+    if (typeof l.id !== 'string' || typeof l.ad !== 'string') throw new Error('Liste adı/kimliği eksik');
+    if (!l.dinamik && !Array.isArray(l.semboller)) throw new Error(`"${l.ad}" listesinde sembol dizisi yok`);
+  });
+  return v;
+}
+
+// ---------------- Hızlı değerlendirme (tarama tablosu) ----------------
+const tvEtiket = x => (x == null ? null : x > 0.5 ? 2 : x > 0.1 ? 1 : x < -0.5 ? -2 : x < -0.1 ? -1 : 0);
+function hizliDegerlendir(r) {
+  const t = r.tv, rs = r.rsi;
+  const isaretler = [];
+  const gh = r.goreceliHacim || 0;
+  if (t.s2 > 0.1 && t.s4 > 0.1 && t.g1 > 0.1 && rs.s4 >= 45 && rs.s4 <= 65 && gh >= 1.2) isaretler.push({ tip: 'firsat', metin: 'Kısa vade alım adayı' });
+  if (rs.g1 != null && rs.g1 < 32 && t.s2 > 0.3 && t.s4 > -0.1) isaretler.push({ tip: 'firsat', metin: 'Dipten dönüş adayı' });
+  if (r.degisim > 3 && r.goreceliHacim != null && r.goreceliHacim < 0.8) isaretler.push({ tip: 'tuzak', metin: 'Hacimsiz yükseliş' });
+  if (rs.s4 > 75 || rs.g1 > 78) isaretler.push({ tip: 'tuzak', metin: 'Aşırı alım' });
+  if (rs.g1 != null && rs.g1 < 25) isaretler.push({ tip: 'bilgi', metin: 'Aşırı satım' });
+  const agirlikli = [t.s2, t.s4, t.g1].some(x => x == null) ? null : Math.round((t.s2 * 0.25 + t.s4 * 0.35 + t.g1 * 0.4) * 100);
+  const ayKonum = r.ayYuksek > r.ayDusuk ? Math.round(((r.fiyat - r.ayDusuk) / (r.ayYuksek - r.ayDusuk)) * 100) : null;
+  return {
+    ...r,
+    yon: { s2: tvEtiket(t.s2), s4: tvEtiket(t.s4), g1: tvEtiket(t.g1) },
+    hizliPuan: agirlikli, ayKonum, isaretler,
+    tlHacim: r.hacim && r.fiyat ? r.hacim * r.fiyat : null,
+  };
+}
+
+async function listeTara(listeId) {
+  const v = listeleriOku();
+  const liste = v.listeler.find(l => l.id === listeId);
+  if (!liste) throw new Error('Liste bulunamadı');
+  let satirlar;
+  if (liste.dinamik === 'bist') {
+    const cik = new Set(liste.cikarilanlar || []);
+    satirlar = (await V.tumBistTara()).filter(r => !cik.has(r.id));
+  } else {
+    const gelen = await V.sembolleriTara(liste.semboller);
+    const m = new Map(gelen.map(r => [r.id, r]));
+    satirlar = liste.semboller.map(id => m.get(id) || { id, kod: id.split(':')[1], ad: (sembolBilgisi(id) || {}).ad || id, fiyat: null, tv: {}, rsi: {}, veriYok: true });
+  }
+  const adlar = {};
+  satirlar.forEach(r => { const b = sembolBilgisi(r.id); if (b && b.tur !== 'bist' && b.ad) adlar[r.id] = b.ad; });
+  return satirlar.map(r => hizliDegerlendir({ ...r, ad: adlar[r.id] || r.ad }));
+}
+
+async function sembolAnaliz(id, tf = 's4') {
+  let adlar = {};
+  if (id.startsWith('BIST:')) { try { adlar = await V.bistAdlari(); } catch (_) { /* ad olmadan devam */ } }
+  const bilgi = sembolBilgisi(id, adlar);
+  if (!bilgi) throw new Error('Bu sembol için veri kaynağı tanımlı değil');
+  const [setler, bench] = await Promise.all([V.mumSetleri(bilgi), V.benchSetleri(bilgi.bench)]);
+  const analizSonucu = analizEt(setler, bench, bilgi);
+
+  // Backtest / Geçmiş test hesaplaması (seçili periyot için)
+  const hedefMumlar = setler[tf] || setler.s4 || setler.g1;
+  const benchMumlar = bench ? (bench[tf] || bench.s4 || bench.g1) : null;
+  const backtestSonucu = geriyeTest(hedefMumlar, tf, benchMumlar);
+
+  return { ...analizSonucu, backtest: backtestSonucu };
+}
+
+// ---------------- HTTP ----------------
+const TIPLER = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
+
+function gonder(res, kod, veri) {
+  res.writeHead(kod, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(veri));
+}
+function govdeOku(req) {
+  return new Promise((ok, red) => {
+    let b = '';
+    req.on('data', c => { b += c; if (b.length > 2e6) { red(new Error('Veri çok büyük')); req.destroy(); } });
+    req.on('end', () => { try { ok(JSON.parse(b || '{}')); } catch (e) { red(new Error('Geçersiz JSON')); } });
+  });
+}
+
+const sunucu = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const p = url.pathname;
+  try {
+    if (p === '/api/listeler' && req.method === 'GET') return gonder(res, 200, listeleriOku());
+    if (p === '/api/listeler' && req.method === 'POST') { const v = listeDogrula(await govdeOku(req)); listeleriYaz(v); return gonder(res, 200, v); }
+    if (p === '/api/listeler/varsayilan' && req.method === 'POST') { const v = varsayilanListeler(); listeleriYaz(v); return gonder(res, 200, v); }
+    if (p === '/api/tarama') return gonder(res, 200, { zaman: new Date().toISOString(), satirlar: await listeTara(url.searchParams.get('liste')) });
+    if (p === '/api/analiz') return gonder(res, 200, await sembolAnaliz(url.searchParams.get('sembol') || '', url.searchParams.get('tf') || 's4'));
+    if (p === '/api/ara') return gonder(res, 200, await V.ara(url.searchParams.get('q') || ''));
+    if (p.startsWith('/api/')) return gonder(res, 404, { hata: 'Bilinmeyen istek' });
+
+    // Statik dosyalar (panel klasörü)
+    const dosya = path.normalize(path.join(KOK, 'panel', p === '/' ? 'index.html' : p));
+    if (!dosya.startsWith(path.join(KOK, 'panel'))) { res.writeHead(403); return res.end(); }
+    fs.readFile(dosya, (err, icerik) => {
+      if (err) { res.writeHead(404); return res.end('Bulunamadı'); }
+      res.writeHead(200, { 'Content-Type': TIPLER[path.extname(dosya)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+      res.end(icerik);
+    });
+  } catch (e) {
+    console.error('Hata:', p, e.message);
+    gonder(res, 500, { hata: e.message });
+  }
+});
+
+const tarayiciAc = () => exec(`start "" http://localhost:${PORT}`);
+
+sunucu.on('error', e => {
+  if (e.code === 'EADDRINUSE') { console.log('Sistem zaten çalışıyor, panel açılıyor...'); tarayiciAc(); setTimeout(() => process.exit(0), 500); }
+  else { console.error(e); process.exit(1); }
+});
+
+sunucu.listen(PORT, '0.0.0.0', () => {
+  console.log('==============================================');
+  console.log("  🛡️  ALPER'İN PİYASA ASİSTANI ÇALIŞIYOR");
+  console.log(`  Bilgisayardan Adres : http://localhost:${PORT}`);
+  console.log('  Kapatmak için bu pencereyi kapatın.');
+  console.log('==============================================');
+  if (!process.argv.includes('--tarayicisiz')) tarayiciAc();
+});
