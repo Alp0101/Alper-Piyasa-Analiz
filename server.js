@@ -8,6 +8,7 @@ const V = require('./veri');
 const { sembolBilgisi, varsayilanListeler } = require('./semboller');
 const { analizEt } = require('./analiz');
 const { geriyeTest } = require('./backtest');
+const Demo = require('./demo');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
@@ -113,6 +114,24 @@ const sunucu = http.createServer(async (req, res) => {
     if (p === '/api/tarama') return gonder(res, 200, { zaman: new Date().toISOString(), satirlar: await listeTara(url.searchParams.get('liste')) });
     if (p === '/api/analiz') return gonder(res, 200, await sembolAnaliz(url.searchParams.get('sembol') || '', url.searchParams.get('tf') || 's4'));
     if (p === '/api/ara') return gonder(res, 200, await V.ara(url.searchParams.get('q') || ''));
+
+    // Demo Al-Sat Uç Noktaları
+    if (p === '/api/demo/portfoy' && req.method === 'GET') {
+      return gonder(res, 200, Demo.portfoyOzet());
+    }
+    if (p === '/api/demo/al' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      const sonuc = Demo.demoAl(g.sembol, g.ad, g.fiyat, g.adet, g.stopFiyat, g.hedefFiyat);
+      return gonder(res, 200, sonuc);
+    }
+    if (p === '/api/demo/sat' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      const sonuc = Demo.demoSat(g.pozId, g.satisFiyat, g.sebep || 'manuel');
+      return gonder(res, 200, sonuc);
+    }
+    if (p === '/api/demo/sifirla' && req.method === 'POST') {
+      return gonder(res, 200, Demo.demoSifirla());
+    }
     if (p.startsWith('/api/')) return gonder(res, 404, { hata: 'Bilinmeyen istek' });
 
     // Statik dosyalar (panel klasörü)

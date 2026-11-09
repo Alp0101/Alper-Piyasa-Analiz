@@ -10,6 +10,7 @@
 <header class="ust">
   <div class="baslik">🛡️ Alper'in Piyasa Asistanı <span class="alt-baslik">Kendine Özel Y.T.D · BIST · Altın · Petrol · Döviz · Kripto</span></div>
   <div class="ust-sag">
+    <button id="demoPortfoyBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: bold;">💼 Demo Kasa: <span id="ustKasaBakiye">100.000 TL</span></button>
     <span id="durum" class="durum">Hazırlanıyor...</span>
     <label class="anahtar"><input type="checkbox" id="otoYenile" checked> Otomatik yenile (1 dk)</label>
     <button id="yenileBtn" class="btn">⟳ Yenile</button>
@@ -96,12 +97,57 @@
       <div id="dAlt" class="d-alt"></div>
     </div>
     <div class="detay-butonlar">
+      <button id="dDemoAlBtn" class="btn" style="background:#10b981; font-weight:bold;">🛒 Demo Al</button>
       <a id="dTv" class="btn ikincil" target="_blank" rel="noopener">📈 TradingView'de aç</a>
       <button id="dFavori" class="btn ikincil">⭐ Favorilere ekle</button>
       <button id="dKapat" class="btn">✖ Kapat</button>
     </div>
   </div>
   <div id="dIcerik" class="detay-icerik"></div>
+</section>
+
+<!-- Demo Portföy & Kasa Penceresi -->
+<section id="demoModal" class="detay gizli" style="max-width: 850px;">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">💼 Demo Portföyüm & Sanal Kasa</div>
+      <div class="d-alt">Gerçek paranızı riske atmadan stratejilerinizi test edin</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="demoSifirlaBtn" class="btn tehlike">🔄 Kasayı Sıfırla (100.000 TL)</button>
+      <button id="demoKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div class="tf-ozet" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 20px;">
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">Nakit Sanal Bakiye</div>
+        <div id="demoNakitBakiye" style="font-size: 20px; font-weight: bold; color:#10b981; margin-top:4px;">— TL</div>
+      </div>
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">Toplam Portföy Değeri</div>
+        <div id="demoToplamVarlik" style="font-size: 20px; font-weight: bold; margin-top:4px;">— TL</div>
+      </div>
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">Toplam Kâr / Zarar</div>
+        <div id="demoNetKar" style="font-size: 20px; font-weight: bold; margin-top:4px;">— TL</div>
+      </div>
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">Kazanma Oranı (Winrate)</div>
+        <div id="demoBasariOrani" style="font-size: 20px; font-weight: bold; color:#3b82f6; margin-top:4px;">%0</div>
+      </div>
+    </div>
+
+    <div class="kutu">
+      <h4>📈 Açık Pozisyonlar</h4>
+      <div id="demoAcikPozisyonlar"></div>
+    </div>
+
+    <div class="kutu">
+      <h4>📜 Geçmiş Kapanan İşlemler</h4>
+      <div id="demoKapananIslemler"></div>
+    </div>
+  </div>
 </section>
 
 <div id="bildirim" class="bildirim gizli"></div>

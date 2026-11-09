@@ -380,8 +380,161 @@ $('#dIcerik').addEventListener('click', e => {
   detayYukle();
 });
 
+// ================= Demo Al-Sat & Portföy =================
+let demoPortfoyVerisi = null;
+
+async function demoPortfoyYukle() {
+  try {
+    demoPortfoyVerisi = await api('/api/demo/portfoy');
+    const p = demoPortfoyVerisi;
+    $('#ustKasaBakiye').textContent = sayi(p.toplamVarlik, 0) + ' TL';
+    $('#demoNakitBakiye').textContent = sayi(p.bakiye, 2) + ' TL';
+    $('#demoToplamVarlik').textContent = sayi(p.toplamVarlik, 2) + ' TL';
+
+    const netRenk = p.toplamNetKarTL >= 0 ? '#10b981' : '#ef4444';
+    $('#demoNetKar').innerHTML = `<span style="color:${netRenk}">${p.toplamNetKarTL >= 0 ? '+' : ''}${sayi(p.toplamNetKarTL, 2)} TL (%${sayi(p.toplamNetKarYuzde, 2)})</span>`;
+    $('#demoBasariOrani').textContent = `%${p.istatistik.basariOrani} (${p.istatistik.basarili}K / ${p.istatistik.basarisiz}Z)`;
+
+    demoPortfoyCiz();
+  } catch (_) {}
+}
+
+function demoPortfoyCiz() {
+  const p = demoPortfoyVerisi; if (!p) return;
+  // Açık Pozisyonlar
+  const aciklar = p.acikPozisyonlar;
+  if (!aciklar.length) {
+    $('#demoAcikPozisyonlar').innerHTML = '<div class="bos" style="padding:15px;">Henüz açık demo pozisyonunuz yok. Detay penceresinden "🛒 Demo Al" butonunu kullanabilirsiniz.</div>';
+  } else {
+    $('#demoAcikPozisyonlar').innerHTML = `
+      <table style="width:100%;">
+        <thead>
+          <tr>
+            <th>Sembol</th>
+            <th class="sag">Adet</th>
+            <th class="sag">Alış Fiyatı</th>
+            <th class="sag">Güncel Fiyat</th>
+            <th class="sag">Kâr/Zarar</th>
+            <th class="orta">İşlem</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${aciklar.map(poz => {
+            const karRenk = poz.karZararTL >= 0 ? 'art' : 'eks';
+            return `
+            <tr>
+              <td><b>${esc(poz.sembol.split(':')[1])}</b> <small class="kucuk">${esc(poz.ad)}</small></td>
+              <td class="sag">${poz.adet}</td>
+              <td class="sag">${sayi(poz.alisFiyat)}</td>
+              <td class="sag">${sayi(poz.anlikFiyat)}</td>
+              <td class="sag ${karRenk}"><b>${poz.karZararTL >= 0 ? '+' : ''}${sayi(poz.karZararTL, 2)} TL</b> (%${sayi(poz.karZararYuzde, 2)})</td>
+              <td class="orta"><button class="btn tehlike" style="padding:3px 8px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat (Sat)</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // Kapanan İşlemler
+  const kapali = p.kapananIslemler;
+  if (!kapali.length) {
+    $('#demoKapananIslemler').innerHTML = '<div class="bos" style="padding:15px;">Henüz kapanmış işlem geçmişi yok.</div>';
+  } else {
+    $('#demoKapananIslemler').innerHTML = `
+      <table style="width:100%;">
+        <thead>
+          <tr>
+            <th>Sembol</th>
+            <th class="sag">Adet</th>
+            <th class="sag">Alış / Satış</th>
+            <th class="sag">Net Sonuç</th>
+            <th class="sag">Tarih</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${kapali.map(k => {
+            const karRenk = k.karZararTL >= 0 ? 'art' : 'eks';
+            return `
+            <tr>
+              <td><b>${esc(k.sembol.split(':')[1])}</b></td>
+              <td class="sag">${k.adet}</td>
+              <td class="sag">${sayi(k.alisFiyat)} ➔ ${sayi(k.satisFiyat)}</td>
+              <td class="sag ${karRenk}"><b>${k.karZararTL >= 0 ? '+' : ''}${sayi(k.karZararTL, 2)} TL</b> (%${sayi(k.karZararYuzde, 2)})</td>
+              <td class="sag kucuk">${new Date(k.satisTarih).toLocaleDateString('tr-TR')} ${new Date(k.satisTarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+}
+
+window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
+  if (!confirm('Bu pozisyonu güncel fiyattan kapatmak (satmak) istediğinize emin misiniz?')) return;
+  try {
+    const res = await api('/api/demo/sat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pozId, satisFiyat: guncelFiyat })
+    });
+    bildir(`Pozisyon kapatıldı! Sonuç: ${res.kapandi.karZararTL >= 0 ? '+' : ''}${res.kapandi.karZararTL} TL`);
+    await demoPortfoyYukle();
+  } catch (e) {
+    bildir('Hata: ' + e.message);
+  }
+};
+
+$('#demoPortfoyBtn').onclick = () => {
+  $('#perde').classList.remove('gizli');
+  $('#demoModal').classList.remove('gizli');
+  demoPortfoyYukle();
+};
+$('#demoKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#demoModal').classList.add('gizli');
+};
+$('#demoSifirlaBtn').onclick = async () => {
+  if (!confirm('Sanal kasanız sıfırlanacak ve 100.000 TL nakit bakiyeye dönecek. Tüm demo işlemler silinecek. Onaylıyor musunuz?')) return;
+  await api('/api/demo/sifirla', { method: 'POST' });
+  bildir('Demo kasa sıfırlandı: 100.000 TL');
+  await demoPortfoyYukle();
+};
+
+$('#dDemoAlBtn').onclick = async () => {
+  const v = D.detayVeri;
+  if (!v) return;
+  const z = v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1;
+  const f = z?.seviyeler?.fiyat;
+  if (!f) return bildir('Fiyat verisi alınamadı.');
+
+  const bakiye = demoPortfoyVerisi?.bakiye || 100000;
+  const varsayilanAdet = Math.max(1, Math.floor((bakiye * 0.1) / f)); // Kasadaki paranın %10'uyla alım öner
+
+  const adetGirdi = prompt(`${v.sembol.split(':')[1]} için Sanal Alış\nBirim Fiyat: ${sayi(f)} TL\nMevcut Nakit: ${sayi(bakiye, 2)} TL\n\nKaç adet almak istersiniz?`, varsayilanAdet);
+  if (!adetGirdi || isNaN(+adetGirdi) || +adetGirdi <= 0) return;
+
+  const adet = +adetGirdi;
+  try {
+    const res = await api('/api/demo/al', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sembol: v.sembol,
+        ad: v.ad,
+        fiyat: f,
+        adet: adet,
+        stopFiyat: z.seviyeler.alimStop,
+        hedefFiyat: z.seviyeler.alimHedef
+      })
+    });
+    bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} alındı! Toplam: ${sayi(f * adet, 2)} TL`);
+    await demoPortfoyYukle();
+  } catch (e) {
+    bildir('⚠️ ' + e.message);
+  }
+};
+
 // ================= Başlangıç =================
 (async () => {
-  try { await listeleriYukle(); await tara(); }
+  try { await listeleriYukle(); await tara(); await demoPortfoyYukle(); }
   catch (e) { $('#durum').textContent = '⚠️ Sunucuya bağlanılamadı: ' + e.message; }
 })();
