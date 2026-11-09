@@ -9,6 +9,7 @@ const { sembolBilgisi, varsayilanListeler } = require('./semboller');
 const { analizEt } = require('./analiz');
 const { geriyeTest } = require('./backtest');
 const Demo = require('./demo');
+const Ziyaret = require('./ziyaret');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
@@ -132,7 +133,18 @@ const sunucu = http.createServer(async (req, res) => {
     if (p === '/api/demo/sifirla' && req.method === 'POST') {
       return gonder(res, 200, Demo.demoSifirla());
     }
+
+    // Ziyaretçi İstatistikleri
+    if (p === '/api/ziyaret/istatistik') {
+      return gonder(res, 200, Ziyaret.istatistikGetir());
+    }
+
     if (p.startsWith('/api/')) return gonder(res, 404, { hata: 'Bilinmeyen istek' });
+
+    // Sayfa ana girişi ise ziyaretçiyi kaydet
+    if (p === '/' || p === '/index.html') {
+      Ziyaret.ziyaretKaydet(req);
+    }
 
     // Statik dosyalar (panel klasörü)
     const dosya = path.normalize(path.join(KOK, 'panel', p === '/' ? 'index.html' : p));

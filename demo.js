@@ -150,3 +150,4 @@ function portfoyOzet(fiyatHaritasi = {}) {
 }
 
 module.exports = { demoAl, demoSat, demoSifirla, portfoyOzet };
+

@@ -533,8 +533,54 @@ $('#dDemoAlBtn').onclick = async () => {
   }
 };
 
+// ================= Ziyaretçi İstatistikleri =================
+async function ziyaretciYukle() {
+  try {
+    const d = await api('/api/ziyaret/istatistik');
+    $('#ustTekilKisi').textContent = d.tekilKisiSayisi + ' kişi';
+    $('#zTekilKisi').textContent = d.tekilKisiSayisi + ' Kişi';
+    $('#zBugunGiris').textContent = d.bugunGiris + ' Kez';
+    $('#zToplamTiklama').textContent = d.toplamTiklama;
+
+    const sonlar = d.sonGirisler || [];
+    if (!sonlar.length) {
+      $('#zSonGirisler').innerHTML = '<div class="bos">Henüz kayıtlı ziyaretçi yok.</div>';
+    } else {
+      $('#zSonGirisler').innerHTML = `
+        <table style="width:100%;">
+          <thead>
+            <tr>
+              <th>Cihaz</th>
+              <th>IP / Konum</th>
+              <th class="sag">Giriş Zamanı</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sonlar.map(z => `
+              <tr>
+                <td><b>${esc(z.cihaz)}</b></td>
+                <td><small class="kucuk">${esc(z.ip)}</small></td>
+                <td class="sag kucuk">${new Date(z.tarih).toLocaleDateString('tr-TR')} ${new Date(z.tarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+  } catch (_) {}
+}
+
+$('#ziyaretciSayacBtn').onclick = () => {
+  $('#perde').classList.remove('gizli');
+  $('#ziyaretModal').classList.remove('gizli');
+  ziyaretciYukle();
+};
+$('#ziyaretKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#ziyaretModal').classList.add('gizli');
+};
+
 // ================= Başlangıç =================
 (async () => {
-  try { await listeleriYukle(); await tara(); await demoPortfoyYukle(); }
+  try { await listeleriYukle(); await tara(); await demoPortfoyYukle(); await ziyaretciYukle(); }
   catch (e) { $('#durum').textContent = '⚠️ Sunucuya bağlanılamadı: ' + e.message; }
 })();

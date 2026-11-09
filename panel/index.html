@@ -10,6 +10,7 @@
 <header class="ust">
   <div class="baslik">🛡️ Alper'in Piyasa Asistanı <span class="alt-baslik">Kendine Özel Y.T.D · BIST · Altın · Petrol · Döviz · Kripto</span></div>
   <div class="ust-sag">
+    <button id="ziyaretciSayacBtn" class="btn ikincil" style="font-size:12px;" title="Siteyi kullanan kişi sayısı">👥 Ziyaretçi: <b id="ustTekilKisi">1</b></button>
     <button id="demoPortfoyBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: bold;">💼 Demo Kasa: <span id="ustKasaBakiye">100.000 TL</span></button>
     <span id="durum" class="durum">Hazırlanıyor...</span>
     <label class="anahtar"><input type="checkbox" id="otoYenile" checked> Otomatik yenile (1 dk)</label>
@@ -104,6 +105,40 @@
     </div>
   </div>
   <div id="dIcerik" class="detay-icerik"></div>
+</section>
+
+<!-- Ziyaretçi İstatistik Penceresi -->
+<section id="ziyaretModal" class="detay gizli" style="max-width: 650px;">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">👥 Ziyaretçi ve Kullanım İstatistikleri</div>
+      <div class="d-alt">Linki paylaştığınız arkadaşlarınızın siteye giriş hareketleri</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="ziyaretKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div class="tf-ozet" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 20px;">
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">Toplam Tekil Kişi</div>
+        <div id="zTekilKisi" style="font-size: 22px; font-weight: bold; color:#3b82f6; margin-top:4px;">—</div>
+      </div>
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">Bugünkü Girişler</div>
+        <div id="zBugunGiris" style="font-size: 22px; font-weight: bold; color:#10b981; margin-top:4px;">—</div>
+      </div>
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">Toplam Sayfa Tıklaması</div>
+        <div id="zToplamTiklama" style="font-size: 22px; font-weight: bold; color:#f59e0b; margin-top:4px;">—</div>
+      </div>
+    </div>
+
+    <div class="kutu">
+      <h4>🕒 Son Giriş Yapanlar (Canlı Akış)</h4>
+      <div id="zSonGirisler"></div>
+    </div>
+  </div>
 </section>
 
 <!-- Demo Portföy & Kasa Penceresi -->
