@@ -5,7 +5,7 @@ const path = require('path');
 
 const PORTFOY_DOSYA = path.join(__dirname, 'veri', 'demo_portfoy.json');
 
-const VARSAYILAN_BAKIYE = 100000; // 100.000 TL başlangıç sanal kasa
+const VARSAYILAN_BAKIYE = 1000000; // 1.000.000 TL (1 Milyon TL) başlangıç sanal kasa
 
 function portfoyOku() {
   try {

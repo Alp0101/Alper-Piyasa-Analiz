@@ -493,9 +493,9 @@ $('#demoKapatBtn').onclick = () => {
   $('#demoModal').classList.add('gizli');
 };
 $('#demoSifirlaBtn').onclick = async () => {
-  if (!confirm('Sanal kasanız sıfırlanacak ve 100.000 TL nakit bakiyeye dönecek. Tüm demo işlemler silinecek. Onaylıyor musunuz?')) return;
+  if (!confirm('Sanal kasanız sıfırlanacak ve 1.000.000 TL nakit bakiyeye dönecek. Tüm demo işlemler silinecek. Onaylıyor musunuz?')) return;
   await api('/api/demo/sifirla', { method: 'POST' });
-  bildir('Demo kasa sıfırlandı: 100.000 TL');
+  bildir('Demo kasa sıfırlandı: 1.000.000 TL');
   await demoPortfoyYukle();
 };
 
@@ -506,7 +506,7 @@ $('#dDemoAlBtn').onclick = async () => {
   const f = z?.seviyeler?.fiyat;
   if (!f) return bildir('Fiyat verisi alınamadı.');
 
-  const bakiye = demoPortfoyVerisi?.bakiye || 100000;
+  const bakiye = demoPortfoyVerisi?.bakiye || 1000000;
   const varsayilanAdet = Math.max(1, Math.floor((bakiye * 0.1) / f)); // Kasadaki paranın %10'uyla alım öner
 
   const adetGirdi = prompt(`${v.sembol.split(':')[1]} için Sanal Alış\nBirim Fiyat: ${sayi(f)} TL\nMevcut Nakit: ${sayi(bakiye, 2)} TL\n\nKaç adet almak istersiniz?`, varsayilanAdet);

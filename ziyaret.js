@@ -68,3 +68,4 @@ function istatistikGetir() {
 }
 
 module.exports = { ziyaretKaydet, istatistikGetir };
+
