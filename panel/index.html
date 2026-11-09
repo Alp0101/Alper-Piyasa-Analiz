@@ -107,6 +107,52 @@
   <div id="dIcerik" class="detay-icerik"></div>
 </section>
 
+<!-- Demo Alım Emir Penceresi -->
+<section id="demoEmirModal" class="detay gizli" style="max-width: 500px; height: auto; max-height: 90vh; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+  <div class="detay-ust">
+    <div>
+      <div id="emirBaslik" class="d-ad">🎯 Demo Alım Emri</div>
+      <div id="emirSembolAd" class="d-alt">Seviyelerinizi belirleyin</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="emirKapatBtn" class="btn">✖</button>
+    </div>
+  </div>
+  <div class="detay-icerik" style="padding: 16px 20px;">
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <label class="kucuk">Alış Fiyatı (TL / $)</label>
+        <input type="number" step="any" id="emirAlisFiyat" style="width:100%; font-size:16px; font-weight:bold; color:#10b981; margin-top:4px;">
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <label class="kucuk">Adet</label>
+          <input type="number" id="emirAdet" style="width:100%; font-size:15px; margin-top:4px;" value="1">
+        </div>
+        <div>
+          <label class="kucuk">Toplam Tutar</label>
+          <div id="emirToplamTutar" style="font-size:15px; font-weight:bold; margin-top:10px; color:#f1f5f9;">— TL</div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <label class="kucuk" style="color:#ef4444;">🛑 Zarar-Kes (Stop)</label>
+          <input type="number" step="any" id="emirStopFiyat" style="width:100%; border-color:#ef444466; margin-top:4px;">
+        </div>
+        <div>
+          <label class="kucuk" style="color:#10b981;">🎯 Kâr Al (Hedef)</label>
+          <input type="number" step="any" id="emirHedefFiyat" style="width:100%; border-color:#10b98166; margin-top:4px;">
+        </div>
+      </div>
+      <div class="kutu" style="margin: 6px 0 0; padding:10px; background:#0d1322;">
+        <div class="seviye-satir" style="border:0; padding:2px 0;"><span>Risk / Kazanç Oranı:</span><b id="emirRiskOdul" style="color:#3b82f6;">—</b></div>
+        <div class="seviye-satir" style="border:0; padding:2px 0;"><span>Olası Kâr / Zarar:</span><b id="emirOlasiKarZarar">—</b></div>
+      </div>
+      <button id="emirOnaylaBtn" class="btn tam" style="background:#10b981; font-size:15px; font-weight:bold; text-align:center; padding:10px; margin-top:8px;">✅ Emri Gerçekleştir</button>
+    </div>
+  </div>
+</section>
+
 <!-- Ziyaretçi İstatistik Penceresi -->
 <section id="ziyaretModal" class="detay gizli" style="max-width: 650px;">
   <div class="detay-ust">

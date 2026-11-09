@@ -172,11 +172,11 @@ function gunlukTamamla(gunluk, saatlik) {
 
 // Yahoo kaynağı için 15dk / 1s / 2s / 4s / 1g / 1h / 1ay mumları
 async function yahooSetleri(kod, bist) {
-  const [m15, saatlik, gunluk, aylik] = await Promise.all([
-    yahooMum(kod, '15m', '10d').catch(() => []),
-    yahooMum(kod, '60m', '300d'),
-    yahooMum(kod, '1d', '5y'),
-    yahooMum(kod, '1mo', '10y').catch(() => [])
+  // 15m (son 5 gün), saatlik (son 90 gün - yeterli ve çok hızlı), günlük (2 yıl)
+  const [m15, saatlik, gunluk] = await Promise.all([
+    yahooMum(kod, '15m', '5d').catch(() => []),
+    yahooMum(kod, '60m', '90d'),
+    yahooMum(kod, '1d', '2y')
   ]);
   const bas = bist ? 10 : 0, bit = bist ? 18 : 24;
   const g1 = gunlukTamamla(gunluk, saatlik);
@@ -187,7 +187,7 @@ async function yahooSetleri(kod, bist) {
     s4: birlestir(saatlik, 4, bas, bit),
     g1,
     h1: haftalik(g1),
-    ay1: aylik.length ? aylik : null
+    ay1: null // Aylık ağırlaştırdığı için istek olduğunda veya sadeleştirildi
   };
 }
 
@@ -210,10 +210,10 @@ function carpSetleri(a, b, olcek) {
 async function mumSetleri(bilgi) {
   const k = bilgi.kaynak;
   if (k.tip === 'binance') {
-    const [m15, s1, s2, s4, g1, h1, ay1] = await Promise.all([
-      '15m', '1h', '2h', '4h', '1d', '1w', '1M'
+    const [m15, s1, s2, s4, g1, h1] = await Promise.all([
+      '15m', '1h', '2h', '4h', '1d', '1w'
     ].map(i => binanceMum(k.kod, i)));
-    return { m15, s1, s2, s4, g1, h1, ay1, not: null };
+    return { m15, s1, s2, s4, g1, h1, ay1: null, not: null };
   }
   if (k.tip === 'yahoo') {
     const set = await yahooSetleri(k.kod, bilgi.tur === 'bist' || k.kod.endsWith('.IS'));

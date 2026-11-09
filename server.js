@@ -79,13 +79,17 @@ async function sembolAnaliz(id, tf = 's4') {
   if (id.startsWith('BIST:')) { try { adlar = await V.bistAdlari(); } catch (_) { /* ad olmadan devam */ } }
   const bilgi = sembolBilgisi(id, adlar);
   if (!bilgi) throw new Error('Bu sembol için veri kaynağı tanımlı değil');
-  const [setler, bench] = await Promise.all([V.mumSetleri(bilgi), V.benchSetleri(bilgi.bench)]);
+  
+  // Paralel hızlı çekim
+  const [setler, bench] = await Promise.all([
+    V.mumSetleri(bilgi),
+    bilgi.bench ? V.benchSetleri(bilgi.bench).catch(() => null) : null
+  ]);
   const analizSonucu = analizEt(setler, bench, bilgi);
 
-  // Backtest / Geçmiş test hesaplaması (seçili periyot için)
+  // Backtest / Geçmiş test hesaplaması (sadece seçili periyot için hafif hesaplama)
   const hedefMumlar = setler[tf] || setler.s4 || setler.g1;
-  const benchMumlar = bench ? (bench[tf] || bench.s4 || bench.g1) : null;
-  const backtestSonucu = geriyeTest(hedefMumlar, tf, benchMumlar);
+  const backtestSonucu = geriyeTest(hedefMumlar, tf, null);
 
   return { ...analizSonucu, backtest: backtestSonucu };
 }

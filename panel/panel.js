@@ -243,12 +243,26 @@ $('#dKapat').onclick = detayKapat; $('#perde').onclick = detayKapat;
 document.addEventListener('keydown', e => { if (e.key === 'Escape') detayKapat(); });
 $('#dFavori').onclick = () => D.detaySembol && sembolEkle(D.detaySembol, 'favoriler');
 
-async function detayYukle() {
+// Detay önbelleği (Tekrar tıklanan hisseyi anında salisesinde açar)
+const analizOnbellek = new Map();
+
+async function detayYukle(zorla = false) {
   const id = D.detaySembol;
-  $('#dIcerik').innerHTML = '<div class="yukleniyor">⏳ 2 saatlik, 4 saatlik ve günlük grafikler 8 yöntemle inceleniyor...</div>';
+  const onbellekKey = `${id}:${D.detayTf}`;
+  
+  if (!zorla && analizOnbellek.has(onbellekKey)) {
+    D.detayVeri = analizOnbellek.get(onbellekKey);
+    $('#dAd').textContent = `${id.split(':')[1]} · ${D.detayVeri.ad}`;
+    $('#dAlt').textContent = `Analiz zamanı: ${new Date(D.detayVeri.zaman).toLocaleString('tr-TR')}`;
+    detayCiz();
+    return;
+  }
+
+  $('#dIcerik').innerHTML = '<div class="yukleniyor">⚡ Analiz ve seviyeler hesaplanıyor...</div>';
   try {
     const v = await api(`/api/analiz?sembol=${encodeURIComponent(id)}&tf=${encodeURIComponent(D.detayTf)}`);
     if (id !== D.detaySembol) return;
+    analizOnbellek.set(onbellekKey, v);
     D.detayVeri = v;
     $('#dAd').textContent = `${id.split(':')[1]} · ${v.ad}`;
     $('#dAlt').textContent = `Analiz zamanı: ${new Date(v.zaman).toLocaleString('tr-TR')}` + (v.not ? ' · ' + v.not : '');
@@ -499,7 +513,7 @@ $('#demoSifirlaBtn').onclick = async () => {
   await demoPortfoyYukle();
 };
 
-$('#dDemoAlBtn').onclick = async () => {
+$('#dDemoAlBtn').onclick = () => {
   const v = D.detayVeri;
   if (!v) return;
   const z = v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1;
@@ -507,12 +521,59 @@ $('#dDemoAlBtn').onclick = async () => {
   if (!f) return bildir('Fiyat verisi alınamadı.');
 
   const bakiye = demoPortfoyVerisi?.bakiye || 1000000;
-  const varsayilanAdet = Math.max(1, Math.floor((bakiye * 0.1) / f)); // Kasadaki paranın %10'uyla alım öner
+  const varsayilanAdet = Math.max(1, Math.floor((bakiye * 0.05) / f)); // %5 öneri
 
-  const adetGirdi = prompt(`${v.sembol.split(':')[1]} için Sanal Alış\nBirim Fiyat: ${sayi(f)} TL\nMevcut Nakit: ${sayi(bakiye, 2)} TL\n\nKaç adet almak istersiniz?`, varsayilanAdet);
-  if (!adetGirdi || isNaN(+adetGirdi) || +adetGirdi <= 0) return;
+  $('#emirSembolAd').textContent = `${v.sembol.split(':')[1]} · ${v.ad}`;
+  $('#emirAlisFiyat').value = f;
+  $('#emirAdet').value = varsayilanAdet;
+  $('#emirStopFiyat').value = z.seviyeler.alimStop || '';
+  $('#emirHedefFiyat').value = z.seviyeler.alimHedef || '';
 
-  const adet = +adetGirdi;
+  emirHesapla();
+  $('#perde').classList.remove('gizli');
+  $('#demoEmirModal').classList.remove('gizli');
+};
+
+function emirHesapla() {
+  const f = parseFloat($('#emirAlisFiyat').value) || 0;
+  const adet = parseFloat($('#emirAdet').value) || 0;
+  const stop = parseFloat($('#emirStopFiyat').value) || 0;
+  const hedef = parseFloat($('#emirHedefFiyat').value) || 0;
+
+  const tutar = f * adet;
+  $('#emirToplamTutar').textContent = sayi(tutar, 2) + ' TL';
+
+  if (f > 0 && stop > 0 && hedef > 0 && f > stop && hedef > f) {
+    const risk = (f - stop) * adet;
+    const kazanc = (hedef - f) * adet;
+    const rr = (hedef - f) / (f - stop);
+    $('#emirRiskOdul').textContent = `1 : ${sayi(rr, 2)}`;
+    $('#emirOlasiKarZarar').innerHTML = `<span class="art">+${sayi(kazanc, 0)} TL</span> / <span class="eks">-${sayi(risk, 0)} TL</span>`;
+  } else {
+    $('#emirRiskOdul').textContent = '—';
+    $('#emirOlasiKarZarar').textContent = '—';
+  }
+}
+
+$('#emirAlisFiyat').oninput = emirHesapla;
+$('#emirAdet').oninput = emirHesapla;
+$('#emirStopFiyat').oninput = emirHesapla;
+$('#emirHedefFiyat').oninput = emirHesapla;
+
+$('#emirKapatBtn').onclick = () => {
+  $('#demoEmirModal').classList.add('gizli');
+  if (!D.detaySembol) $('#perde').classList.add('gizli');
+};
+
+$('#emirOnaylaBtn').onclick = async () => {
+  const v = D.detayVeri; if (!v) return;
+  const f = parseFloat($('#emirAlisFiyat').value);
+  const adet = parseFloat($('#emirAdet').value);
+  const stop = parseFloat($('#emirStopFiyat').value) || null;
+  const hedef = parseFloat($('#emirHedefFiyat').value) || null;
+
+  if (!f || f <= 0 || !adet || adet <= 0) return bildir('Lütfen geçerli bir fiyat ve adet girin.');
+
   try {
     const res = await api('/api/demo/al', {
       method: 'POST',
@@ -522,11 +583,12 @@ $('#dDemoAlBtn').onclick = async () => {
         ad: v.ad,
         fiyat: f,
         adet: adet,
-        stopFiyat: z.seviyeler.alimStop,
-        hedefFiyat: z.seviyeler.alimHedef
+        stopFiyat: stop,
+        hedefFiyat: hedef
       })
     });
-    bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} alındı! Toplam: ${sayi(f * adet, 2)} TL`);
+    bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${sayi(f)} seviyesinden alındı!`);
+    $('#demoEmirModal').classList.add('gizli');
     await demoPortfoyYukle();
   } catch (e) {
     bildir('⚠️ ' + e.message);
