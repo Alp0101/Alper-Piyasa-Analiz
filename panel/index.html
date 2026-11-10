@@ -14,6 +14,7 @@
     <span class="alt-baslik">BIST · Altın · Petrol · Döviz · Kripto</span>
   </div>
   <div class="ust-sag">
+    <button id="balinaRadarBtn" class="btn" style="background: linear-gradient(135deg, #059669, #047857); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(16,185,129,0.3);">🧲 Balina Radarı</button>
     <button id="alarmListesiBtn" class="btn ikincil" style="font-size:12px;" title="Kurulan Fiyat Alarmları">🔔 Alarmlar (<span id="ustAlarmSayisi">0</span>)</button>
     <button id="ziyaretciSayacBtn" class="btn ikincil" style="font-size:12px;" title="Siteyi kullanan kişi sayısı">👥 Ziyaretçi: <b id="ustTekilKisi">1</b></button>
     <button id="demoPortfoyBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: bold;">💼 Demo Kasa: <span id="ustKasaBakiye">1.000.000 TL</span></button>
@@ -177,6 +178,43 @@
         <div class="seviye-satir" style="border:0; padding:2px 0;"><span>Olası Kâr / Zarar:</span><b id="emirOlasiKarZarar">—</b></div>
       </div>
       <button id="emirOnaylaBtn" class="btn tam" style="background:#10b981; font-size:15px; font-weight:bold; text-align:center; padding:10px; margin-top:8px;">✅ Emri Gerçekleştir</button>
+    </div>
+  </div>
+</section>
+
+<!-- Balina & Akıllı Para Radarı Modal -->
+<section id="balinaModal" class="detay gizli" style="max-width: 800px;">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">🧲 Balina & Akıllı Para Radarı (Smart Money Scanner)</div>
+      <div class="d-alt">Fiyat yatayken arka planda toplanan veya tepede boşaltılan hisseleri tek ekranda yakalayın</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="balinaKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div class="tf-ozet" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 20px;">
+      <div class="kutu" style="margin:0; border-left:3px solid #10b981;">
+        <div class="kucuk">🧲 Sessiz Balina Toplaması</div>
+        <div id="balinaToplamaSayi" style="font-size: 20px; font-weight: bold; color:#34d399; margin-top:4px;">0 Varlık</div>
+        <div class="kucuk" style="margin-top:2px;">Fiyat yatay ama gizli hacim var</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #ef4444;">
+        <div class="kucuk">⚠️ Tehlike: Mal Dağıtımı</div>
+        <div id="balinaDagitimSayi" style="font-size: 20px; font-weight: bold; color:#f87171; margin-top:4px;">0 Varlık</div>
+        <div class="kucuk" style="margin-top:2px;">Tepede hacimli mal devri riski</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #38bdf8;">
+        <div class="kucuk">🚀 Agresif Para Girişi</div>
+        <div id="balinaPatlamaSayi" style="font-size: 20px; font-weight: bold; color:#38bdf8; margin-top:4px;">0 Varlık</div>
+        <div class="kucuk" style="margin-top:2px;">Hacim ve fiyat birlikte rekor kırıyor</div>
+      </div>
+    </div>
+
+    <div class="kutu">
+      <h4>🎯 Tespit Edilen Akıllı Para Hareketleri</h4>
+      <div id="balinaRadarListesi"></div>
     </div>
   </div>
 </section>

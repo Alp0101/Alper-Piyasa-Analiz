@@ -890,7 +890,65 @@ $('#ziyaretKapatBtn').onclick = () => {
   $('#ziyaretModal').classList.add('gizli');
 };
 
-// ================= Sesli Alarm & Bildirim Motoru =================
+// ================= Balina Radarı Menüsü =================
+async function balinaRadariYukle() {
+  $('#balinaRadarListesi').innerHTML = '<div class="yukleniyor">⏳ Tüm piyasa balina ve akıllı para hareketleri için taranıyor...</div>';
+  try {
+    const res = await api('/api/balina/tara');
+    const liste = res.liste || [];
+
+    const toplama = liste.filter(x => x.tur === 'toplama');
+    const dagitim = liste.filter(x => x.tur === 'dagitim');
+    const patlama = liste.filter(x => x.tur === 'patlama');
+
+    $('#balinaToplamaSayi').textContent = toplama.length + ' Varlık';
+    $('#balinaDagitimSayi').textContent = dagitim.length + ' Varlık';
+    $('#balinaPatlamaSayi').textContent = patlama.length + ' Varlık';
+
+    if (!liste.length) {
+      $('#balinaRadarListesi').innerHTML = '<div class="bos" style="padding:20px;">Şu an olağandışı bir balina hareketi saptanmadı. Piyasa doğal akışında.</div>';
+      return;
+    }
+
+    $('#balinaRadarListesi').innerHTML = `
+      <table style="width:100%;">
+        <thead>
+          <tr>
+            <th>Sembol</th>
+            <th class="sag">Fiyat</th>
+            <th class="sag">Günlük %</th>
+            <th class="sag">Hacim Katı</th>
+            <th>Durum / Sinyal</th>
+            <th>Açıklama</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${liste.map(x => `
+            <tr onclick="detayAc('${esc(x.id)}'); $('#balinaModal').classList.add('gizli');">
+              <td><b>${esc(x.kod)}</b> <small class="kucuk">${esc(x.ad)}</small></td>
+              <td class="sag">${sayi(x.fiyat)}</td>
+              <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
+              <td class="sag" style="color:#fbbf24; font-weight:bold;">${sayi(x.gh, 1)}x</td>
+              <td><span style="color:${x.renk}; font-weight:bold;">${x.ikon} ${esc(x.seviye)}</span></td>
+              <td class="kucuk" style="color:#cbd5e1;">${esc(x.aciklama)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    $('#balinaRadarListesi').innerHTML = `<div class="yukleniyor">⚠️ ${esc(e.message)}</div>`;
+  }
+}
+
+$('#balinaRadarBtn').onclick = () => {
+  $('#perde').classList.remove('gizli');
+  $('#balinaModal').classList.remove('gizli');
+  balinaRadariYukle();
+};
+$('#balinaKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#balinaModal').classList.add('gizli');
+};
 function sesCal(tur = 'ding') {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();

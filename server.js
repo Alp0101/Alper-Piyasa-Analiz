@@ -161,6 +161,41 @@ const sunucu = http.createServer(async (req, res) => {
       return gonder(res, 200, Ziyaret.istatistikGetir());
     }
 
+    // Toplu Balina Radarı Taraması
+    if (p === '/api/balina/tara') {
+      const bist = await V.tumBistTara();
+      const bulunanlar = [];
+      bist.forEach(r => {
+        const gh = r.goreceliHacim || 0;
+        const deg = r.degisim || 0;
+        // Sessiz Toplama: Fiyat yatay (% -1.5 ile +1.5) ama hacim en az 1.4 kat!
+        if (Math.abs(deg) <= 1.5 && gh >= 1.4 && (r.tlHacim || 0) > 10e6) {
+          bulunanlar.push({
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh,
+            tur: 'toplama', seviye: 'Sessiz Toplama', ikon: '🧲', renk: '#10b981',
+            aciklama: `Fiyat yatay (%${deg.toFixed(1)}) seyrederken hacim ortalamanın ${gh.toFixed(1)} katına çıktı!`
+          });
+        }
+        // Mal Dağıtımı: Fiyat şişkin ve hacim yüksek ama RSI aşırı alımda
+        else if (deg >= 2.5 && gh >= 1.6 && (r.rsi?.s4 > 72 || r.rsi?.g1 > 74)) {
+          bulunanlar.push({
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh,
+            tur: 'dagitim', seviye: 'Mal Dağıtımı Riski', ikon: '⚠️', renk: '#ef4444',
+            aciklama: `Hacim ${gh.toFixed(1)} katına fırladı ancak RSI aşırı şişti (${r.rsi?.s4?.toFixed(0) || ''}). Tepede mal devri olabilir!`
+          });
+        }
+        // Agresif Giriş: Sert yükseliş ve dev hacim
+        else if (deg >= 3.5 && gh >= 1.8 && (r.tlHacim || 0) > 20e6) {
+          bulunanlar.push({
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh,
+            tur: 'patlama', seviye: 'Agresif Giriş', ikon: '🚀', renk: '#38bdf8',
+            aciklama: `Günü %${deg.toFixed(1)} artıda götürüyor ve hacim ortalamanın ${gh.toFixed(1)} katı!`
+          });
+        }
+      });
+      return gonder(res, 200, { zaman: new Date().toISOString(), liste: bulunanlar });
+    }
+
     // Fiyat Alarmları Uç Noktaları
     if (p === '/api/alarm/liste' && req.method === 'GET') {
       return gonder(res, 200, Alarm.alarmlariOku());
