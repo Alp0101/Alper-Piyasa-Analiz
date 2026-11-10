@@ -132,7 +132,85 @@ $('#ekleSonuc').addEventListener('click', e => {
 });
 document.addEventListener('click', e => { if (!e.target.closest('.ekle-kutu')) $('#ekleSonuc').classList.add('gizli'); });
 
-// ================= Tarama tablosu =================
+let isiHaritasiAktif = false;
+
+$('#isiHaritasiGecisBtn').onclick = () => {
+  isiHaritasiAktif = !isiHaritasiAktif;
+  if (isiHaritasiAktif) {
+    $('#tablo').classList.add('gizli');
+    $('#isiHaritasiKap').classList.remove('gizli');
+    $('#isiHaritasiGecisBtn').textContent = '📋 Liste Görünümüne Dön';
+    $('#isiHaritasiGecisBtn').classList.remove('ikincil');
+    isiHaritasiCiz();
+  } else {
+    $('#isiHaritasiKap').classList.add('gizli');
+    $('#tablo').classList.remove('gizli');
+    $('#isiHaritasiGecisBtn').textContent = '📊 Piyasa Röntgeni (Isı Haritası)';
+    $('#isiHaritasiGecisBtn').classList.add('ikincil');
+    tablo();
+    if (isiHaritasiAktif) isiHaritasiCiz();
+  }
+};
+
+function isiHaritasiCiz() {
+  const satirlar = filtreliSatirlar();
+  if (!satirlar || !satirlar.length) {
+    $('#isiKutulari').innerHTML = '<div class="bos">Görüntülenecek veri yok.</div>';
+    return;
+  }
+
+  // En yüksek hacimli varlıkları belirle (büyük kutular için)
+  const siraliHacim = [...satirlar].filter(x => x.fiyat && x.hacim).sort((a,b) => (b.hacim * b.fiyat) - (a.hacim * a.fiyat));
+  const enBuyukler = new Set(siraliHacim.slice(0, 6).map(x => x.id));
+
+  $('#isiKutulari').innerHTML = satirlar.map(r => {
+    if (!r.fiyat) return '';
+    const d = r.degisim || 0;
+    const buyukMu = enBuyukler.has(r.id);
+
+    // Renk skalası: Değişim yüzdesine göre metalik ışımalı renkler
+    let arkaPlan = '#151922';
+    let sinirRenk = '#2d3545';
+    let degisimRenk = '#cbd5e1';
+
+    if (d >= 4) {
+      arkaPlan = 'linear-gradient(135deg, rgba(16, 185, 129, 0.45), rgba(5, 150, 105, 0.2))';
+      sinirRenk = '#10b981';
+      degisimRenk = '#34d399';
+    } else if (d > 0.5) {
+      arkaPlan = 'linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(20, 30, 45, 0.8))';
+      sinirRenk = '#059669';
+      degisimRenk = '#6ee7b7';
+    } else if (d <= -4) {
+      arkaPlan = 'linear-gradient(135deg, rgba(239, 68, 68, 0.45), rgba(185, 28, 28, 0.2))';
+      sinirRenk = '#ef4444';
+      degisimRenk = '#fca5a5';
+    } else if (d < -0.5) {
+      arkaPlan = 'linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(30, 20, 25, 0.8))';
+      sinirRenk = '#dc2626';
+      degisimRenk = '#f87171';
+    }
+
+    const hacimStr = (r.tlHacim && r.tlHacim > 1e6) ? (sayi(r.tlHacim / 1e6, 1) + 'M TL') : (r.hacim ? sayi(r.hacim, 0) : '');
+
+    return `
+    <div class="isi-kutu ${buyukMu ? 'buyuk' : 'orta'}" 
+         style="background:${arkaPlan}; border-color:${sinirRenk};" 
+         onclick="detayAc('${esc(r.id)}')">
+      <div>
+        <div class="sembol-baslik">
+          <span class="sembol-ad">${esc(r.kod)}</span>
+          <span class="kucuk" style="color:#94a3b8;">${rozet(r.yon?.s4)}</span>
+        </div>
+        <div class="fiyat-yazi">${sayi(r.fiyat)}</div>
+      </div>
+      <div>
+        <div class="degisim-yazi" style="color:${degisimRenk};">${d > 0 ? '+' : ''}${sayi(d, 2)}%</div>
+        ${hacimStr ? `<div class="hacim-alt">Hacim: ${hacimStr}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
 let taramaSayaci = 0;
 async function tara() {
   const benim = ++taramaSayaci;
@@ -142,6 +220,7 @@ async function tara() {
     D.satirlar = r.satirlar;
     $('#durum').textContent = 'Canlı Akış: ' + new Date().toLocaleTimeString('tr-TR') + ` · ${r.satirlar.length} varlık`;
     tablo();
+    if (isiHaritasiAktif) isiHaritasiCiz();
 
     // 1. Demo Portföy Açıksa veya Açık Pozisyon Varsa Fiyatları ve Kâr/Zararı Anlık Güncelle!
     demoPortfoyYukle();
@@ -243,6 +322,7 @@ $('#firsatRadarBtn').onclick = () => {
     D.filtre = 'firsat';
     D.gosterilen = 150;
     tablo();
+    if (isiHaritasiAktif) isiHaritasiCiz();
     bildir('🎯 Fırsat Radarı Aktif: Çoklu periyot ve hacim onayı almış varlıklar listelendi.');
   }
 };

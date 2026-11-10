@@ -46,9 +46,10 @@
 
   <main class="ana">
     <div class="arac-cubugu">
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
         <h2 id="listeBaslik">—</h2>
         <button id="firsatRadarBtn" class="btn" style="background: linear-gradient(135deg, #0284c7, #0369a1); border-radius:20px; font-size:11.5px; padding:4px 12px; box-shadow:0 0 12px rgba(2,132,199,0.4);">🎯 Fırsat Radarı</button>
+        <button id="isiHaritasiGecisBtn" class="btn ikincil" style="border-radius:20px; font-size:11.5px; padding:4px 12px;">📊 Piyasa Röntgeni (Isı Haritası)</button>
       </div>
       <div class="ekle-kutu">
         <input id="ekleInput" placeholder="➕ Listeye ekle: hisse, altın, dolar, kripto ara..." autocomplete="off">
@@ -72,6 +73,19 @@
       </select>
     </div>
     <div class="tablo-kap">
+      <!-- 1. Piyasa Röntgeni (Isı Haritası) Görünümü -->
+      <div id="isiHaritasiKap" class="gizli" style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div class="kucuk">Kutuların büyüklüğü <b>işlem hacmini</b>, renk tonları ise <b>yükseliş / düşüş gücünü</b> gösterir.</div>
+          <div style="display:flex; gap:10px; font-size:11px;">
+            <span style="color:#10b981;">■ Güçlü Alıcılı</span>
+            <span style="color:#94a3b8;">■ Dengeli</span>
+            <span style="color:#ef4444;">■ Yoğun Satıcılı</span>
+          </div>
+        </div>
+        <div id="isiKutulari" class="isi-grid"></div>
+      </div>
+
       <table id="tablo">
         <thead>
           <tr>
