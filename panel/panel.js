@@ -685,6 +685,8 @@ function demoPortfoyCiz() {
             <th class="sag">Adet</th>
             <th class="sag">Alış Fiyatı</th>
             <th class="sag">Güncel Fiyat</th>
+            <th class="sag" style="color:#ef4444;">🛑 Stop (Durdur)</th>
+            <th class="sag" style="color:#10b981;">🎯 Kâr Al (Hedef)</th>
             <th class="sag">Kâr/Zarar</th>
             <th class="orta">İşlem</th>
           </tr>
@@ -698,6 +700,16 @@ function demoPortfoyCiz() {
               <td class="sag">${poz.adet}</td>
               <td class="sag">${sayi(poz.alisFiyat)}</td>
               <td class="sag">${sayi(poz.anlikFiyat)}</td>
+              <td class="sag">
+                <span style="color:#f87171; font-weight:bold; cursor:pointer;" title="Değiştirmek için tıkla" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'stop', ${poz.stopFiyat || 0})">
+                  ${poz.stopFiyat ? sayi(poz.stopFiyat) : '—'} ✏️
+                </span>
+              </td>
+              <td class="sag">
+                <span style="color:#34d399; font-weight:bold; cursor:pointer;" title="Değiştirmek için tıkla" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'hedef', ${poz.hedefFiyat || 0})">
+                  ${poz.hedefFiyat ? sayi(poz.hedefFiyat) : '—'} ✏️
+                </span>
+              </td>
               <td class="sag ${karRenk}"><b>${poz.karZararTL >= 0 ? '+' : ''}${sayi(poz.karZararTL, 2)} TL</b> (%${sayi(poz.karZararYuzde, 2)})</td>
               <td class="orta"><button class="btn tehlike" style="padding:3px 8px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat (Sat)</button></td>
             </tr>`;
@@ -738,6 +750,25 @@ function demoPortfoyCiz() {
       </table>`;
   }
 }
+
+window.demoSeviyeDuzenle = (pozId, tur, mevcutDeger) => {
+  const turAd = tur === 'stop' ? '🛑 Zarar-Kes (Stop-Loss)' : '🎯 Kâr Al (Hedef)';
+  const girdi = prompt(`${turAd} Seviyesini Güncelle\n(İptal etmek için boş bırakıp onaylayabilirsiniz)`, mevcutDeger > 0 ? mevcutDeger : '');
+  if (girdi === null) return; // İptal tıklandı
+
+  const p = demoYerelOku();
+  const idx = p.acikPozisyonlar.findIndex(x => x.id === pozId);
+  if (idx === -1) return;
+
+  const yeniDeger = (girdi.trim() === '' || isNaN(+girdi) || +girdi <= 0) ? null : +girdi;
+
+  if (tur === 'stop') p.acikPozisyonlar[idx].stopFiyat = yeniDeger;
+  else p.acikPozisyonlar[idx].hedefFiyat = yeniDeger;
+
+  demoYerelKaydet(p);
+  bildir(`✅ ${turAd} güncellendi: ${yeniDeger ? sayi(yeniDeger) : 'Kaldırıldı'}`);
+  demoPortfoyYukle();
+};
 
 window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
   if (!confirm('Bu pozisyonu güncel fiyattan kapatmak (satmak) istediğinize emin misiniz?')) return;
