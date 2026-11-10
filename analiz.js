@@ -162,19 +162,35 @@ function seviyeleriBul(d) {
   const direncler = seviyeler.filter(s => s.fiyat > c + a * 0.15).sort((x, y) => x.fiyat - y.fiyat);
   const dip50 = Math.min(...d.l.slice(-50)), tepe50 = Math.max(...d.h.slice(-50));
 
-  // Fibonacci Düzeltme Seviyeleri (Son belirgin dalgaya göre)
-  // Son 60 mum içindeki en dip ve en tepeyi referans al
-  const fibN = Math.min(60, d.c.length);
-  const fibLows = d.l.slice(-fibN);
-  const fibHighs = d.h.slice(-fibN);
-  const minF = Math.min(...fibLows);
-  const maxF = Math.max(...fibHighs);
-  const minIdx = fibLows.lastIndexOf(minF);
-  const maxIdx = fibHighs.lastIndexOf(maxF);
+  // Fibonacci Düzeltme Seviyeleri (Grafiğin o periyottaki gerçek dalga dip ve tepesine göre)
+  // Sabit yıla/muma takılmadan, fiyatın içinde hareket ettiği son majör swing (dalga) dip ve tepesini bulur
+  const pl = d.piv.pl;
+  const ph = d.piv.ph;
+  let minF, maxF, minIdx, maxIdx;
+
+  if (pl.length >= 1 && ph.length >= 1) {
+    // Son belirgin pivotları incele
+    const sonPl = pl.slice(-3);
+    const sonPh = ph.slice(-3);
+    let enUygunDip = d.l[sonPl[sonPl.length - 1]], enUygunDipIdx = sonPl[sonPl.length - 1];
+    let enUygunTepe = d.h[sonPh[sonPh.length - 1]], enUygunTepeIdx = sonPh[sonPh.length - 1];
+
+    sonPl.forEach(i => { if (d.l[i] < enUygunDip) { enUygunDip = d.l[i]; enUygunDipIdx = i; } });
+    sonPh.forEach(i => { if (d.h[i] > enUygunTepe) { enUygunTepe = d.h[i]; enUygunTepeIdx = i; } });
+
+    minF = enUygunDip; maxF = enUygunTepe;
+    minIdx = enUygunDipIdx; maxIdx = enUygunTepeIdx;
+  } else {
+    // Pivot yetersizse son 30 mumun dip ve tepesi
+    const n = Math.min(30, d.c.length);
+    const lows = d.l.slice(-n), highs = d.h.slice(-n);
+    minF = Math.min(...lows); maxF = Math.max(...highs);
+    minIdx = lows.lastIndexOf(minF); maxIdx = highs.lastIndexOf(maxF);
+  }
 
   // Dalga yönü: dip mi önce geldi tepe mi?
   const fibYukselisDalgasi = minIdx < maxIdx;
-  const fibFark = maxF - minF;
+  const fibFark = Math.max(maxF - minF, c * 0.001);
   const fib = {
     dip: minF,
     tepe: maxF,
