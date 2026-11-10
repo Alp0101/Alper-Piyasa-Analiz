@@ -954,6 +954,104 @@ $('#ziyaretKapatBtn').onclick = () => {
   $('#ziyaretModal').classList.add('gizli');
 };
 
+// ================= Sniper Avcısı (Hızlı Alım Menüsü) =================
+function sniperAvcisiYukle() {
+  const satirlar = D.satirlar || [];
+  if (!satirlar.length) {
+    $('#sniperRadarListesi').innerHTML = '<div class="bos">Henüz taranmış veri yok.</div>';
+    return;
+  }
+
+  // Tarama verisinde 2s, 4s, 1g ve rsi verileri tam uyumlu olanları yakala
+  const tamUyumlu = [];
+  const trendUyumlu = [];
+
+  satirlar.forEach(r => {
+    if (!r.fiyat) return;
+    const y = r.yon || {};
+    const t2 = y.s2 || 0;
+    const t4 = y.s4 || 0;
+    const tg = y.g1 || 0;
+    const rsi4h = r.rsi?.s4 || 50;
+
+    // 4 periyotta (2S, 4S, 1G ve RSI sağlıklı) tam alım
+    if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
+      tamUyumlu.push({
+        ...r,
+        derece: 'tam',
+        etiket: '🎯 KUSURSUZ SNIPER AL',
+        renk: '#10b981',
+        aciklama: 'Kısa, orta ve uzun periyotların tümü aynı anda yükselişte. Aşırı alımda değil.'
+      });
+    } else if (t4 > 0 && tg > 0 && rsi4h >= 42 && rsi4h <= 70) {
+      trendUyumlu.push({
+        ...r,
+        derece: 'trend',
+        etiket: '⚡ Güçlü Trend Uyumu',
+        renk: '#38bdf8',
+        aciklama: 'Ana trendler yükselişte, düzeltme sonrası hızlı alım için elverişli.'
+      });
+    }
+  });
+
+  $('#sniperLongSayi').textContent = tamUyumlu.length + ' Varlık';
+  $('#sniperTrendSayi').textContent = trendUyumlu.length + ' Varlık';
+
+  const birlesik = [...tamUyumlu, ...trendUyumlu];
+
+  if (!birlesik.length) {
+    $('#sniperRadarListesi').innerHTML = '<div class="bos" style="padding:20px;">Şu an tüm periyotlarda aynı anda uzlaşan kusursuz varlık yok. Piyasada genel bir kararsızlık hakim.</div>';
+    return;
+  }
+
+  $('#sniperRadarListesi').innerHTML = `
+    <table style="width:100%;">
+      <thead>
+        <tr>
+          <th>Sembol</th>
+          <th class="sag">Fiyat</th>
+          <th class="sag">Günlük %</th>
+          <th class="orta">2 Saat</th>
+          <th class="orta">4 Saat</th>
+          <th class="orta">Günlük</th>
+          <th class="sag">RSI (4S)</th>
+          <th>Sinyal Derecesi</th>
+          <th class="orta">Hızlı İşlem</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${birlesik.map(x => `
+          <tr onclick="detayAc('${esc(x.id)}'); $('#sniperModal').classList.add('gizli');">
+            <td><b>${esc(x.kod)}</b> <small class="kucuk">${esc(x.ad)}</small></td>
+            <td class="sag">${sayi(x.fiyat)}</td>
+            <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
+            <td class="orta">${rozet(x.yon?.s2)}</td>
+            <td class="orta">${rozet(x.yon?.s4)}</td>
+            <td class="orta">${rozet(x.yon?.g1)}</td>
+            <td class="sag">${sayi(x.rsi?.s4, 0)}</td>
+            <td><span style="color:${x.renk}; font-weight:bold;">${esc(x.etiket)}</span></td>
+            <td class="orta">
+              <button class="btn" style="padding:3px 10px; font-size:11px; background:#10b981;" 
+                      onclick="event.stopPropagation(); $('#sniperModal').classList.add('gizli'); detayAc('${esc(x.id)}'); setTimeout(()=>$('#dDemoAlBtn').click(), 400);">
+                🛒 Al
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+$('#sniperRadarBtn').onclick = () => {
+  $('#perde').classList.remove('gizli');
+  $('#sniperModal').classList.remove('gizli');
+  sniperAvcisiYukle();
+};
+$('#sniperKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#sniperModal').classList.add('gizli');
+};
+
 // ================= Balina Radarı Menüsü =================
 async function balinaRadariYukle() {
   $('#balinaRadarListesi').innerHTML = '<div class="yukleniyor">⏳ Tüm piyasa balina ve akıllı para hareketleri için taranıyor...</div>';

@@ -14,6 +14,7 @@
     <span class="alt-baslik">BIST · Altın · Petrol · Döviz · Kripto</span>
   </div>
   <div class="ust-sag">
+    <button id="sniperRadarBtn" class="btn" style="background: linear-gradient(135deg, #0284c7, #0369a1); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(2,132,199,0.35);">🎯 Sniper Avcısı</button>
     <button id="balinaRadarBtn" class="btn" style="background: linear-gradient(135deg, #059669, #047857); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(16,185,129,0.3);">🧲 Balina Radarı</button>
     <button id="alarmListesiBtn" class="btn ikincil" style="font-size:12px;" title="Kurulan Fiyat Alarmları">🔔 Alarmlar (<span id="ustAlarmSayisi">0</span>)</button>
     <button id="ziyaretciSayacBtn" class="btn ikincil" style="font-size:12px;" title="Siteyi kullanan kişi sayısı">👥 Ziyaretçi: <b id="ustTekilKisi">1</b></button>
@@ -178,6 +179,38 @@
         <div class="seviye-satir" style="border:0; padding:2px 0;"><span>Olası Kâr / Zarar:</span><b id="emirOlasiKarZarar">—</b></div>
       </div>
       <button id="emirOnaylaBtn" class="btn tam" style="background:#10b981; font-size:15px; font-weight:bold; text-align:center; padding:10px; margin-top:8px;">✅ Emri Gerçekleştir</button>
+    </div>
+  </div>
+</section>
+
+<!-- Sniper Avcısı & Hızlı Alım Radarı Modal -->
+<section id="sniperModal" class="detay gizli" style="max-width: 850px;">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">🎯 Sniper Avcısı (4 Periyotta Tam Hizalanan Fırsatlar)</div>
+      <div class="d-alt">15dk, 1s, 4s ve Günlük periyotların dördü birden aynı anda AL yakan en kaliteli varlıklar</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="sniperKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div class="tf-ozet" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 20px;">
+      <div class="kutu" style="margin:0; border-left:3px solid #10b981;">
+        <div class="kucuk">🎯 Kusursuz Sniper Long (4/4 Tam AL)</div>
+        <div id="sniperLongSayi" style="font-size: 20px; font-weight: bold; color:#34d399; margin-top:4px;">0 Varlık</div>
+        <div class="kucuk" style="margin-top:2px;">Tüm zaman dilimlerinde rüzgar arkada</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #38bdf8;">
+        <div class="kucuk">⚡ Güçlü Trend Uyumu (3/4 Uyumlu)</div>
+        <div id="sniperTrendSayi" style="font-size: 20px; font-weight: bold; color:#38bdf8; margin-top:4px;">0 Varlık</div>
+        <div class="kucuk" style="margin-top:2px;">Ana periyotlar yükselişte, giriş aranabilir</div>
+      </div>
+    </div>
+
+    <div class="kutu">
+      <h4>⚡ Hızlı Alıma Uygun Sniper Fırsatları</h4>
+      <div id="sniperRadarListesi"></div>
     </div>
   </div>
 </section>
