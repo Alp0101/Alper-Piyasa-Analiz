@@ -53,7 +53,8 @@ function hizliDegerlendir(r) {
     ...r,
     yon: { s2: tvEtiket(t.s2), s4: tvEtiket(t.s4), g1: tvEtiket(t.g1) },
     hizliPuan: agirlikli, ayKonum, isaretler,
-    tlHacim: r.hacim && r.fiyat ? r.hacim * r.fiyat : null,
+    tlHacim: r.tlHacim || (r.hacim && r.fiyat ? r.hacim * r.fiyat : null),
+    usdHacim: r.usdHacim || (r.id?.includes('USDT') && r.hacim && r.fiyat ? r.hacim * r.fiyat : null),
   };
 }
 
@@ -184,6 +185,7 @@ const sunucu = http.createServer(async (req, res) => {
         if (deg >= 2.8 && (gh >= 1.4 || tv.s4 > 0.3) && rsi4h <= 74) {
           bulunanlar.push({
             id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.4,
+            tlHacim: r.tlHacim, usdHacim: r.usdHacim,
             tur: 'patlama', seviye: 'Agresif Para Girişi', ikon: '🚀', renk: '#38bdf8',
             aciklama: `Günü %${deg.toFixed(1)} artıda götürüyor ve hacim ${gh.toFixed(1)} katı; güçlü alım baskısı var!`
           });
@@ -192,6 +194,7 @@ const sunucu = http.createServer(async (req, res) => {
         else if (rsi4h >= 75 && (gh >= 1.35 || deg >= 2.5)) {
           bulunanlar.push({
             id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.35,
+            tlHacim: r.tlHacim, usdHacim: r.usdHacim,
             tur: 'dagitim', seviye: 'Mal Dağıtımı Riski', ikon: '⚠️', renk: '#ef4444',
             aciklama: `Hacim yüksek ancak RSI aşırı şişti (${rsi4h.toFixed(0)}). Tepede mal devri ve düzeltme riski!`
           });
@@ -200,6 +203,7 @@ const sunucu = http.createServer(async (req, res) => {
         else if (Math.abs(deg) <= 2.0 && (gh >= 1.35 || tv.s2 > 0.3) && (r.fiyat > 0)) {
           bulunanlar.push({
             id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.2,
+            tlHacim: r.tlHacim, usdHacim: r.usdHacim,
             tur: 'toplama', seviye: 'Sessiz Toplama', ikon: '🧲', renk: '#10b981',
             aciklama: `Fiyat yatay (%${deg.toFixed(1)}) seyrederken gizli alım baskısı ve hacim artışı var!`
           });
@@ -208,6 +212,7 @@ const sunucu = http.createServer(async (req, res) => {
         else if (deg <= -2.0 && gh >= 1.35 && (rsi4h < 42 || (r.rsi?.s2 || 50) < 38)) {
           bulunanlar.push({
             id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.35,
+            tlHacim: r.tlHacim, usdHacim: r.usdHacim,
             tur: 'toplama', seviye: 'Dip Karşılama (Panik Alımı)', ikon: '💎', renk: '#a855f7',
             aciklama: `Düşüşe rağmen hacim ${gh.toFixed(1)} katına çıktı; dip seviyeden satışlar balinalarca karşılanıyor!`
           });

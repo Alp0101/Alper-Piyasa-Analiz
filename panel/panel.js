@@ -29,6 +29,39 @@ const sayi = (v, b) => {
 const ROZET = { 2: '▲▲', 1: '▲', 0: '●', '-1': '▼', '-2': '▼▼' };
 const rozet = k => k == null ? '<span class="rozet r0">—</span>' : `<span class="rozet r${k}">${ROZET[k]}</span>`;
 
+function hacimFormat(r) {
+  if (!r) return '';
+  const isKripto = r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:') || r.id?.startsWith('BYBIT:');
+  const isBist = r.id?.startsWith('BIST:');
+  
+  let tutar = null;
+  let birim = '₺';
+
+  if (isKripto) {
+    tutar = r.usdHacim || (r.hacim && r.fiyat ? r.hacim * r.fiyat : null);
+    birim = '$';
+  } else if (isBist) {
+    tutar = r.tlHacim || (r.hacim && r.fiyat ? r.hacim * r.fiyat : null);
+    birim = '₺';
+  } else {
+    tutar = r.tlHacim || r.usdHacim || (r.hacim && r.fiyat ? r.hacim * r.fiyat : null);
+    birim = r.id?.includes('TRY') ? '₺' : '$';
+  }
+
+  if (tutar == null || !isFinite(tutar) || tutar <= 0) return '';
+
+  if (tutar >= 1e9) {
+    return (tutar / 1e9).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + ' Mr ' + birim;
+  }
+  if (tutar >= 1e6) {
+    return (tutar / 1e6).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' Mn ' + birim;
+  }
+  if (tutar >= 1e3) {
+    return (tutar / 1e3).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' B ' + birim;
+  }
+  return Math.round(tutar) + ' ' + birim;
+}
+
 // ================= Listeler =================
 async function listeleriYukle() {
   D.listeler = await api('/api/listeler');
@@ -287,7 +320,10 @@ function tablo() {
       <td class="sag ${deg > 0 ? 'art' : deg < 0 ? 'eks' : ''}">${deg == null ? '—' : (deg > 0 ? '+' : '') + sayi(deg, 2) + '%'}</td>
       <td class="orta">${rozet(r.yon?.s2)}</td><td class="orta">${rozet(r.yon?.s4)}</td><td class="orta">${rozet(r.yon?.g1)}</td>
       <td class="sag ${r.rsi?.s4 > 70 ? 'eks' : r.rsi?.s4 < 30 ? 'art' : ''}">${sayi(r.rsi?.s4, 0)}</td>
-      <td class="sag">${r.goreceliHacim == null ? '—' : sayi(r.goreceliHacim, 1) + 'x'}</td>
+      <td class="sag">
+        <div style="font-weight:600; color:${r.goreceliHacim >= 2.0 ? '#38bdf8' : r.goreceliHacim >= 1.3 ? '#10b981' : 'inherit'};">${r.goreceliHacim == null ? '—' : sayi(r.goreceliHacim, 1) + 'x'}</div>
+        ${hacimFormat(r) ? `<div class="kucuk" style="color:#94a3b8; font-size:11px; white-space:nowrap;">${hacimFormat(r)}</div>` : ''}
+      </td>
       <td>${konum}</td>
       <td class="sag ${puanRenk}"><b>${r.hizliPuan ?? '—'}</b></td>
       <td>${(r.isaretler || []).map(i => `<span class="isaret ${i.tip}">${esc(i.metin)}</span>`).join('')}</td>
@@ -1356,7 +1392,7 @@ async function balinaRadariYukle() {
             <th>Sembol</th>
             <th class="sag">Fiyat</th>
             <th class="sag">Günlük %</th>
-            <th class="sag">Hacim Katı</th>
+            <th class="sag">Hacim Katı / Tutar</th>
             <th>Durum / Sinyal</th>
             <th>Açıklama</th>
           </tr>
@@ -1367,7 +1403,10 @@ async function balinaRadariYukle() {
               <td><b>${esc(x.kod)}</b> <small class="kucuk">${esc(x.ad)}</small></td>
               <td class="sag">${sayi(x.fiyat)}</td>
               <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
-              <td class="sag" style="color:#fbbf24; font-weight:bold;">${sayi(x.gh, 1)}x</td>
+              <td class="sag">
+                <div style="color:#fbbf24; font-weight:bold;">${sayi(x.gh, 1)}x</div>
+                ${hacimFormat(x) ? `<div class="kucuk" style="color:#94a3b8; font-size:11px;">${hacimFormat(x)}</div>` : ''}
+              </td>
               <td><span style="color:${x.renk}; font-weight:bold;">${x.ikon} ${esc(x.seviye)}</span></td>
               <td class="kucuk" style="color:#cbd5e1;">${esc(x.aciklama)}</td>
             </tr>
