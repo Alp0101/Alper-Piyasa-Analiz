@@ -34,17 +34,8 @@
     {
       "id": "kripto",
       "ad": "Kripto Paralar",
-      "semboller": [
-        "BINANCE:BTCUSDT",
-        "BINANCE:ETHUSDT",
-        "BINANCE:SOLUSDT",
-        "BINANCE:BNBUSDT",
-        "BINANCE:XRPUSDT",
-        "BINANCE:AVAXUSDT",
-        "BINANCE:DOGEUSDT",
-        "BINANCE:ADAUSDT",
-        "BINANCE:LINKUSDT"
-      ]
+      "dinamik": "kripto",
+      "semboller": []
     },
     {
       "id": "favoriler",

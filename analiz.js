@@ -27,7 +27,12 @@ const son = a => a[a.length - 1];
 const yuvarla = (v, b = 2) => (v == null || !isFinite(v) ? null : +v.toFixed(b));
 
 function fiyatHassasiyet(f) {
-  if (f >= 1000) return 2; if (f >= 10) return 2; if (f >= 1) return 4; return 6;
+  if (!f || f <= 0) return 2;
+  if (f >= 1000) return 2;
+  if (f >= 10) return 2;
+  if (f >= 1) return 4;
+  if (f >= 0.01) return 6;
+  return 8;
 }
 
 // ---------------------------------------------------------------

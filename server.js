@@ -65,6 +65,8 @@ async function listeTara(listeId) {
   if (liste.dinamik === 'bist') {
     const cik = new Set(liste.cikarilanlar || []);
     satirlar = (await V.tumBistTara()).filter(r => !cik.has(r.id));
+  } else if (liste.dinamik === 'kripto' || liste.id === 'kripto') {
+    satirlar = await V.tumKriptoTara();
   } else {
     const gelen = await V.sembolleriTara(liste.semboller);
     const m = new Map(gelen.map(r => [r.id, r]));
@@ -178,28 +180,28 @@ const sunucu = http.createServer(async (req, res) => {
         const tv = r.tv || {};
         const rsi4h = r.rsi?.s4 || 50;
 
-        // 1. Sessiz Toplama: Fiyat yatay (% -1.8 ile +1.8) ama hacim en az 1.35 kat veya kısa vade AL
-        if (Math.abs(deg) <= 2.0 && (gh >= 1.35 || tv.s2 > 0.3) && (r.fiyat > 0)) {
+        // 1. Agresif Giriş / Hacimli Patlama: Sert yükseliş ve güçlü hacim (RSI aşırı şişmemişken)
+        if (deg >= 2.8 && (gh >= 1.4 || tv.s4 > 0.3) && rsi4h <= 74) {
+          bulunanlar.push({
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.4,
+            tur: 'patlama', seviye: 'Agresif Para Girişi', ikon: '🚀', renk: '#38bdf8',
+            aciklama: `Günü %${deg.toFixed(1)} artıda götürüyor ve hacim ${gh.toFixed(1)} katı; güçlü alım baskısı var!`
+          });
+        }
+        // 2. Mal Dağıtımı: RSI aşırı alımda (>= 75) iken yüksek hacimle tepede zorlanma
+        else if (rsi4h >= 75 && (gh >= 1.35 || deg >= 2.5)) {
+          bulunanlar.push({
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.35,
+            tur: 'dagitim', seviye: 'Mal Dağıtımı Riski', ikon: '⚠️', renk: '#ef4444',
+            aciklama: `Hacim yüksek ancak RSI aşırı şişti (${rsi4h.toFixed(0)}). Tepede mal devri ve düzeltme riski!`
+          });
+        }
+        // 3. Sessiz Toplama: Fiyat yatay (% -2.0 ile +2.0) ama hacim en az 1.35 kat veya kısa vade AL
+        else if (Math.abs(deg) <= 2.0 && (gh >= 1.35 || tv.s2 > 0.3) && (r.fiyat > 0)) {
           bulunanlar.push({
             id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.2,
             tur: 'toplama', seviye: 'Sessiz Toplama', ikon: '🧲', renk: '#10b981',
             aciklama: `Fiyat yatay (%${deg.toFixed(1)}) seyrederken gizli alım baskısı ve hacim artışı var!`
-          });
-        }
-        // 2. Mal Dağıtımı: Fiyat şişkin ve hacim yüksek ama RSI aşırı alımda
-        else if (deg >= 2.5 && (gh >= 1.4 || rsi4h > 72)) {
-          bulunanlar.push({
-            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.4,
-            tur: 'dagitim', seviye: 'Mal Dağıtımı Riski', ikon: '⚠️', renk: '#ef4444',
-            aciklama: `Hacim arttı ancak RSI aşırı şişti (${rsi4h.toFixed(0)}). Tepede mal devri olabilir!`
-          });
-        }
-        // 3. Agresif Giriş: Sert yükseliş ve dev hacim
-        else if (deg >= 3.0 && (gh >= 1.5 || tv.s4 > 0.4)) {
-          bulunanlar.push({
-            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.5,
-            tur: 'patlama', seviye: 'Agresif Giriş', ikon: '🚀', renk: '#38bdf8',
-            aciklama: `Günü %${deg.toFixed(1)} artıda götürüyor ve güçlü para girişi var!`
           });
         }
         // 4. Dip Karşılama / Panik Alımı: Düşüş varken güçlü hacimle satışların emilmesi

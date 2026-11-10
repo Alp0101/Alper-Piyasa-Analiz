@@ -20,7 +20,10 @@ function bildir(m, sure = 2600) {
 }
 const sayi = (v, b) => {
   if (v == null || !isFinite(v)) return '—';
-  if (b == null) b = Math.abs(v) >= 1000 ? 2 : Math.abs(v) >= 1 ? 2 : 5;
+  if (b == null) {
+    const av = Math.abs(v);
+    b = av >= 1000 ? 2 : av >= 10 ? 2 : av >= 1 ? 3 : av >= 0.01 ? 4 : 8;
+  }
   return v.toLocaleString('tr-TR', { minimumFractionDigits: b, maximumFractionDigits: b });
 };
 const ROZET = { 2: '▲▲', 1: '▲', 0: '●', '-1': '▼', '-2': '▼▼' };
@@ -1239,21 +1242,21 @@ function sniperAvcisiYukle() {
   satirlar.forEach(r => {
     if (!r.fiyat) return;
     const y = r.yon || {};
-    const t2 = y.s2 || 0;
+    const tKisa = (y.s2 != null ? y.s2 : y.s1) || 0;
     const t4 = y.s4 || 0;
     const tg = y.g1 || 0;
     const rsi4h = r.rsi?.s4 || 50;
 
-    // 4 periyotta (2S, 4S, 1G ve RSI sağlıklı) tam alım
-    if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
+    // 4 periyotta (Kısa Vade, 4S, 1G ve RSI dengeli) tam alım
+    if (tKisa > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 70) {
       tamUyumlu.push({
         ...r,
         derece: 'tam',
         etiket: '🎯 KUSURSUZ SNIPER AL',
         renk: '#10b981',
-        aciklama: 'Kısa, orta ve uzun periyotların tümü aynı anda yükselişte. Aşırı alımda değil.'
+        aciklama: 'Kısa, orta ve uzun periyotların tümü aynı anda yükselişte. Sağlıklı momentum.'
       });
-    } else if (t4 > 0 && tg > 0 && rsi4h >= 42 && rsi4h <= 70) {
+    } else if (t4 > 0 && tg > 0 && rsi4h >= 40 && rsi4h <= 74) {
       trendUyumlu.push({
         ...r,
         derece: 'trend',
