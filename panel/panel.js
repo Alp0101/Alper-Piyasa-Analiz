@@ -136,13 +136,24 @@ document.addEventListener('click', e => { if (!e.target.closest('.ekle-kutu')) $
 let taramaSayaci = 0;
 async function tara() {
   const benim = ++taramaSayaci;
-  $('#durum').textContent = 'Veriler alınıyor...';
   try {
     const r = await api('/api/tarama?liste=' + encodeURIComponent(D.aktifId));
     if (benim !== taramaSayaci) return;
     D.satirlar = r.satirlar;
-    $('#durum').textContent = 'Son güncelleme: ' + new Date(r.zaman).toLocaleTimeString('tr-TR') + ` · ${r.satirlar.length} varlık`;
+    $('#durum').textContent = 'Canlı Akış: ' + new Date().toLocaleTimeString('tr-TR') + ` · ${r.satirlar.length} varlık`;
     tablo();
+
+    // 1. Demo Portföy Açıksa veya Açık Pozisyon Varsa Fiyatları ve Kâr/Zararı Anlık Güncelle!
+    demoPortfoyYukle();
+
+    // 2. Detay Analiz Penceresi Açıksa Oradaki Fiyatı da Tabloyla Birebir Eşitle!
+    if (D.detaySembol && D.detayVeri) {
+      const aktifSatir = D.satirlar.find(x => x.id === D.detaySembol);
+      if (aktifSatir && aktifSatir.fiyat) {
+        const fElem = document.querySelector('.seviye-satir b'); // Şu anki fiyat alanı
+        if (fElem) fElem.textContent = sayi(aktifSatir.fiyat);
+      }
+    }
   } catch (e) {
     $('#durum').textContent = '⚠️ ' + e.message;
   }
@@ -239,7 +250,8 @@ $('#aramaInput').addEventListener('input', e => { D.arama = e.target.value.trim(
 $('#hacimFiltre').addEventListener('change', tablo);
 $('#dahaBtn').onclick = () => { D.gosterilen += 150; tablo(); };
 $('#yenileBtn').onclick = () => { tara(); if (D.detaySembol) detayYukle(true); };
-setInterval(() => { if ($('#otoYenile').checked && !document.hidden) tara(); }, 60_000);
+// Canlı Piyasa Akışı: 5 saniyede bir otomatik yenile (TradingView gibi akıcı)
+setInterval(() => { if ($('#otoYenile').checked && !document.hidden) tara(); }, 5000);
 
 // ================= Ayrıntılı analiz =================
 function detayAc(id) {

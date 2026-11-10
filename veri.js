@@ -69,7 +69,8 @@ async function sembolleriTara(idler) {
   const tvIdler = idler.filter(id => !id.startsWith('YAHOO:'));
   if (!tvIdler.length) return [];
   const anahtar = 'tarama:' + [...tvIdler].sort().join(',');
-  return onbellekli(anahtar, 45_000, async () => {
+  // Önceden 45 saniye önbellekte bekliyordu (oynaklık bu yüzden kaçıyordu), şimdi 3 saniyeye çekildi!
+  return onbellekli(anahtar, 3_000, async () => {
     const body = { symbols: { tickers: tvIdler, query: { types: [] } }, columns: TARAMA_KOLONLARI };
     const j = await getJson('https://scanner.tradingview.com/global/scan', {
       method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' },
