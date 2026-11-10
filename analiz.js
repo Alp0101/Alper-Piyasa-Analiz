@@ -316,6 +316,66 @@ function ortamYontemi(d, benchD, bench) {
   return { anahtar: 'ortam', ad: 'Piyasa Ortamı', puan: sinirla(p), yorum: parcalar.join('; ') };
 }
 
+// BALİNA VE AKILLI PARA TESPİTİ (Smart Money Accumulation / Distribution)
+function balinaAnalizi(d) {
+  const N = d.c.length;
+  if (N < 25) return { durum: 'normal', skor: 0, mesaj: 'Yetersiz mum verisi' };
+
+  const sonC = d.c[N - 1];
+  const basC = d.c[N - 15]; // Son 15 mumdaki fiyat değişimi
+  const fiyatDegisimYuzde = ((sonC - basC) / basC) * 100;
+
+  const ortHacim = G.sma(d.v, 20)[N - 1] || 1;
+  const sonHacimler = d.v.slice(-5);
+  const ortSonHacim = sonHacimler.reduce((a, b) => a + b, 0) / 5;
+  const hacimKati = ortSonHacim / ortHacim;
+
+  const obvSon = d.obv[N - 1];
+  const obvBas = d.obv[N - 15];
+  const obvArtis = obvSon > obvBas;
+
+  // 1. SESSİZ BALİNA TOPLAMASI (Gizli Alım): Fiyat yatay veya hafif ekside ama hacim ve OBV sert artıyor!
+  if (Math.abs(fiyatDegisimYuzde) < 2.5 && hacimKati > 1.35 && obvArtis) {
+    return {
+      durum: 'toplama',
+      seviye: hacimKati > 2 ? 'Güçlü Balina Alımı' : 'Akıllı Para Toplaması',
+      renk: '#10b981',
+      ikon: '🧲',
+      mesaj: `Fiyat son dönemde yatay seyrederken (%${fiyatDegisimYuzde.toFixed(1)}), hacim normalin ${hacimKati.toFixed(1)} katına çıktı ve OBV yükseliyor! Büyük oyuncular sessizce pozisyon topluyor olabilir.`
+    };
+  }
+
+  // 2. GİZLİ MAL DEVRETME (Tepede Boşaltma): Fiyat hafif yukarı ama OBV düşüyor ve hacim patlıyor!
+  if (fiyatDegisimYuzde > 1.5 && hacimKati > 1.5 && !obvArtis) {
+    return {
+      durum: 'dagitim',
+      seviye: 'Tehlike: Mal Dağıtımı',
+      renk: '#ef4444',
+      ikon: '⚠️',
+      mesaj: `Fiyat yukarı gitmeye çalışıyor ancak hacim patlamasına rağmen para girişi (OBV) zayıf. Büyük fonlar küçük yatırımcıya mal devrediyor (boşaltıyor) olabilir!`
+    };
+  }
+
+  // 3. AGRESİF BALİNA GİRİŞİ: Fiyatla birlikte hacim rekor kırıyor
+  if (fiyatDegisimYuzde > 3 && hacimKati > 1.8 && obvArtis) {
+    return {
+      durum: 'patlama',
+      seviye: 'Agresif Para Girişi',
+      renk: '#38bdf8',
+      ikon: '🚀',
+      mesaj: `Son barlarda olağanüstü para girişi tespit edildi. Hacim ortalamanın ${hacimKati.toFixed(1)} katı.`
+    };
+  }
+
+  return {
+    durum: 'normal',
+    seviye: 'Doğal Piyasa Akışı',
+    renk: '#94a3b8',
+    ikon: '🌊',
+    mesaj: 'Fiyat ve hacim dengeli, olağandışı kurumsal balina hareketi saptanmadı.'
+  };
+}
+
 // TUZAK TESPİTİ
 function tuzakAnalizi(d, y, sv, ustYon) {
   const c = son(d.c), a = son(d.atr) || c * 0.01;
@@ -399,6 +459,7 @@ function analizEt(setler, benchSet, bilgi) {
     const aktif = Object.values(y).filter(m => !m.veriYok);
     const ayniYon = aktif.filter(m => Math.sign(m.puan) === Math.sign(skor) && Math.abs(m.puan) >= 0.5).length;
     const tuzak = tuzakAnalizi(d, y, sv, ustYon);
+    const balina = balinaAnalizi(d);
 
     const c = son(d.c), a = son(d.atr) || c * 0.01, hs = fiyatHassasiyet(c);
     let stop = Math.min(c - 1.5 * a, (sv.destek ?? c) - 0.3 * a);
@@ -424,6 +485,7 @@ function analizEt(setler, benchSet, bilgi) {
       uzlasma: `${aktif.length} yöntemden ${ayniYon} tanesi aynı yönde`,
       yontemler: ['trend', 'momentum', 'oynaklik', 'seviye', 'hacim', 'mum', 'uyum', 'ortam'].map(k => ({ ...y[k], puan: yuvarla(y[k].puan, 1) })),
       tuzak,
+      balina,
       seviyeler: {
         fiyat: yuvarla(c, hs), destek: yuvarla(sv.destek, hs), destek2: yuvarla(sv.destek2, hs),
         direnc: yuvarla(sv.direnc, hs), direnc2: yuvarla(sv.direnc2, hs), atr: yuvarla(a, hs),

@@ -433,6 +433,7 @@ function detayCiz() {
     }).join('');
     const s = z.seviyeler;
     const t = z.tuzak;
+    const b = z.balina || { seviye: 'Doğal Akış', renk: '#94a3b8', ikon: '🌊', mesaj: 'Normal piyasa hareketi.' };
     const fib = z.fibonacci;
 
     let fibHtml = '';
@@ -471,6 +472,10 @@ function detayCiz() {
           <h4>⚠️ Tuzak Kontrolü: ${t.seviye}</h4>
           <div style="font-size:13px">${esc(t.aciklama)}</div>
           ${t.nedenler.length ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12.5px">' + t.nedenler.map(n => `<li>${esc(n)}</li>`).join('') + '</ul>' : ''}
+        </div>
+        <div class="kutu" style="border-left: 3px solid ${b.renk};">
+          <h4>${b.ikon} Balina & Akıllı Para Dedektörü: <span style="color:${b.renk}">${esc(b.seviye)}</span></h4>
+          <div style="font-size:13px; line-height:1.5;">${esc(b.mesaj)}</div>
         </div>
         <div class="kutu">
           <h4>📏 Önemli Seviyeler</h4>
