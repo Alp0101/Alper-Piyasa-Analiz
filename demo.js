@@ -2,20 +2,25 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const Bulut = require('./bulut');
 
 const PORTFOY_DOSYA = path.join(__dirname, 'veri', 'demo_portfoy.json');
+const BULUT_ANAHTAR = 'demo_portfoy';
 
 const VARSAYILAN_BAKIYE = 1000000; // 1.000.000 TL (1 Milyon TL) başlangıç sanal kasa
+let onbellekPortfoy = null;
 
 function portfoyOku() {
+  if (onbellekPortfoy) return onbellekPortfoy;
   try {
-    return JSON.parse(fs.readFileSync(PORTFOY_DOSYA, 'utf8'));
+    onbellekPortfoy = JSON.parse(fs.readFileSync(PORTFOY_DOSYA, 'utf8'));
+    return onbellekPortfoy;
   } catch (_) {
     const baslangic = {
       bakiye: VARSAYILAN_BAKIYE,
       baslangicBakiye: VARSAYILAN_BAKIYE,
-      acikPozisyonlar: [], // { id, sembol, ad, adet, alisFiyat, alisTarih, stopFiyat, hedefFiyat, tutar }
-      kapananIslemler: []  // { id, sembol, ad, adet, alisFiyat, satisFiyat, alisTarih, satisTarih, karZararTL, karZararYuzde, sebep }
+      acikPozisyonlar: [],
+      kapananIslemler: []
     };
     portfoyKaydet(baslangic);
     return baslangic;
@@ -23,9 +28,32 @@ function portfoyOku() {
 }
 
 function portfoyKaydet(p) {
-  fs.mkdirSync(path.dirname(PORTFOY_DOSYA), { recursive: true });
-  fs.writeFileSync(PORTFOY_DOSYA, JSON.stringify(p, null, 2), 'utf8');
+  onbellekPortfoy = p;
+  try {
+    fs.mkdirSync(path.dirname(PORTFOY_DOSYA), { recursive: true });
+    fs.writeFileSync(PORTFOY_DOSYA, JSON.stringify(p, null, 2), 'utf8');
+  } catch (_) {}
+  if (Bulut.aktifMi()) {
+    Bulut.kaydet(BULUT_ANAHTAR, p).catch(() => {});
+  }
 }
+
+// Buluttan başlangıç senkronizasyonu
+async function buluttanYukle() {
+  if (!Bulut.aktifMi()) return;
+  const veri = await Bulut.getir(BULUT_ANAHTAR);
+  if (veri && typeof veri === 'object' && typeof veri.bakiye === 'number') {
+    onbellekPortfoy = veri;
+    try {
+      fs.mkdirSync(path.dirname(PORTFOY_DOSYA), { recursive: true });
+      fs.writeFileSync(PORTFOY_DOSYA, JSON.stringify(veri, null, 2), 'utf8');
+      console.log('☁️ Demo portföy bulut veritabanından başarıyla yüklendi.');
+    } catch (_) {}
+  } else if (onbellekPortfoy) {
+    Bulut.kaydet(BULUT_ANAHTAR, onbellekPortfoy).catch(() => {});
+  }
+}
+buluttanYukle();
 
 // Demo Alım İşlemi
 function demoAl(sembolId, ad, fiyat, adet, stopFiyat = null, hedefFiyat = null) {

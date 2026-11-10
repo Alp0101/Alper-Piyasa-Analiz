@@ -2,17 +2,23 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const Bulut = require('./bulut');
 
 const SAYAC_DOSYA = path.join(__dirname, 'veri', 'ziyaret_istatistik.json');
+const BULUT_ANAHTAR = 'ziyaret_istatistik';
+
+let onbellekSayac = null;
 
 function sayacOku() {
+  if (onbellekSayac) return onbellekSayac;
   try {
-    return JSON.parse(fs.readFileSync(SAYAC_DOSYA, 'utf8'));
+    onbellekSayac = JSON.parse(fs.readFileSync(SAYAC_DOSYA, 'utf8'));
+    return onbellekSayac;
   } catch (_) {
     const baslangic = {
       toplamTiklama: 0,
-      tekilZiyaretciler: {}, // { ip/id: { sonZiyaret, sayi } }
-      gunlukZiyaret: {},     // { '2026-11-10': sayi }
+      tekilZiyaretciler: {},
+      gunlukZiyaret: {},
       sonGirisler: []
     };
     sayacKaydet(baslangic);
@@ -21,9 +27,32 @@ function sayacOku() {
 }
 
 function sayacKaydet(v) {
-  fs.mkdirSync(path.dirname(SAYAC_DOSYA), { recursive: true });
-  fs.writeFileSync(SAYAC_DOSYA, JSON.stringify(v, null, 2), 'utf8');
+  onbellekSayac = v;
+  try {
+    fs.mkdirSync(path.dirname(SAYAC_DOSYA), { recursive: true });
+    fs.writeFileSync(SAYAC_DOSYA, JSON.stringify(v, null, 2), 'utf8');
+  } catch (_) {}
+  if (Bulut.aktifMi()) {
+    Bulut.kaydet(BULUT_ANAHTAR, v).catch(() => {});
+  }
 }
+
+// Buluttan başlangıç senkronizasyonu
+async function buluttanYukle() {
+  if (!Bulut.aktifMi()) return;
+  const veri = await Bulut.getir(BULUT_ANAHTAR);
+  if (veri && typeof veri === 'object' && typeof veri.toplamTiklama === 'number') {
+    onbellekSayac = veri;
+    try {
+      fs.mkdirSync(path.dirname(SAYAC_DOSYA), { recursive: true });
+      fs.writeFileSync(SAYAC_DOSYA, JSON.stringify(veri, null, 2), 'utf8');
+      console.log('☁️ Ziyaretçi istatistikleri bulut veritabanından yüklendi.');
+    } catch (_) {}
+  } else if (onbellekSayac) {
+    Bulut.kaydet(BULUT_ANAHTAR, onbellekSayac).catch(() => {});
+  }
+}
+buluttanYukle();
 
 function ziyaretKaydet(req) {
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'bilinmiyor';

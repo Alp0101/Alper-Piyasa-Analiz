@@ -3,12 +3,18 @@
 const fs = require('fs');
 const path = require('path');
 const Demo = require('./demo');
+const Bulut = require('./bulut');
 
 const ALARMLAR_DOSYA = path.join(__dirname, 'veri', 'fiyat_alarmlari.json');
+const BULUT_ANAHTAR = 'fiyat_alarmlari';
+
+let onbellekAlarmlar = null;
 
 function alarmlariOku() {
+  if (onbellekAlarmlar) return onbellekAlarmlar;
   try {
-    return JSON.parse(fs.readFileSync(ALARMLAR_DOSYA, 'utf8'));
+    onbellekAlarmlar = JSON.parse(fs.readFileSync(ALARMLAR_DOSYA, 'utf8'));
+    return onbellekAlarmlar;
   } catch (_) {
     const baslangic = [];
     alarmlariKaydet(baslangic);
@@ -17,9 +23,32 @@ function alarmlariOku() {
 }
 
 function alarmlariKaydet(v) {
-  fs.mkdirSync(path.dirname(ALARMLAR_DOSYA), { recursive: true });
-  fs.writeFileSync(ALARMLAR_DOSYA, JSON.stringify(v, null, 2), 'utf8');
+  onbellekAlarmlar = v;
+  try {
+    fs.mkdirSync(path.dirname(ALARMLAR_DOSYA), { recursive: true });
+    fs.writeFileSync(ALARMLAR_DOSYA, JSON.stringify(v, null, 2), 'utf8');
+  } catch (_) {}
+  if (Bulut.aktifMi()) {
+    Bulut.kaydet(BULUT_ANAHTAR, v).catch(() => {});
+  }
 }
+
+// Buluttan başlangıç senkronizasyonu
+async function buluttanYukle() {
+  if (!Bulut.aktifMi()) return;
+  const veri = await Bulut.getir(BULUT_ANAHTAR);
+  if (Array.isArray(veri)) {
+    onbellekAlarmlar = veri;
+    try {
+      fs.mkdirSync(path.dirname(ALARMLAR_DOSYA), { recursive: true });
+      fs.writeFileSync(ALARMLAR_DOSYA, JSON.stringify(veri, null, 2), 'utf8');
+      console.log('☁️ Fiyat alarmları bulut veritabanından yüklendi.');
+    } catch (_) {}
+  } else if (onbellekAlarmlar) {
+    Bulut.kaydet(BULUT_ANAHTAR, onbellekAlarmlar).catch(() => {});
+  }
+}
+buluttanYukle();
 
 // Yeni Alarm Ekle
 function alarmEkle(sembol, ad, hedefFiyat, yon = 'otomatik', not = '') {

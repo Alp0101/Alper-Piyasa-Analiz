@@ -12,22 +12,53 @@ const Demo = require('./demo');
 const Ziyaret = require('./ziyaret');
 const Alarm = require('./alarm');
 const Guvenlik = require('./guvenlik');
+const Bulut = require('./bulut');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
 const LISTE_DOSYA = path.join(KOK, 'veri', 'listeler.json');
+const BULUT_LISTE_ANAHTAR = 'kullanici_listeleri';
+
+let onbellekListeler = null;
 
 // ---------------- Listeler ----------------
 function listeleriOku() {
-  try { return JSON.parse(fs.readFileSync(LISTE_DOSYA, 'utf8')); }
+  if (onbellekListeler) return onbellekListeler;
+  try {
+    onbellekListeler = JSON.parse(fs.readFileSync(LISTE_DOSYA, 'utf8'));
+    return onbellekListeler;
+  }
   catch (_) { const v = varsayilanListeler(); listeleriYaz(v); return v; }
 }
 function listeleriYaz(v) {
-  fs.mkdirSync(path.dirname(LISTE_DOSYA), { recursive: true });
-  const gecici = LISTE_DOSYA + '.tmp';
-  fs.writeFileSync(gecici, JSON.stringify(v, null, 2), 'utf8');
-  fs.renameSync(gecici, LISTE_DOSYA);
+  onbellekListeler = v;
+  try {
+    fs.mkdirSync(path.dirname(LISTE_DOSYA), { recursive: true });
+    const gecici = LISTE_DOSYA + '.tmp';
+    fs.writeFileSync(gecici, JSON.stringify(v, null, 2), 'utf8');
+    fs.renameSync(gecici, LISTE_DOSYA);
+  } catch (_) {}
+  if (Bulut.aktifMi()) {
+    Bulut.kaydet(BULUT_LISTE_ANAHTAR, v).catch(() => {});
+  }
 }
+
+// Buluttan listeleri yükle
+async function buluttanListeleriYukle() {
+  if (!Bulut.aktifMi()) return;
+  const veri = await Bulut.getir(BULUT_LISTE_ANAHTAR);
+  if (veri && Array.isArray(veri.listeler)) {
+    onbellekListeler = veri;
+    try {
+      fs.mkdirSync(path.dirname(LISTE_DOSYA), { recursive: true });
+      fs.writeFileSync(LISTE_DOSYA, JSON.stringify(veri, null, 2), 'utf8');
+      console.log('☁️ Listeler bulut veritabanından yüklendi.');
+    } catch (_) {}
+  } else if (onbellekListeler) {
+    Bulut.kaydet(BULUT_LISTE_ANAHTAR, onbellekListeler).catch(() => {});
+  }
+}
+buluttanListeleriYukle();
 function listeDogrula(v) {
   if (!v || !Array.isArray(v.listeler)) throw new Error('Geçersiz liste verisi');
   v.listeler.forEach(l => {
