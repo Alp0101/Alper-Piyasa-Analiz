@@ -222,7 +222,10 @@ async function tara() {
     tablo();
     if (isiHaritasiAktif) isiHaritasiCiz();
 
-    // 1. Demo Portföy Açıksa veya Açık Pozisyon Varsa Fiyatları ve Kâr/Zararı Anlık Güncelle!
+    // 1. Yeni Radar ve Sniper Girişlerini Denetle (Bildirim fırlat)
+    radarVeSniperDegisimKontrol(D.satirlar);
+
+    // 2. Demo Portföy Açıksa veya Açık Pozisyon Varsa Fiyatları ve Kâr/Zararı Anlık Güncelle!
     demoPortfoyYukle();
 
     // 2. Detay Analiz Penceresi Açıksa Oradaki Fiyatı da Tabloyla Birebir Eşitle!
@@ -954,6 +957,148 @@ $('#ziyaretKapatBtn').onclick = () => {
   $('#ziyaretModal').classList.add('gizli');
 };
 
+// ================= Bildirim Merkezi (Radar & Sniper Takipçisi) =================
+let oncekiSniperKumesi = new Set();
+let oncekiRadarKumesi = new Set();
+let bildirimIlkYukleme = true;
+
+function bildirimleriOku() {
+  try {
+    const raw = localStorage.getItem('alper_bildirimler');
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return [];
+}
+
+function bildirimleriKaydet(arr) {
+  try {
+    localStorage.setItem('alper_bildirimler', JSON.stringify(arr.slice(0, 50)));
+  } catch (_) {}
+}
+
+function yeniBildirimEkle(baslik, mesaj, tur, sembolId) {
+  const liste = bildirimleriOku();
+  const yeni = {
+    id: 'bld-' + Date.now() + Math.random().toString(36).substring(2, 5),
+    baslik,
+    mesaj,
+    tur, // 'sniper' | 'balina' | 'firsat'
+    sembolId,
+    tarih: new Date().toISOString(),
+    okundu: false
+  };
+  liste.unshift(yeni);
+  bildirimleriKaydet(liste);
+
+  // Ekrana canlı bildirim fırlat ve ses çal
+  sesCal('kar');
+  bildir(`🔔 ${baslik}: ${mesaj}`, 7000);
+  $('#bildirimRozetNokta').classList.remove('gizli');
+  bildirimSayisiGuncelle();
+}
+
+function bildirimSayisiGuncelle() {
+  const liste = bildirimleriOku();
+  const okunmamis = liste.filter(x => !x.okundu).length;
+  $('#ustBildirimSayisi').textContent = okunmamis;
+  if (okunmamis > 0) {
+    $('#bildirimRozetNokta').classList.remove('gizli');
+  } else {
+    $('#bildirimRozetNokta').classList.add('gizli');
+  }
+}
+
+function radarVeSniperDegisimKontrol(satirlar) {
+  if (!satirlar || !satirlar.length) return;
+
+  const suankiSniper = new Set();
+  const suankiRadar = new Set();
+
+  satirlar.forEach(r => {
+    if (!r.fiyat) return;
+    const y = r.yon || {};
+    const t2 = y.s2 || 0;
+    const t4 = y.s4 || 0;
+    const tg = y.g1 || 0;
+    const rsi4h = r.rsi?.s4 || 50;
+
+    // Sniper Kriteri: 2s, 4s, 1g yeşil ve RSI dengeli
+    if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
+      suankiSniper.add(r.id);
+      if (!bildirimIlkYukleme && !oncekiSniperKumesi.has(r.id)) {
+        yeniBildirimEkle(
+          `🎯 YENİ SNIPER FIRSATI`,
+          `${r.kod} (${r.ad || ''}) tüm periyotlarda AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)}`,
+          'sniper',
+          r.id
+        );
+      }
+    }
+
+    // Fırsat Radarı Kriteri
+    if (r.isaretler?.some(i => i.tip === 'firsat')) {
+      suankiRadar.add(r.id);
+      if (!bildirimIlkYukleme && !oncekiRadarKumesi.has(r.id)) {
+        yeniBildirimEkle(
+          `🟢 RADARA YENİ GİRİŞ`,
+          `${r.kod} hacim ve periyot onayı alarak Fırsat Radarına girdi! Fiyat: ${sayi(r.fiyat)}`,
+          'firsat',
+          r.id
+        );
+      }
+    }
+  });
+
+  oncekiSniperKumesi = suankiSniper;
+  oncekiRadarKumesi = suankiRadar;
+  bildirimIlkYukleme = false;
+}
+
+function bildirimMerkeziCiz() {
+  const liste = bildirimleriOku();
+  if (!liste.length) {
+    $('#bildirimKutusuListesi').innerHTML = '<div class="bos" style="padding:25px;">Henüz yeni bir fırsat bildirimi gelmedi. Radara yeni bir hisse girdiğinde buraya düşecek.</div>';
+    return;
+  }
+
+  $('#bildirimKutusuListesi').innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      ${liste.map(b => {
+        const renk = b.tur === 'sniper' ? '#38bdf8' : '#10b981';
+        return `
+        <div class="kutu" style="margin:0; border-left:3px solid ${renk}; cursor:pointer;" 
+             onclick="detayAc('${esc(b.sembolId)}'); $('#bildirimModal').classList.add('gizli');">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="color:${renk}; font-size:13px;">${esc(b.baslik)}</b>
+            <span class="kucuk">${new Date(b.tarih).toLocaleDateString('tr-TR')} ${new Date(b.tarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
+          </div>
+          <div style="font-size:13px; color:#f1f5f9; margin-top:4px;">${esc(b.mesaj)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+$('#bildirimMerkeziBtn').onclick = () => {
+  const liste = bildirimleriOku();
+  liste.forEach(x => x.okundu = true);
+  bildirimleriKaydet(liste);
+  bildirimSayisiGuncelle();
+
+  $('#perde').classList.remove('gizli');
+  $('#bildirimModal').classList.remove('gizli');
+  bildirimMerkeziCiz();
+};
+$('#bildirimKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#bildirimModal').classList.add('gizli');
+};
+$('#bildirimTemizleBtn').onclick = () => {
+  if (!confirm('Tüm bildirim geçmişi temizlensin mi?')) return;
+  bildirimleriKaydet([]);
+  bildirimSayisiGuncelle();
+  bildirimMerkeziCiz();
+};
+
 // ================= Sniper Avcısı (Hızlı Alım Menüsü) =================
 function sniperAvcisiYukle() {
   const satirlar = D.satirlar || [];
@@ -1260,6 +1405,7 @@ $('#alarmKapatBtn').onclick = () => {
     await demoPortfoyYukle(); 
     await ziyaretciYukle(); 
     alarmlariListele();
+    bildirimSayisiGuncelle();
     setInterval(alarmlariKontrolEt, 15000); // 15 saniyede bir fiyatları ve alarmları denetle
   } catch (e) { $('#durum').textContent = '⚠️ Sunucuya bağlanılamadı: ' + e.message; }
 })();

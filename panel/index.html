@@ -14,6 +14,10 @@
     <span class="alt-baslik">BIST · Altın · Petrol · Döviz · Kripto</span>
   </div>
   <div class="ust-sag">
+    <button id="bildirimMerkeziBtn" class="btn ikincil" style="font-size:12px; position:relative;" title="Piyasa Fırsat Bildirimleri">
+      📬 Bildirimler (<span id="ustBildirimSayisi">0</span>)
+      <span id="bildirimRozetNokta" class="gizli" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:#ef4444; border-radius:50%; box-shadow:0 0 8px #ef4444;"></span>
+    </button>
     <button id="sniperRadarBtn" class="btn" style="background: linear-gradient(135deg, #0284c7, #0369a1); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(2,132,199,0.35);">🎯 Sniper Avcısı</button>
     <button id="balinaRadarBtn" class="btn" style="background: linear-gradient(135deg, #059669, #047857); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(16,185,129,0.3);">🧲 Balina Radarı</button>
     <button id="alarmListesiBtn" class="btn ikincil" style="font-size:12px;" title="Kurulan Fiyat Alarmları">🔔 Alarmlar (<span id="ustAlarmSayisi">0</span>)</button>
@@ -180,6 +184,23 @@
       </div>
       <button id="emirOnaylaBtn" class="btn tam" style="background:#10b981; font-size:15px; font-weight:bold; text-align:center; padding:10px; margin-top:8px;">✅ Emri Gerçekleştir</button>
     </div>
+  </div>
+</section>
+
+<!-- Bildirim Merkezi Modal (Gelen Fırsat Bildirimleri) -->
+<section id="bildirimModal" class="detay gizli" style="max-width: 650px;">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">📬 Bildirim Merkezi & Sinyal Geçmişi</div>
+      <div class="d-alt">Radara ve Sniper Avcısına yeni giren hisse/emtia/kriptoların akışı</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="bildirimTemizleBtn" class="btn tehlike" style="font-size:11.5px;">🗑️ Tümünü Temizle</button>
+      <button id="bildirimKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div id="bildirimKutusuListesi"></div>
   </div>
 </section>
 
