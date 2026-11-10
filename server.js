@@ -80,18 +80,35 @@ async function sembolAnaliz(id, tf = 's4') {
   const bilgi = sembolBilgisi(id, adlar);
   if (!bilgi) throw new Error('Bu sembol için veri kaynağı tanımlı değil');
   
-  // Paralel hızlı çekim
-  const [setler, bench] = await Promise.all([
+  // Canlı scanner fiyatı ve mum verilerini paralel çek
+  const [canliTarama, setler, bench] = await Promise.all([
+    V.sembolleriTara([id]).catch(() => []),
     V.mumSetleri(bilgi),
     bilgi.bench ? V.benchSetleri(bilgi.bench).catch(() => null) : null
   ]);
+
+  const canliSonFiyat = canliTarama?.[0]?.fiyat;
+
+  // Mumların en son fiyatını canlı scanner fiyatıyla %100 senkronize et
+  if (canliSonFiyat && canliSonFiyat > 0) {
+    for (const key of ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1']) {
+      const arr = setler[key];
+      if (arr && arr.length > 0) {
+        const sonMum = arr[arr.length - 1];
+        sonMum.c = canliSonFiyat;
+        sonMum.h = Math.max(sonMum.h, canliSonFiyat);
+        sonMum.l = Math.min(sonMum.l, canliSonFiyat);
+      }
+    }
+  }
+
   const analizSonucu = analizEt(setler, bench, bilgi);
 
-  // Backtest / Geçmiş test hesaplaması (sadece seçili periyot için hafif hesaplama)
+  // Backtest / Geçmiş test hesaplaması
   const hedefMumlar = setler[tf] || setler.s4 || setler.g1;
   const backtestSonucu = geriyeTest(hedefMumlar, tf, null);
 
-  return { ...analizSonucu, backtest: backtestSonucu };
+  return { ...analizSonucu, backtest: backtestSonucu, canliFiyat: canliSonFiyat };
 }
 
 // ---------------- HTTP ----------------
