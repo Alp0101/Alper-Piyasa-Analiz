@@ -396,6 +396,69 @@ function kisaOzet(z) {
   return 'Yöntemlerin çoğu düşüşte uzlaşıyor, alım yapılmamalı.';
 }
 
+// ================= 3. Özellik: Sniper Matrisi (3 Boyutlu Zaman Hizalaması) =================
+function sniperMatrisiHesapla(zamanDilimleri) {
+  if (!zamanDilimleri) return null;
+  const p15m = zamanDilimleri.m15?.yonKod ?? 0;
+  const p1h  = zamanDilimleri.s1?.yonKod ?? 0;
+  const p4h  = zamanDilimleri.s4?.yonKod ?? 0;
+  const p1d  = zamanDilimleri.g1?.yonKod ?? 0;
+
+  const tumuPozitif = p15m > 0 && p1h > 0 && p4h > 0 && p1d > 0;
+  const tumuNegatif = p15m < 0 && p1h < 0 && p4h < 0 && p1d < 0;
+
+  let durumMetni = 'Kısmi / Kararsız Uyum';
+  let renk = '#94a3b8';
+  let sinyalKodu = 'normal';
+
+  if (tumuPozitif) {
+    durumMetni = '🎯 MÜKEMMEL ALIM HİZALANMASI (SNIPER LONG)';
+    renk = '#10b981';
+    sinyalKodu = 'sniper_long';
+  } else if (tumuNegatif) {
+    durumMetni = '🛑 MÜKEMMEL DÜŞÜŞ HİZALANMASI (SNIPER SHORT)';
+    renk = '#ef4444';
+    sinyalKodu = 'sniper_short';
+  } else if (p1h > 0 && p4h > 0 && p1d > 0) {
+    durumMetni = '⚡ Güçlü Trend Uyumu (Ana Periyotlar Yükselişte)';
+    renk = '#38bdf8';
+    sinyalKodu = 'guclu_trend';
+  }
+
+  const kutuHtml = (baslik, kod) => {
+    const kRenk = kod > 0 ? '#10b981' : kod < 0 ? '#ef4444' : '#64748b';
+    const kIkon = kod > 0 ? '▲' : kod < 0 ? '▼' : '●';
+    return `
+      <div style="background:#090d16; border:1px solid #232b3d; border-radius:8px; padding:8px 10px; text-align:center;">
+        <div style="font-size:11px; color:#94a3b8;">${baslik}</div>
+        <div style="font-size:15px; font-weight:800; color:${kRenk}; margin-top:2px;">${kIkon} ${kod > 0 ? 'AL' : kod < 0 ? 'SAT' : 'NÖTR'}</div>
+      </div>`;
+  };
+
+  return `
+  <div class="kutu" style="border: 2px solid ${renk}; box-shadow: 0 0 15px ${renk}33; background: linear-gradient(180deg, #131824 0%, #0a0e17 100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+      <h4 style="margin:0; font-size:15px;">🎯 Sniper Matrisi (3 Boyutlu Zaman Hizalaması)</h4>
+      <span style="background:${renk}22; color:${renk}; border:1px solid ${renk}66; border-radius:6px; padding:4px 10px; font-size:11.5px; font-weight:800;">
+        ${durumMetni}
+      </span>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:10px;">
+      ${kutuHtml('15 DAKİKA', p15m)}
+      ${kutuHtml('1 SAAT', p1h)}
+      ${kutuHtml('4 SAAT', p4h)}
+      ${kutuHtml('GÜNLÜK (24S)', p1d)}
+    </div>
+    <div class="uyari" style="margin:0; line-height:1.5;">
+      ${tumuPozitif 
+        ? '🔥 <b>Efsane Fırsat:</b> En küçük zaman diliminden en büyüğüne kadar tüm periyotlar aynı anda AL pozisyonunda! Dalgalara karşı değil, tüm piyasanın rüzgarıyla aynı yöndesiniz.' 
+        : tumuNegatif 
+        ? '⚠️ <b>Yüksek Risk:</b> Tüm periyotlar aynı anda SAT yönünde. Asla tepki alımı için acele etmeyin.' 
+        : 'Küçük ve büyük periyotlar arasında kısmi uyum var. Sniper Long için 4 periyodun da aynı anda yeşil yanmasını bekleyin.'}
+    </div>
+  </div>`;
+}
+
 function detayCiz() {
   const v = D.detayVeri; if (!v) return;
   const tfler = ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1'];
@@ -419,6 +482,7 @@ function detayCiz() {
 
   const z = v.zamanDilimleri[D.detayTf];
   const bt = v.backtest;
+  const sniperHtml = sniperMatrisiHesapla(v.zamanDilimleri);
   let alt = '';
   if (z && !z.hata) {
     const yontemler = z.yontemler.map(m => {
@@ -500,7 +564,7 @@ function detayCiz() {
     </div>
     <div class="uyari">Son mum: ${new Date(z.sonMum).toLocaleString('tr-TR')} · ${z.mumSayisi} mum incelendi. Bu analiz bir karar destek aracıdır, yatırım tavsiyesi değildir. Son karar her zaman sizindir.</div>`;
   }
-  $('#dIcerik').innerHTML = `<div class="tf-ozet">${ozet}</div>${alt}`;
+  $('#dIcerik').innerHTML = `<div class="tf-ozet">${ozet}</div>${sniperHtml || ''}${alt}`;
 }
 $('#dIcerik').addEventListener('click', e => {
   const k = e.target.closest('.tf-kart[data-tf]'); if (!k) return;
