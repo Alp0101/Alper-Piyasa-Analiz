@@ -24,6 +24,13 @@ const KRIPTO_TEMEL = [
   'TAO', 'INJ', 'ATOM', 'TIA', 'FIL', 'ARB', 'OP', 'ICP', 'RUNE', 'KAS', 'PI'
 ];
 
+let KRIPTO_HAVUZ = [];
+try {
+  KRIPTO_HAVUZ = require('./veri/kripto_havuz.json');
+} catch (_) {
+  KRIPTO_HAVUZ = KRIPTO_TEMEL;
+}
+
 function sembolBilgisi(id, bistAdlari = {}) {
   if (EKSTRA[id]) return { id, ...EKSTRA[id] };
   const [borsa, kod] = id.split(':');
@@ -53,5 +60,5 @@ function varsayilanListeler() {
   };
 }
 
-module.exports = { EKSTRA, sembolBilgisi, varsayilanListeler };
+module.exports = { EKSTRA, sembolBilgisi, varsayilanListeler, KRIPTO_HAVUZ };
 

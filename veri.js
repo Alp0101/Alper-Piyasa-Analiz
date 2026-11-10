@@ -1,6 +1,6 @@
 // Veri toplayıcı: TradingView tarayıcı (hızlı tarama), Yahoo ve Binance (mum verisi)
 'use strict';
-const { EKSTRA, sembolBilgisi } = require('./semboller');
+const { EKSTRA, sembolBilgisi, KRIPTO_HAVUZ } = require('./semboller');
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' };
 const onbellek = new Map();
@@ -308,25 +308,57 @@ async function kriptoVarMi(taban) {
 
 const norm = s => String(s || '').toLocaleUpperCase('tr-TR')
   .replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C');
-const ESANLAMLI = { DOLAR: 'USD', EURO: 'EUR', AVRO: 'EUR', ONS: 'XAU', BITCOIN: 'BTC', ETHEREUM: 'ETH' };
+const ESANLAMLI = { 
+  DOLAR: 'USD', 
+  EURO: 'EUR', 
+  AVRO: 'EUR', 
+  ONS: 'XAU', 
+  BITCOIN: 'BTC', 
+  ETHEREUM: 'ETH',
+  KASPA: 'KAS',
+  RIPPLE: 'XRP',
+  CARDANO: 'ADA',
+  POLKADOT: 'DOT',
+  AVALANCHE: 'AVAX'
+};
 
 async function ara(q) {
   const s = norm(q.trim());
   if (!s) return [];
   const sonuc = [];
+  
+  // 1. Ekstra Semboller (Altın, Petrol, Döviz vb.)
   for (const [id, b] of Object.entries(EKSTRA)) {
-    if (norm(id).includes(s) || norm(b.ad).includes(s) || (ESANLAMLI[s] && id.includes(ESANLAMLI[s]))) sonuc.push({ id, ad: b.ad, tur: b.tur });
+    if (norm(id).includes(s) || norm(b.ad).includes(s) || (ESANLAMLI[s] && id.includes(ESANLAMLI[s]))) {
+      sonuc.push({ id, ad: b.ad, tur: b.tur });
+    }
   }
+
+  // 2. BIST Hisseleri
   try {
     const bist = await tumBistTara();
     bist.filter(r => norm(r.kod).startsWith(s) || norm(r.ad).includes(s))
-      .slice(0, 25).forEach(r => { if (!sonuc.find(x => x.id === r.id)) sonuc.push({ id: r.id, ad: r.ad, tur: 'bist' }); });
-  } catch (_) { /* tarayıcıya ulaşılamazsa sadece diğer sonuçlar */ }
-  const kripto = ESANLAMLI[s] && ['BTC', 'ETH'].includes(ESANLAMLI[s]) ? ESANLAMLI[s] : s;
-  if (/^[A-Z0-9]{2,10}$/.test(kripto) && await kriptoVarMi(kripto)) {
-    sonuc.push({ id: `BINANCE:${kripto}USDT`, ad: `${kripto} / USDT (Kripto)`, tur: 'kripto' });
-  }
-  return sonuc.slice(0, 40);
+      .slice(0, 20).forEach(r => { 
+        if (!sonuc.find(x => x.id === r.id)) sonuc.push({ id: r.id, ad: r.ad, tur: 'bist' }); 
+      });
+  } catch (_) {}
+
+  // 3. Devasa Binance ve OKX Kripto Havuzu (540+ Coin)
+  const arananKripto = ESANLAMLI[s] || s;
+  const kriptoAdaylari = (KRIPTO_HAVUZ || []).filter(c => norm(c).includes(arananKripto));
+
+  kriptoAdaylari.slice(0, 25).forEach(c => {
+    const sembolId = (c === 'PI') ? 'GATE:PIUSDT' : `BINANCE:${c}USDT`;
+    if (!sonuc.find(x => x.id === sembolId)) {
+      sonuc.push({
+        id: sembolId,
+        ad: `${c} / USDT (Binance & OKX Kripto)`,
+        tur: 'kripto'
+      });
+    }
+  });
+
+  return sonuc.slice(0, 45);
 }
 
 module.exports = { tumBistTara, sembolleriTara, bistAdlari, mumSetleri, benchSetleri, ara };
