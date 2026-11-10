@@ -62,16 +62,10 @@ function yetkiKontrol(req, res) {
   return false;
 }
 
-// Korunan (veri değiştiren) uç noktalar
+// Korunan (yalnızca ana sunucu izleme listelerini kalıcı değiştiren işlemler)
 const KORUNAN = new Set([
   'POST /api/listeler',
   'POST /api/listeler/varsayilan',
-  'POST /api/demo/al',
-  'POST /api/demo/sat',
-  'POST /api/demo/sifirla',
-  'POST /api/alarm/ekle',
-  'POST /api/alarm/sil',
-  'POST /api/alarm/kontrol',
   'POST /api/yonetici/dogrula',
 ]);
 const korunanMi = (method, p) => KORUNAN.has(`${method} ${p}`);

@@ -45,7 +45,7 @@ async function api(yol, ayar = {}, tekrar = true) {
   const j = await r.json().catch(() => ({}));
   if (r.status === 401) {
     if (s) { localStorage.removeItem(YONETICI_ANAHTAR); yoneticiDurumCiz(); }
-    if (tekrar && !sessiz && await yoneticiGiris(j.hata)) return api(yol, ayar, false);
+    return { hata: 'Yetkisiz işlem' };
   }
   if (!r.ok) throw new Error(j.hata || ('Sunucu hatası ' + r.status));
   return j;
