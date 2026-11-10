@@ -133,7 +133,8 @@
     </div>
     <div class="detay-butonlar">
       <button id="dAlarmBtn" class="btn ikincil" title="Bu hisseye fiyat alarmı kur">🔔 Alarm Kur</button>
-      <button id="dDemoAlBtn" class="btn" style="background:#10b981; font-weight:bold;">🛒 Demo Al</button>
+      <button id="dDemoAlBtn" class="btn" style="background:#10b981; font-weight:bold;" title="Yükseliş beklentisiyle Long pozisyon aç">🟢 Long (Al)</button>
+      <button id="dDemoSatBtn" class="btn" style="background:#ef4444; font-weight:bold;" title="Düşüş beklentisiyle Short / Açığa Satış pozisyonu aç">🔴 Short (Sat)</button>
       <a id="dTv" class="btn ikincil" target="_blank" rel="noopener">📈 TradingView'de aç</a>
       <button id="dFavori" class="btn ikincil">⭐ Favorilere ekle</button>
       <button id="dKapat" class="btn">✖ Kapat</button>
@@ -142,12 +143,12 @@
   <div id="dIcerik" class="detay-icerik"></div>
 </section>
 
-<!-- Demo Alım Emir Penceresi -->
+<!-- Demo Alım / Satım Emir Penceresi (LONG / SHORT) -->
 <section id="demoEmirModal" class="detay gizli" style="max-width: 500px; height: auto; max-height: 90vh; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
   <div class="detay-ust">
     <div>
-      <div id="emirBaslik" class="d-ad">🎯 Demo Alım Emri</div>
-      <div id="emirSembolAd" class="d-alt">Seviyelerinizi belirleyin</div>
+      <div id="emirBaslik" class="d-ad">🎯 Demo Pozisyon Aç</div>
+      <div id="emirSembolAd" class="d-alt">Yönünüzü ve seviyelerinizi belirleyin</div>
     </div>
     <div class="detay-butonlar">
       <button id="emirKapatBtn" class="btn">✖</button>
@@ -155,8 +156,14 @@
   </div>
   <div class="detay-icerik" style="padding: 16px 20px;">
     <div style="display:flex; flex-direction:column; gap:12px;">
+      <!-- İşlem Yönü Seçimi (Long / Short) -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+        <button id="emirYonLongBtn" type="button" class="btn" style="background:#10b981; font-weight:bold; padding:8px;">🟢 LONG (Alış / Yükseliş)</button>
+        <button id="emirYonShortBtn" type="button" class="btn ikincil" style="font-weight:bold; padding:8px;">🔴 SHORT (Satış / Düşüş)</button>
+      </div>
+
       <div>
-        <label class="kucuk">Alış Fiyatı (TL / $)</label>
+        <label id="emirFiyatEtiket" class="kucuk">Giriş Fiyatı (TL / $)</label>
         <input type="number" step="any" id="emirAlisFiyat" style="width:100%; font-size:16px; font-weight:bold; color:#10b981; margin-top:4px;">
       </div>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -165,17 +172,34 @@
           <input type="number" step="any" id="emirAdet" style="width:100%; font-size:15px; margin-top:4px;" value="1">
         </div>
         <div>
-          <label class="kucuk">Toplam Tutar</label>
+          <label class="kucuk">Pozisyon Büyüklüğü</label>
           <div id="emirToplamTutar" style="font-size:15px; font-weight:bold; margin-top:10px; color:#f1f5f9;">—</div>
         </div>
       </div>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
         <div>
-          <label class="kucuk" style="color:#ef4444;">🛑 Zarar-Kes (Stop)</label>
+          <label class="kucuk">Kaldıraç (Forex / Kripto)</label>
+          <select id="emirKaldirac" style="width:100%; font-size:14px; margin-top:4px; padding:6px; background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:6px;">
+            <option value="1">1x (Spot / Kaldıraçsız)</option>
+            <option value="2">2x Kaldıraç</option>
+            <option value="3">3x Kaldıraç</option>
+            <option value="5">5x Kaldıraç</option>
+            <option value="10">10x Kaldıraç</option>
+            <option value="20">20x Kaldıraç</option>
+          </select>
+        </div>
+        <div>
+          <label class="kucuk">Ayrılan Teminat (Nakit)</label>
+          <div id="emirTeminatTutar" style="font-size:15px; font-weight:bold; margin-top:10px; color:#38bdf8;">—</div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <label id="emirStopEtiket" class="kucuk" style="color:#ef4444;">🛑 Zarar-Kes (Stop)</label>
           <input type="number" step="any" id="emirStopFiyat" style="width:100%; border-color:#ef444466; margin-top:4px;">
         </div>
         <div>
-          <label class="kucuk" style="color:#10b981;">🎯 Kâr Al (Hedef)</label>
+          <label id="emirHedefEtiket" class="kucuk" style="color:#10b981;">🎯 Kâr Al (Hedef)</label>
           <input type="number" step="any" id="emirHedefFiyat" style="width:100%; border-color:#10b98166; margin-top:4px;">
         </div>
       </div>

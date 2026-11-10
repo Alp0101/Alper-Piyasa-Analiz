@@ -467,11 +467,21 @@ function analizEt(setler, benchSet, bilgi) {
     const balina = balinaAnalizi(d);
 
     const c = son(d.c), a = son(d.atr) || c * 0.01, hs = fiyatHassasiyet(c);
+    // Long (Alım / Yükseliş) Seviyeleri
     let stop = Math.min(c - 1.5 * a, (sv.destek ?? c) - 0.3 * a);
     stop = Math.max(stop, c - 3 * a);
     const risk = c - stop;
     let hedef = sv.direnc && sv.direnc - c > risk * 1.2 ? sv.direnc : c + 2 * risk;
     const hedef2 = sv.direnc2 && sv.direnc2 > hedef ? sv.direnc2 : c + 3 * risk;
+
+    // Short (Satış / Açığa / Düşüş) Seviyeleri (Kripto, Emtia ve Forex için)
+    let satisStop = Math.max(c + 1.5 * a, (sv.direnc ?? c) + 0.3 * a);
+    satisStop = Math.min(satisStop, c + 3 * a);
+    const satisRisk = Math.max(satisStop - c, a * 0.5);
+    let satisHedef = sv.destek && c - sv.destek > satisRisk * 1.2 ? sv.destek : c - 2 * satisRisk;
+    if (satisHedef <= 0) satisHedef = c * 0.5;
+    let satisHedef2 = sv.destek2 && sv.destek2 < satisHedef ? sv.destek2 : c - 3 * satisRisk;
+    if (satisHedef2 <= 0) satisHedef2 = c * 0.3;
 
     // Fibonacci Seviyelerini Hassasiyete Göre Yuvarla
     const fibSeviyeleri = sv.fib ? {
@@ -496,6 +506,8 @@ function analizEt(setler, benchSet, bilgi) {
         direnc: yuvarla(sv.direnc, hs), direnc2: yuvarla(sv.direnc2, hs), atr: yuvarla(a, hs),
         alimStop: yuvarla(stop, hs), alimHedef: yuvarla(hedef, hs), alimHedef2: yuvarla(hedef2, hs),
         riskOdul: yuvarla((hedef - c) / risk, 2),
+        satisStop: yuvarla(satisStop, hs), satisHedef: yuvarla(satisHedef, hs), satisHedef2: yuvarla(satisHedef2, hs),
+        satisRiskOdul: yuvarla((c - satisHedef) / satisRisk, 2),
       },
       fibonacci: fibSeviyeleri,
       rsi: yuvarla(son(d.rsi), 1),

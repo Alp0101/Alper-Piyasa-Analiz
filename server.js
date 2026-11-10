@@ -192,7 +192,7 @@ const sunucu = http.createServer(async (req, res) => {
     }
     if (p === '/api/demo/al' && req.method === 'POST') {
       const g = await govdeOku(req);
-      const sonuc = Demo.demoAl(g.sembol, g.ad, g.fiyat, g.adet, g.stopFiyat, g.hedefFiyat);
+      const sonuc = Demo.demoAl(g.sembol, g.ad, g.fiyat, g.adet, g.stopFiyat, g.hedefFiyat, g.yon, g.kaldirac);
       return gonder(res, 200, sonuc);
     }
     if (p === '/api/demo/sat' && req.method === 'POST') {

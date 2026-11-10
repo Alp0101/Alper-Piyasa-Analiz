@@ -29,12 +29,17 @@ function portfoyOku() {
       p.bakiyeUSD = VARSAYILAN_USD_KASA;
       p.baslangicUSD = VARSAYILAN_USD_KASA;
     }
-    // Pozisyonlarda para birimi eksikse ekle
+    // Pozisyonlarda para birimi ve yön eksikse tamamla
     (p.acikPozisyonlar || []).forEach(poz => {
       if (!poz.paraBirimi) poz.paraBirimi = paraBirimiAl(poz.sembol);
+      if (!poz.yon) poz.yon = 'LONG';
+      if (!poz.kaldirac) poz.kaldirac = 1;
+      if (!poz.teminat) poz.teminat = poz.tutar || +(poz.adet * poz.alisFiyat).toFixed(2);
     });
     (p.kapananIslemler || []).forEach(k => {
       if (!k.paraBirimi) k.paraBirimi = paraBirimiAl(k.sembol);
+      if (!k.yon) k.yon = 'LONG';
+      if (!k.kaldirac) k.kaldirac = 1;
       if (k.karZarar == null) k.karZarar = k.karZararTL || 0;
     });
     onbellekPortfoy = p;
@@ -87,35 +92,46 @@ async function buluttanYukle() {
 }
 buluttanYukle();
 
-// Demo Alım İşlemi (Varlığın para birimine göre TL veya USD kasasından düşer)
-function demoAl(sembolId, ad, fiyat, adet, stopFiyat = null, hedefFiyat = null) {
+// Demo Alım / Satım (LONG / SHORT) İşlemi
+// - Varlığın para birimine göre TL veya USD kasasından teminat düşer.
+// - Kripto ve Emtia/Forex için SHORT (düşüşten kazanma) ve kaldıraç (1x-20x) tam desteklenir.
+function demoAl(sembolId, ad, fiyat, adet, stopFiyat = null, hedefFiyat = null, yon = 'LONG', kaldirac = 1) {
   if (!fiyat || fiyat <= 0 || !adet || adet <= 0) throw new Error('Geçersiz fiyat veya adet.');
+  
+  const isShort = String(yon).toUpperCase() === 'SHORT';
+  const yonStr = isShort ? 'SHORT' : 'LONG';
+  const kOran = Math.max(1, Math.min(20, Math.floor(Number(kaldirac) || 1)));
+
   const tutar = +(fiyat * adet).toFixed(2);
+  const teminat = +(tutar / kOran).toFixed(2);
   const p = portfoyOku();
   const birim = paraBirimiAl(sembolId);
 
   if (birim === '$') {
-    if ((p.bakiyeUSD || 0) < tutar) {
-      throw new Error(`Yetersiz USD sanal bakiye! Gerekli: ${tutar.toLocaleString('tr-TR')} $, Mevcut Bakiye: ${(p.bakiyeUSD || 0).toLocaleString('tr-TR')} $`);
+    if ((p.bakiyeUSD || 0) < teminat) {
+      throw new Error(`Yetersiz USD sanal bakiye! Gerekli Teminat: ${teminat.toLocaleString('tr-TR')} $, Mevcut Bakiye: ${(p.bakiyeUSD || 0).toLocaleString('tr-TR')} $`);
     }
-    p.bakiyeUSD = +(p.bakiyeUSD - tutar).toFixed(2);
+    p.bakiyeUSD = +(p.bakiyeUSD - teminat).toFixed(2);
   } else {
-    if ((p.bakiyeTL || 0) < tutar) {
-      throw new Error(`Yetersiz TL sanal bakiye! Gerekli: ${tutar.toLocaleString('tr-TR')} TL, Mevcut Bakiye: ${(p.bakiyeTL || 0).toLocaleString('tr-TR')} TL`);
+    if ((p.bakiyeTL || 0) < teminat) {
+      throw new Error(`Yetersiz TL sanal bakiye! Gerekli Teminat: ${teminat.toLocaleString('tr-TR')} TL, Mevcut Bakiye: ${(p.bakiyeTL || 0).toLocaleString('tr-TR')} TL`);
     }
-    p.bakiyeTL = +(p.bakiyeTL - tutar).toFixed(2);
+    p.bakiyeTL = +(p.bakiyeTL - teminat).toFixed(2);
   }
 
   const poz = {
     id: 'poz-' + Date.now(),
     sembol: sembolId,
     ad: ad || sembolId.split(':')[1],
+    yon: yonStr,
+    kaldirac: kOran,
     adet: +adet,
     alisFiyat: +fiyat,
     paraBirimi: birim,
     alisTarih: new Date().toISOString(),
     stopFiyat: stopFiyat ? +stopFiyat : null,
     hedefFiyat: hedefFiyat ? +hedefFiyat : null,
+    teminat,
     tutar
   };
 
@@ -124,7 +140,7 @@ function demoAl(sembolId, ad, fiyat, adet, stopFiyat = null, hedefFiyat = null) 
   return { basarili: true, poz, bakiyeTL: p.bakiyeTL, bakiyeUSD: p.bakiyeUSD };
 }
 
-// Demo Satım (Pozisyon Kapatma - Varlığın kendi para birimine iade eder)
+// Demo Pozisyon Kapatma (LONG veya SHORT pozisyonu sonlandırır ve kâr/zararı hesaba yansıtır)
 function demoSat(pozId, satisFiyat, sebep = 'manuel') {
   if (!satisFiyat || satisFiyat <= 0) throw new Error('Geçersiz satış fiyatı.');
   const p = portfoyOku();
@@ -133,15 +149,21 @@ function demoSat(pozId, satisFiyat, sebep = 'manuel') {
 
   const poz = p.acikPozisyonlar[idx];
   const birim = poz.paraBirimi || paraBirimiAl(poz.sembol);
-  const satisTutar = +(poz.adet * satisFiyat).toFixed(2);
-  const alisTutar = +(poz.adet * poz.alisFiyat).toFixed(2);
-  const karZarar = +(satisTutar - alisTutar).toFixed(2);
-  const karZararYuzde = +(((satisFiyat - poz.alisFiyat) / poz.alisFiyat) * 100).toFixed(2);
+  const isShort = poz.yon === 'SHORT';
+  const teminat = poz.teminat || +(poz.adet * poz.alisFiyat).toFixed(2);
+
+  // LONG: Fiyat artınca kâr | SHORT: Fiyat düşünce kâr
+  const fiyatFarki = isShort ? (poz.alisFiyat - satisFiyat) : (satisFiyat - poz.alisFiyat);
+  const karZarar = +(fiyatFarki * poz.adet).toFixed(2);
+  const karZararYuzde = teminat > 0 ? +((karZarar / teminat) * 100).toFixed(2) : 0;
+
+  // İade edilen teminat + net kâr/zarar (en az 0, bakiye eksiye inemez)
+  const iadeTutar = Math.max(0, +(teminat + karZarar).toFixed(2));
 
   if (birim === '$') {
-    p.bakiyeUSD = +(p.bakiyeUSD + satisTutar).toFixed(2);
+    p.bakiyeUSD = +( (p.bakiyeUSD || 0) + iadeTutar ).toFixed(2);
   } else {
-    p.bakiyeTL = +(p.bakiyeTL + satisTutar).toFixed(2);
+    p.bakiyeTL = +( (p.bakiyeTL || 0) + iadeTutar ).toFixed(2);
   }
   p.acikPozisyonlar.splice(idx, 1);
 
@@ -149,12 +171,15 @@ function demoSat(pozId, satisFiyat, sebep = 'manuel') {
     id: poz.id,
     sembol: poz.sembol,
     ad: poz.ad,
+    yon: poz.yon || 'LONG',
+    kaldirac: poz.kaldirac || 1,
     adet: poz.adet,
     alisFiyat: poz.alisFiyat,
     satisFiyat: +satisFiyat,
     paraBirimi: birim,
     alisTarih: poz.alisTarih,
     satisTarih: new Date().toISOString(),
+    teminat,
     karZarar,
     karZararYuzde,
     sebep
@@ -187,16 +212,24 @@ function portfoyOzet(fiyatHaritasi = {}) {
 
   const pozisyonlar = p.acikPozisyonlar.map(poz => {
     const birim = poz.paraBirimi || paraBirimiAl(poz.sembol);
+    const isShort = poz.yon === 'SHORT';
     const anlikFiyat = fiyatHaritasi[poz.sembol] || poz.alisFiyat;
-    const anlikTutar = +(poz.adet * anlikFiyat).toFixed(2);
-    const karZarar = +(anlikTutar - (poz.adet * poz.alisFiyat)).toFixed(2);
-    const karZararYuzde = +(((anlikFiyat - poz.alisFiyat) / poz.alisFiyat) * 100).toFixed(2);
+    const teminat = poz.teminat || +(poz.adet * poz.alisFiyat).toFixed(2);
+
+    // LONG: Fiyat artarsa kâr | SHORT: Fiyat düşerse kâr
+    const fiyatFarki = isShort ? (poz.alisFiyat - anlikFiyat) : (anlikFiyat - poz.alisFiyat);
+    const karZarar = +(fiyatFarki * poz.adet).toFixed(2);
+    const karZararYuzde = teminat > 0 ? +((karZarar / teminat) * 100).toFixed(2) : 0;
+    const anlikTutar = Math.max(0, +(teminat + karZarar).toFixed(2));
 
     if (birim === '$') hisseDegeriUSD += anlikTutar;
     else hisseDegeriTL += anlikTutar;
 
     return {
       ...poz,
+      yon: poz.yon || 'LONG',
+      kaldirac: poz.kaldirac || 1,
+      teminat,
       paraBirimi: birim,
       anlikFiyat: +anlikFiyat,
       anlikTutar,

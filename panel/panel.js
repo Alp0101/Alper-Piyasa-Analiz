@@ -649,12 +649,17 @@ function detayCiz() {
           <div class="seviye-satir"><span>Ortalama mum oynaklığı (ATR)</span><b>${sayi(s.atr)}</b></div>
         </div>
         <div class="kutu">
-          <h4>🎯 Alım yapılırsa örnek plan</h4>
+          <h4>🎯 Long & Short Örnek Planları</h4>
+          <div style="font-weight:bold; color:#10b981; font-size:12px; margin-top:4px;">🟢 Long (Alış) Planı:</div>
           <div class="seviye-satir"><span>Zarar-kes (stop)</span><b class="eks">${sayi(s.alimStop)}</b></div>
           <div class="seviye-satir"><span>1. Hedef</span><b class="art">${sayi(s.alimHedef)}</b></div>
-          <div class="seviye-satir"><span>2. Hedef</span><b class="art">${sayi(s.alimHedef2)}</b></div>
-          <div class="seviye-satir"><span>Risk / Kazanç oranı</span><b>1 : ${sayi(s.riskOdul, 2)}</b></div>
-          <div class="uyari">Zarar-kes seviyesi piyasanın oynaklığına (ATR) ve en yakın desteğe göre hesaplanır. ${z.yonKod <= 0 ? '<b style="color:#f97316">Bu zaman diliminde yön olumlu değil, plan sadece bilgi amaçlıdır.</b>' : ''}</div>
+          <div class="seviye-satir"><span>Risk / Kazanç</span><b>1 : ${sayi(s.riskOdul, 2)}</b></div>
+
+          <div style="font-weight:bold; color:#ef4444; font-size:12px; margin-top:10px;">🔴 Short (Açığa Satış) Planı:</div>
+          <div class="seviye-satir"><span>Zarar-kes (stop)</span><b class="eks">${sayi(s.satisStop || '—')}</b></div>
+          <div class="seviye-satir"><span>1. Hedef</span><b class="art">${sayi(s.satisHedef || '—')}</b></div>
+          <div class="seviye-satir"><span>Risk / Kazanç</span><b>1 : ${sayi(s.satisRiskOdul || '—', 2)}</b></div>
+          <div class="uyari">Seviyeler oynaklık (ATR), destek ve dirençlere göre otomatik türetilir.</div>
         </div>
         ${fibHtml}
         ${btHtml}
@@ -784,9 +789,14 @@ function demoYerelOku() {
       }
       (p.acikPozisyonlar || []).forEach(poz => {
         if (!poz.paraBirimi) poz.paraBirimi = paraBirimiAl(poz.sembol);
+        if (!poz.yon) poz.yon = 'LONG';
+        if (!poz.kaldirac) poz.kaldirac = 1;
+        if (!poz.teminat) poz.teminat = poz.tutar || +(poz.adet * poz.alisFiyat).toFixed(2);
       });
       (p.kapananIslemler || []).forEach(k => {
         if (!k.paraBirimi) k.paraBirimi = paraBirimiAl(k.sembol);
+        if (!k.yon) k.yon = 'LONG';
+        if (!k.kaldirac) k.kaldirac = 1;
         if (k.karZarar == null) k.karZarar = k.karZararTL || 0;
       });
       return p;
@@ -830,16 +840,22 @@ async function demoPortfoyYukle() {
 
     const pozisyonlar = (yerel.acikPozisyonlar || []).map(poz => {
       const birim = poz.paraBirimi || paraBirimiAl(poz.sembol);
+      const isShort = poz.yon === 'SHORT';
       const anlikFiyat = fiyatHaritasi[poz.sembol] || poz.alisFiyat;
-      const anlikTutar = +(poz.adet * anlikFiyat).toFixed(2);
-      const karZarar = +(anlikTutar - (poz.adet * poz.alisFiyat)).toFixed(2);
-      const karZararYuzde = +(((anlikFiyat - poz.alisFiyat) / poz.alisFiyat) * 100).toFixed(2);
+      const teminat = poz.teminat || +(poz.adet * poz.alisFiyat).toFixed(2);
+      const fiyatFarki = isShort ? (poz.alisFiyat - anlikFiyat) : (anlikFiyat - poz.alisFiyat);
+      const karZarar = +(fiyatFarki * poz.adet).toFixed(2);
+      const karZararYuzde = teminat > 0 ? +((karZarar / teminat) * 100).toFixed(2) : 0;
+      const anlikTutar = Math.max(0, +(teminat + karZarar).toFixed(2));
 
       if (birim === '$') hisseDegeriUSD += anlikTutar;
       else hisseDegeriTL += anlikTutar;
 
       return {
         ...poz,
+        yon: poz.yon || 'LONG',
+        kaldirac: poz.kaldirac || 1,
+        teminat,
         paraBirimi: birim,
         anlikFiyat: +anlikFiyat,
         anlikTutar,
@@ -926,9 +942,14 @@ function demoPortfoyCiz() {
           ${aciklar.map(poz => {
             const birim = poz.paraBirimi || '₺';
             const karRenk = poz.karZarar >= 0 ? 'art' : 'eks';
+            const isShort = poz.yon === 'SHORT';
+            const kStr = poz.kaldirac > 1 ? ` ${poz.kaldirac}x` : '';
+            const yonRozet = isShort 
+              ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🔴 SHORT${kStr}</span>` 
+              : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🟢 LONG${kStr}</span>`;
             return `
             <tr>
-              <td><b>${esc(poz.sembol.split(':')[1])}</b> <small class="kucuk">${esc(poz.ad)}</small></td>
+              <td><b>${esc(poz.sembol.split(':')[1])}</b>${yonRozet} <small class="kucuk">${esc(poz.ad)}</small></td>
               <td class="sag">${poz.adet}</td>
               <td class="sag">${sayi(poz.alisFiyat)} ${birim}</td>
               <td class="sag">${sayi(poz.anlikFiyat)} ${birim}</td>
@@ -943,7 +964,7 @@ function demoPortfoyCiz() {
                 </span>
               </td>
               <td class="sag ${karRenk}"><b>${poz.karZarar >= 0 ? '+' : ''}${sayi(poz.karZarar, 2)} ${birim}</b> (%${sayi(poz.karZararYuzde, 2)})</td>
-              <td class="orta"><button class="btn tehlike" style="padding:3px 8px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat (Sat)</button></td>
+              <td class="orta"><button class="btn tehlike" style="padding:3px 8px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Pozisyonu Kapat</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -959,9 +980,9 @@ function demoPortfoyCiz() {
       <table style="width:100%;">
         <thead>
           <tr>
-            <th>Sembol</th>
+            <th>Sembol & Yön</th>
             <th class="sag">Adet</th>
-            <th class="sag">Alış ➔ Satış</th>
+            <th class="sag">Giriş ➔ Çıkış</th>
             <th class="sag">Net Sonuç</th>
             <th class="sag">Tarih</th>
           </tr>
@@ -971,9 +992,14 @@ function demoPortfoyCiz() {
             const birim = k.paraBirimi || '₺';
             const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
             const karRenk = netSonuc >= 0 ? 'art' : 'eks';
+            const isShort = k.yon === 'SHORT';
+            const kStr = k.kaldirac > 1 ? ` ${k.kaldirac}x` : '';
+            const yonRozet = isShort 
+              ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
+              : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
             return `
             <tr>
-              <td><b>${esc(k.sembol.split(':')[1])}</b></td>
+              <td><b>${esc(k.sembol.split(':')[1])}</b>${yonRozet}</td>
               <td class="sag">${k.adet}</td>
               <td class="sag">${sayi(k.alisFiyat)} ${birim} ➔ ${sayi(k.satisFiyat)} ${birim}</td>
               <td class="sag ${karRenk}"><b>${netSonuc >= 0 ? '+' : ''}${sayi(netSonuc, 2)} ${birim}</b> (%${sayi(k.karZararYuzde, 2)})</td>
@@ -1005,22 +1031,26 @@ window.demoSeviyeDuzenle = (pozId, tur, mevcutDeger) => {
 };
 
 window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
-  if (!confirm('Bu pozisyonu güncel fiyattan kapatmak (satmak) istediğinize emin misiniz?')) return;
+  if (!confirm('Bu pozisyonu güncel fiyattan kapatmak istediğinize emin misiniz?')) return;
   try {
     const p = demoYerelOku();
     const idx = p.acikPozisyonlar.findIndex(x => x.id === pozId);
     if (idx !== -1) {
       const poz = p.acikPozisyonlar[idx];
       const birim = poz.paraBirimi || paraBirimiAl(poz.sembol);
-      const satisTutar = +(poz.adet * guncelFiyat).toFixed(2);
-      const alisTutar = +(poz.adet * poz.alisFiyat).toFixed(2);
-      const karZarar = +(satisTutar - alisTutar).toFixed(2);
-      const karZararYuzde = +(((guncelFiyat - poz.alisFiyat) / poz.alisFiyat) * 100).toFixed(2);
+      const isShort = poz.yon === 'SHORT';
+      const teminat = poz.teminat || +(poz.adet * poz.alisFiyat).toFixed(2);
+
+      // LONG: Fiyat artınca kâr | SHORT: Fiyat düşünce kâr
+      const fiyatFarki = isShort ? (poz.alisFiyat - guncelFiyat) : (guncelFiyat - poz.alisFiyat);
+      const karZarar = +(fiyatFarki * poz.adet).toFixed(2);
+      const karZararYuzde = teminat > 0 ? +((karZarar / teminat) * 100).toFixed(2) : 0;
+      const iadeTutar = Math.max(0, +(teminat + karZarar).toFixed(2));
 
       if (birim === '$') {
-        p.bakiyeUSD = +( (p.bakiyeUSD || VARSAYILAN_USD_KASA) + satisTutar ).toFixed(2);
+        p.bakiyeUSD = +( (p.bakiyeUSD || VARSAYILAN_USD_KASA) + iadeTutar ).toFixed(2);
       } else {
-        p.bakiyeTL = +( (p.bakiyeTL || VARSAYILAN_TL_KASA) + satisTutar ).toFixed(2);
+        p.bakiyeTL = +( (p.bakiyeTL || VARSAYILAN_TL_KASA) + iadeTutar ).toFixed(2);
       }
 
       p.acikPozisyonlar.splice(idx, 1);
@@ -1029,17 +1059,20 @@ window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
         id: poz.id,
         sembol: poz.sembol,
         ad: poz.ad,
+        yon: poz.yon || 'LONG',
+        kaldirac: poz.kaldirac || 1,
         adet: poz.adet,
         alisFiyat: poz.alisFiyat,
         satisFiyat: +guncelFiyat,
         paraBirimi: birim,
         satisTarih: new Date().toISOString(),
+        teminat,
         karZarar,
         karZararYuzde,
         sebep: 'manuel'
       });
       demoYerelKaydet(p);
-      bildir(`Pozisyon kapatıldı! Sonuç: ${karZarar >= 0 ? '+' : ''}${sayi(karZarar, 2)} ${birim}`);
+      bildir(`✅ Pozisyon kapatıldı! Sonuç: ${karZarar >= 0 ? '+' : ''}${sayi(karZarar, 2)} ${birim}`);
     }
 
     api('/api/demo/sat', {
@@ -1080,7 +1113,53 @@ $('#demoSifirlaBtn').onclick = async () => {
   await demoPortfoyYukle();
 };
 
-$('#dDemoAlBtn').onclick = () => {
+let aktifEmirYonu = 'LONG';
+
+function emirYonAyarla(yon) {
+  aktifEmirYonu = (yon === 'SHORT') ? 'SHORT' : 'LONG';
+  const v = D.detayVeri;
+  const birim = v ? paraBirimiAl(v.sembol) : '₺';
+  const z = v ? (v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1) : null;
+
+  if (aktifEmirYonu === 'LONG') {
+    $('#emirYonLongBtn').style.background = '#10b981';
+    $('#emirYonLongBtn').style.color = '#ffffff';
+    $('#emirYonLongBtn').classList.remove('ikincil');
+    $('#emirYonShortBtn').style.background = 'transparent';
+    $('#emirYonShortBtn').style.color = '#94a3b8';
+    $('#emirYonShortBtn').classList.add('ikincil');
+
+    $('#emirBaslik').textContent = `🟢 Demo Long (Alış) Emri (${birim})`;
+    $('#emirFiyatEtiket').textContent = `Alış Fiyatı (${birim})`;
+    $('#emirStopEtiket').innerHTML = `🛑 Zarar-Kes (Stop) <small style="color:#94a3b8;">[Fiyatın Altı]</small>`;
+    $('#emirHedefEtiket').innerHTML = `🎯 Kâr Al (Hedef) <small style="color:#94a3b8;">[Fiyatın Üstü]</small>`;
+    $('#emirOnaylaBtn').style.background = '#10b981';
+    $('#emirOnaylaBtn').textContent = `🟢 LONG Pozisyon Aç (Yükseliş)`;
+
+    if (z?.seviyeler?.alimStop) $('#emirStopFiyat').value = z.seviyeler.alimStop;
+    if (z?.seviyeler?.alimHedef) $('#emirHedefFiyat').value = z.seviyeler.alimHedef;
+  } else {
+    $('#emirYonShortBtn').style.background = '#ef4444';
+    $('#emirYonShortBtn').style.color = '#ffffff';
+    $('#emirYonShortBtn').classList.remove('ikincil');
+    $('#emirYonLongBtn').style.background = 'transparent';
+    $('#emirYonLongBtn').style.color = '#94a3b8';
+    $('#emirYonLongBtn').classList.add('ikincil');
+
+    $('#emirBaslik').textContent = `🔴 Demo Short (Satış / Düşüş) Emri (${birim})`;
+    $('#emirFiyatEtiket').textContent = `Satış (Giriş) Fiyatı (${birim})`;
+    $('#emirStopEtiket').innerHTML = `🛑 Zarar-Kes (Stop) <small style="color:#94a3b8;">[Fiyatın Üstü]</small>`;
+    $('#emirHedefEtiket').innerHTML = `🎯 Kâr Al (Hedef) <small style="color:#94a3b8;">[Fiyatın Altı]</small>`;
+    $('#emirOnaylaBtn').style.background = '#ef4444';
+    $('#emirOnaylaBtn').textContent = `🔴 SHORT (Açığa Satış) Aç (Düşüş)`;
+
+    if (z?.seviyeler?.satisStop) $('#emirStopFiyat').value = z.seviyeler.satisStop;
+    if (z?.seviyeler?.satisHedef) $('#emirHedefFiyat').value = z.seviyeler.satisHedef;
+  }
+  emirHesapla();
+}
+
+function emirModaliAc(yon = 'LONG') {
   const v = D.detayVeri;
   if (!v) return;
   const z = v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1;
@@ -1102,17 +1181,23 @@ $('#dDemoAlBtn').onclick = () => {
     varsayilanAdet = Math.max(1, Math.round(varsayilanAdet));
   }
 
-  $('#emirBaslik').textContent = `🎯 Demo Alım Emri (${birim})`;
   $('#emirSembolAd').textContent = `${v.sembol.split(':')[1]} · ${v.ad} (Para Birimi: ${birim})`;
   $('#emirAlisFiyat').value = f;
   $('#emirAdet').value = varsayilanAdet;
-  $('#emirStopFiyat').value = z.seviyeler.alimStop || '';
-  $('#emirHedefFiyat').value = z.seviyeler.alimHedef || '';
+  if ($('#emirKaldirac')) $('#emirKaldirac').value = '1';
 
-  emirHesapla();
+  emirYonAyarla(yon);
+
   $('#perde').classList.remove('gizli');
   $('#demoEmirModal').classList.remove('gizli');
-};
+}
+
+$('#dDemoAlBtn').onclick = () => emirModaliAc('LONG');
+$('#dDemoSatBtn').onclick = () => emirModaliAc('SHORT');
+
+$('#emirYonLongBtn').onclick = () => emirYonAyarla('LONG');
+$('#emirYonShortBtn').onclick = () => emirYonAyarla('SHORT');
+if ($('#emirKaldirac')) $('#emirKaldirac').onchange = emirHesapla;
 
 function emirHesapla() {
   const v = D.detayVeri;
@@ -1121,14 +1206,35 @@ function emirHesapla() {
   const adet = parseFloat($('#emirAdet').value) || 0;
   const stop = parseFloat($('#emirStopFiyat').value) || 0;
   const hedef = parseFloat($('#emirHedefFiyat').value) || 0;
+  const kOran = parseInt($('#emirKaldirac')?.value) || 1;
 
   const tutar = +(f * adet).toFixed(2);
+  const teminat = +(tutar / kOran).toFixed(2);
   $('#emirToplamTutar').textContent = `${sayi(tutar, 2)} ${birim}`;
+  if ($('#emirTeminatTutar')) {
+    $('#emirTeminatTutar').textContent = `${sayi(teminat, 2)} ${birim} (${kOran}x)`;
+  }
 
-  if (f > 0 && stop > 0 && hedef > 0 && f > stop && hedef > f) {
-    const risk = +( (f - stop) * adet ).toFixed(2);
-    const kazanc = +( (hedef - f) * adet ).toFixed(2);
-    const rr = (hedef - f) / (f - stop);
+  const isShort = aktifEmirYonu === 'SHORT';
+  let risk = 0, kazanc = 0, rr = 0, gecerli = false;
+
+  if (isShort) {
+    if (f > 0 && stop > 0 && hedef > 0 && stop > f && f > hedef) {
+      risk = +( (stop - f) * adet ).toFixed(2);
+      kazanc = +( (f - hedef) * adet ).toFixed(2);
+      rr = (f - hedef) / (stop - f);
+      gecerli = true;
+    }
+  } else {
+    if (f > 0 && stop > 0 && hedef > 0 && f > stop && hedef > f) {
+      risk = +( (f - stop) * adet ).toFixed(2);
+      kazanc = +( (hedef - f) * adet ).toFixed(2);
+      rr = (hedef - f) / (f - stop);
+      gecerli = true;
+    }
+  }
+
+  if (gecerli) {
     $('#emirRiskOdul').textContent = `1 : ${sayi(rr, 2)}`;
     $('#emirOlasiKarZarar').innerHTML = `<span class="art">+${sayi(kazanc, 2)} ${birim}</span> / <span class="eks">-${sayi(risk, 2)} ${birim}</span>`;
   } else {
@@ -1153,25 +1259,28 @@ $('#emirOnaylaBtn').onclick = async () => {
   const adet = parseFloat($('#emirAdet').value);
   const stop = parseFloat($('#emirStopFiyat').value) || null;
   const hedef = parseFloat($('#emirHedefFiyat').value) || null;
+  const kaldirac = parseInt($('#emirKaldirac')?.value) || 1;
+  const yon = aktifEmirYonu;
 
   if (!f || f <= 0 || !adet || adet <= 0) return bildir('Lütfen geçerli bir fiyat ve adet girin.');
 
   const birim = paraBirimiAl(v.sembol);
   const tutar = +(f * adet).toFixed(2);
+  const teminat = +(tutar / kaldirac).toFixed(2);
   const p = demoYerelOku();
 
   if (birim === '$') {
     const mevcut = p.bakiyeUSD ?? VARSAYILAN_USD_KASA;
-    if (mevcut < tutar) {
-      return bildir(`Yetersiz USD bakiye! Gereken: ${sayi(tutar, 2)} $, Nakit: ${sayi(mevcut, 2)} $`);
+    if (mevcut < teminat) {
+      return bildir(`Yetersiz USD bakiye! Gereken Teminat: ${sayi(teminat, 2)} $, Nakit: ${sayi(mevcut, 2)} $`);
     }
-    p.bakiyeUSD = +(mevcut - tutar).toFixed(2);
+    p.bakiyeUSD = +(mevcut - teminat).toFixed(2);
   } else {
     const mevcut = p.bakiyeTL ?? VARSAYILAN_TL_KASA;
-    if (mevcut < tutar) {
-      return bildir(`Yetersiz TL bakiye! Gereken: ${sayi(tutar, 2)} TL, Nakit: ${sayi(mevcut, 2)} TL`);
+    if (mevcut < teminat) {
+      return bildir(`Yetersiz TL bakiye! Gereken Teminat: ${sayi(teminat, 2)} TL, Nakit: ${sayi(mevcut, 2)} TL`);
     }
-    p.bakiyeTL = +(mevcut - tutar).toFixed(2);
+    p.bakiyeTL = +(mevcut - teminat).toFixed(2);
   }
 
   p.acikPozisyonlar = p.acikPozisyonlar || [];
@@ -1179,12 +1288,15 @@ $('#emirOnaylaBtn').onclick = async () => {
     id: 'poz-' + Date.now(),
     sembol: v.sembol,
     ad: v.ad,
+    yon,
+    kaldirac,
     adet: adet,
     alisFiyat: f,
     paraBirimi: birim,
     alisTarih: new Date().toISOString(),
     stopFiyat: stop,
     hedefFiyat: hedef,
+    teminat,
     tutar
   });
   demoYerelKaydet(p);
@@ -1199,11 +1311,14 @@ $('#emirOnaylaBtn').onclick = async () => {
       fiyat: f,
       adet: adet,
       stopFiyat: stop,
-      hedefFiyat: hedef
+      hedefFiyat: hedef,
+      yon,
+      kaldirac
     })
   }).catch(() => {});
 
-  bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${sayi(f)} ${birim} seviyesinden alındı!`);
+  const yonIsim = yon === 'SHORT' ? '🔴 SHORT (Açığa Satış)' : '🟢 LONG';
+  bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} pozisyonu ${sayi(f)} ${birim} seviyesinden açıldı!`);
   $('#demoEmirModal').classList.add('gizli');
   await demoPortfoyYukle();
 };
