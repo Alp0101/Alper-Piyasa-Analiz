@@ -68,7 +68,16 @@ async function listeTara(listeId) {
     const cik = new Set(liste.cikarilanlar || []);
     satirlar = (await V.tumBistTara()).filter(r => !cik.has(r.id));
   } else if (liste.dinamik === 'kripto' || liste.id === 'kripto') {
-    satirlar = await V.tumKriptoTara();
+    const cik = new Set(liste.cikarilanlar || []);
+    let kriptolar = await V.tumKriptoTara();
+    const ozelSemboller = (liste.semboller || []).filter(id => !kriptolar.some(k => k.id === id));
+    if (ozelSemboller.length > 0) {
+      try {
+        const ekstra = await V.sembolleriTara(ozelSemboller);
+        kriptolar = [...kriptolar, ...ekstra];
+      } catch (_) {}
+    }
+    satirlar = kriptolar.filter(r => !cik.has(r.id));
   } else {
     const gelen = await V.sembolleriTara(liste.semboller);
     const m = new Map(gelen.map(r => [r.id, r]));
@@ -204,13 +213,13 @@ const sunucu = http.createServer(async (req, res) => {
             aciklama: `Hacim yüksek ancak RSI aşırı şişti (${rsi4h.toFixed(0)}). Tepede mal devri ve düzeltme riski!`
           });
         }
-        // 3. Sessiz Toplama: Fiyat yatay (% -2.0 ile +2.0) ama hacim en az 1.35 kat veya kısa vade AL
-        else if (Math.abs(deg) <= 2.0 && (gh >= 1.35 || tv.s2 > 0.3) && (r.fiyat > 0)) {
+        // 3. Sessiz Toplama: Fiyat yatay (% -2.2 ile +2.2) ve hacim en az 1.35 kat artışta
+        else if (Math.abs(deg) <= 2.2 && gh >= 1.35 && (r.fiyat > 0) && ((r.tlHacim || 0) > 8e6 || (r.usdHacim || 0) > 100e3)) {
           bulunanlar.push({
-            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.2,
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh,
             tlHacim: r.tlHacim, usdHacim: r.usdHacim,
             tur: 'toplama', seviye: 'Sessiz Toplama', ikon: '🧲', renk: '#10b981',
-            aciklama: `Fiyat yatay (%${deg.toFixed(1)}) seyrederken gizli alım baskısı ve hacim artışı var!`
+            aciklama: `Fiyat yatay (%${deg.toFixed(1)}) seyrederken hacim ortalamanın ${gh.toFixed(1)} katına fırladı; balinalar sessizce topluyor!`
           });
         }
         // 4. Dip Karşılama / Panik Alımı: Düşüş varken güçlü hacimle satışların emilmesi

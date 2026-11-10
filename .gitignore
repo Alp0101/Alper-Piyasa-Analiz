@@ -1,0 +1,9 @@
+node_modules/
+.env
+.DS_Store
+Thumbs.db
+*.log
+veri/*.tmp
+veri/demo_portfoy.json
+veri/fiyat_alarmlari.json
+veri/ziyaretciler.json

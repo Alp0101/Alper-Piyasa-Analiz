@@ -77,3 +77,4 @@ const KORUNAN = new Set([
 const korunanMi = (method, p) => KORUNAN.has(`${method} ${p}`);
 
 module.exports = { yetkiKontrol, korunanMi };
+

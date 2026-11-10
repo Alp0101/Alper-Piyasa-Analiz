@@ -65,20 +65,34 @@ async function tumBistTara() {
   });
 }
 
-// En yüksek hacimli ilk 80 Binance & OKX Kripto Varlığını Gerçek Zamanlı Tarar
+let sonUsdTryKuru = 50.2;
+async function usdTryKuru() {
+  return onbellekli('kur:usdtry', 15 * 60_000, async () => {
+    try {
+      const res = await sembolleriTara(['FX:USDTRY']);
+      if (res && res[0] && res[0].fiyat > 0) {
+        sonUsdTryKuru = res[0].fiyat;
+      }
+    } catch (_) {}
+    return sonUsdTryKuru;
+  });
+}
+
+// En yüksek hacimli ilk 80 Binance & OKX Kripto Varlığını Gerçek Zamanlı Tarar (Sentetik hisseler ve stabil coinler hariç)
 async function tumKriptoTara() {
+  const kur = await usdTryKuru();
   return onbellekli('tarama:kripto_tum', 3_000, async () => {
     const body = {
       markets: ['crypto'],
       filter: [
         { left: 'exchange', operation: 'equal', right: 'BINANCE' },
         { left: 'name', operation: 'match', right: 'USDT$' },
-        { left: 'name', operation: 'nmatch', right: '^(USDC|USD1|FDUSD|TUSD|EUR|USDP|RLUSD|DAI|AEUR)USDT$' }
+        { left: 'name', operation: 'nmatch', right: '^(USDC|USD1|FDUSD|TUSD|EUR|USDP|RLUSD|DAI|AEUR|BFUSD|USDE|WBETH|BNSOL|PAXG|XAUT|RWUSD|NVDAB|TSLAB|SOXSB|SOXLB|SNDKB|ORCLB|MSTRB|AMZNB|AAPLB|GOOGB|COINB)USDT$' }
       ],
       columns: [
         'name', 'description', 'close', 'change', 'volume', 'relative_volume_10d_calc',
-        'Recommend.All|15', 'Recommend.All|60', 'Recommend.All|240', 'Recommend.All',
-        'RSI|60', 'RSI|240', 'RSI', 'High.1M', 'Low.1M', 'ATR', 'EMA50', 'EMA200', '24h_vol|5'
+        'Recommend.All|15', 'Recommend.All|60', 'Recommend.All|120', 'Recommend.All|240', 'Recommend.All',
+        'RSI|60', 'RSI|120', 'RSI|240', 'RSI', 'High.1M', 'Low.1M', 'ATR', 'EMA50', 'EMA200', '24h_vol|5'
       ],
       sort: { sortBy: '24h_vol|5', sortOrder: 'desc' },
       range: [0, 80]
@@ -89,7 +103,7 @@ async function tumKriptoTara() {
     return j.data.map(item => {
       const d = item.d;
       const kod = d[0].replace(/USDT$/, '');
-      const usdHacim = d[18] || (d[4] && d[2] ? d[4] * d[2] : null);
+      const usdHacim = d[20] || (d[4] && d[2] ? d[4] * d[2] : null);
       return {
         id: item.s,
         kod,
@@ -98,11 +112,11 @@ async function tumKriptoTara() {
         degisim: d[3],
         hacim: d[4],
         goreceliHacim: d[5],
-        tv: { s15: d[6], s1: d[7], s2: d[7], s4: d[8], g1: d[9] },
-        rsi: { s1: d[10], s2: d[10], s4: d[11], g1: d[12] },
-        ayYuksek: d[13], ayDusuk: d[14],
-        atr: d[15], ema50: d[16], ema200: d[17],
-        tlHacim: usdHacim ? usdHacim * 38.5 : null,
+        tv: { s15: d[6], s1: d[7], s2: d[8], s4: d[9], g1: d[10] },
+        rsi: { s1: d[11], s2: d[12], s4: d[13], g1: d[14] },
+        ayYuksek: d[15], ayDusuk: d[16],
+        atr: d[17], ema50: d[18], ema200: d[19],
+        tlHacim: usdHacim ? usdHacim * kur : null,
         usdHacim
       };
     });
@@ -149,22 +163,13 @@ async function yahooMum(kod, interval, range) {
 
 async function binanceMum(kod, interval) {
   // api.binance.com ABD sunucularında (Render) 451 engeli verir.
-  // Bu yüzden sırasıyla Binance.US -> OKX -> Bybit -> Global Binance -> Yahoo Crypto yedekli çalışır.
+  // Bu yüzden sırasıyla OKX (Global Derinlik) -> Bybit Spot -> Binance.US -> Global Binance -> Yahoo Crypto yedekli çalışır.
   const intervalMap = { '15m': '15m', '1h': '1h', '2h': '2h', '4h': '4h', '1d': '1d', '1w': '1w', '1M': '1M' };
   const intv = intervalMap[interval] || interval;
   const coin = kod.replace(/USDT$/, '');
 
   return onbellekli(`kripto:${kod}:${intv}`, 2 * 60_000, async () => {
-    // 1. Kaynak: Binance.US (Render ve ABD sunucularında %100 açık)
-    try {
-      const url = `https://api.binance.us/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
-      const j = await getJson(url);
-      if (Array.isArray(j) && j.length > 0) {
-        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
-      }
-    } catch (_) {}
-
-    // 2. Kaynak: OKX (Dünya genelinde ve ABD sunucularında açık, tüm altcoinler var)
+    // 1. Kaynak: OKX (Dünya genelinde ve ABD sunucularında açık, tam global hacim ve derinlik)
     try {
       const okxBarMap = { '15m': '15m', '1h': '1H', '2h': '2H', '4h': '4H', '1d': '1D', '1w': '1W', '1M': '1M' };
       const bar = okxBarMap[intv] || '1H';
@@ -175,7 +180,7 @@ async function binanceMum(kod, interval) {
       }
     } catch (_) {}
 
-    // 3. Kaynak: Bybit Spot (Sınırsız altcoin desteği)
+    // 2. Kaynak: Bybit Spot (Derin likidite ve tüm altcoinler)
     try {
       const bybitMap = { '15m': '15', '1h': '60', '2h': '120', '4h': '240', '1d': 'D', '1w': 'W', '1M': 'M' };
       const bar = bybitMap[intv] || '60';
@@ -183,6 +188,15 @@ async function binanceMum(kod, interval) {
       const j = await getJson(url);
       if (j && j.result && Array.isArray(j.result.list) && j.result.list.length > 0) {
         return j.result.list.slice().reverse().map(k => ({ t: Math.floor(+k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+      }
+    } catch (_) {}
+
+    // 3. Kaynak: Binance.US (Render ve ABD sunucularında açık)
+    try {
+      const url = `https://api.binance.us/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
+      const j = await getJson(url);
+      if (Array.isArray(j) && j.length > 0) {
+        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
       }
     } catch (_) {}
 
@@ -195,12 +209,16 @@ async function binanceMum(kod, interval) {
       }
     } catch (_) {}
 
-    // 5. Kaynak: Yahoo Finance Crypto (Asla engellenmeyen evrensel yedek, örn: BTC-USD, PEPE-USD)
+    // 5. Kaynak: Yahoo Finance Crypto (Yedek, 2s ve 4s mumları birleştirilerek döner)
     try {
       const yahooInterval = (interval === '15m') ? '15m' : (interval === '1d') ? '1d' : (interval === '1w') ? '1wk' : (interval === '1M') ? '1mo' : '60m';
       const yahooRange = (interval === '15m') ? '5d' : (interval === '1d' || interval === '1w' || interval === '1M') ? '2y' : '60d';
       const ym = await yahooMum(`${coin}-USD`, yahooInterval, yahooRange);
-      if (ym && ym.length > 0) return ym;
+      if (ym && ym.length > 0) {
+        if (interval === '2h') return birlestir(ym, 2, 0, 24);
+        if (interval === '4h') return birlestir(ym, 4, 0, 24);
+        return ym;
+      }
     } catch (_) {}
 
     throw new Error(`${kod} için kripto veri kaynağına ulaşılamadı.`);
@@ -367,9 +385,14 @@ async function benchSetleri(benchKodu) {
 // ---------------- Sembol arama ----------------
 async function kriptoVarMi(taban) {
   try {
-    const j = await getJson(`https://api.binance.com/api/v3/ticker/price?symbol=${taban}USDT`);
-    return !!j.price;
-  } catch (_) { return false; }
+    const j = await getJson(`https://api.binance.us/api/v3/ticker/price?symbol=${taban}USDT`);
+    if (j && j.price) return true;
+  } catch (_) {}
+  try {
+    const j = await getJson(`https://www.okx.com/api/v5/market/ticker?instId=${taban}-USDT`);
+    if (j && Array.isArray(j.data) && j.data.length > 0) return true;
+  } catch (_) {}
+  return false;
 }
 
 const norm = s => String(s || '').toLocaleUpperCase('tr-TR')

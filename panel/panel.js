@@ -58,7 +58,7 @@ const sayi = (v, b) => {
   if (v == null || !isFinite(v)) return '—';
   if (b == null) {
     const av = Math.abs(v);
-    b = av >= 1000 ? 2 : av >= 10 ? 2 : av >= 1 ? 3 : av >= 0.01 ? 4 : 8;
+    b = av >= 1 ? 2 : av >= 0.01 ? 4 : 8;
   }
   return v.toLocaleString('tr-TR', { minimumFractionDigits: b, maximumFractionDigits: b });
 };
@@ -169,8 +169,21 @@ async function sembolEkle(id, listeId = D.aktifId) {
   const l = D.listeler.listeler.find(x => x.id === listeId);
   if (!l) return;
   if (l.dinamik) {
-    if ((l.cikarilanlar || []).includes(id)) { l.cikarilanlar = l.cikarilanlar.filter(x => x !== id); await listeleriKaydet(); bildir('Tekrar listeye alındı.'); tara(); }
-    else bildir('Bu liste zaten tüm BIST hisselerini kapsıyor. Başka bir listeye ekleyin.');
+    if ((l.cikarilanlar || []).includes(id)) {
+      l.cikarilanlar = l.cikarilanlar.filter(x => x !== id);
+      await listeleriKaydet();
+      bildir('Tekrar listeye alındı.');
+      tara();
+    } else if (l.dinamik === 'kripto' || l.id === 'kripto') {
+      l.semboller = l.semboller || [];
+      if (l.semboller.includes(id)) return bildir('Bu sembol zaten kripto listesinde.');
+      l.semboller.push(id);
+      await listeleriKaydet();
+      bildir(`${id.split(':')[1]} → Kripto listesine eklendi.`);
+      tara();
+    } else {
+      bildir('Bu liste zaten tüm BIST hisselerini kapsıyor. Başka bir listeye ekleyin.');
+    }
     return;
   }
   if (l.semboller.includes(id)) return bildir('Bu sembol listede zaten var.');
