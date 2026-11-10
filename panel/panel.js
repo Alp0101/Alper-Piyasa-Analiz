@@ -967,23 +967,30 @@ function karneHesapla(p) {
     tavsiyeler.push(`⭐ <b>Emtia / Forex Verimliliği:</b> Emtia ve döviz işlemlerinizde kârlılık oranınız gayet yüksek.`);
   }
 
-  // Ortalama Kazanç / Kayıp Metni
-  let ortKazancMetin = '—';
+  // Ortalama Kazanç / Kayıp Metni (İşlem Başına Düşen Ortalama)
+  let ortKazancHtml = '<span style="color:#94a3b8;">—</span>';
   if (karli.length > 0) {
     if (toplamKarUSD > 0 && toplamKarTL > 0) {
-      ortKazancMetin = `+${sayi(toplamKarUSD / karli.length, 1)} $ / +${sayi(toplamKarTL / karli.length, 0)} ₺`;
+      ortKazancHtml = `<span style="color:#34d399;">+${sayi(toplamKarUSD / karli.length, 1)} $ / +${sayi(toplamKarTL / karli.length, 0)} ₺</span>`;
     } else if (toplamKarUSD > 0) {
-      ortKazancMetin = `+${sayi(toplamKarUSD / karli.length, 2)} $`;
+      ortKazancHtml = `<span style="color:#34d399;">+${sayi(toplamKarUSD / karli.length, 2)} $</span>`;
     } else {
-      ortKazancMetin = `+${sayi(toplamKarTL / karli.length, 0)} ₺`;
+      ortKazancHtml = `<span style="color:#34d399;">+${sayi(toplamKarTL / karli.length, 0)} ₺</span>`;
     }
   }
 
-  let ortKayipMetin = '0';
+  let ortKayipHtml = '<span style="color:#a78bfa; font-size:12px; font-weight:normal;">(Kayıpsız 🛡️)</span>';
   if (zararli.length > 0) {
-    if (toplamZararUSD > 0) ortKayipMetin = `-${sayi(toplamZararUSD / zararli.length, 2)} $`;
-    else ortKayipMetin = `-${sayi(toplamZararTL / zararli.length, 0)} ₺`;
+    if (toplamZararUSD > 0 && toplamZararTL > 0) {
+      ortKayipHtml = `<span style="color:#f87171;">-${sayi(toplamZararUSD / zararli.length, 1)} $ / -${sayi(toplamZararTL / zararli.length, 0)} ₺</span>`;
+    } else if (toplamZararUSD > 0) {
+      ortKayipHtml = `<span style="color:#f87171;">-${sayi(toplamZararUSD / zararli.length, 2)} $</span>`;
+    } else {
+      ortKayipHtml = `<span style="color:#f87171;">-${sayi(toplamZararTL / zararli.length, 0)} ₺</span>`;
+    }
   }
+
+  const ortSonucGorunum = zararli.length > 0 ? `${ortKazancHtml} / ${ortKayipHtml}` : `${ortKazancHtml} ${ortKayipHtml}`;
 
   $('#karneIcerik').innerHTML = `
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:12px;">
@@ -999,9 +1006,9 @@ function karneHesapla(p) {
         <span class="kucuk">Kâr Faktörü</span>
         <div style="font-size:16px; font-weight:bold; color:#a78bfa;">${karFaktoru}</div>
       </div>
-      <div style="background:#111422; border:1px solid #2d264a; border-radius:8px; padding:8px 10px;">
-        <span class="kucuk">Ort. Kazanç / Kayıp</span>
-        <div style="font-size:14px; font-weight:bold; color:#cbd5e1;">${ortKazancMetin} / ${ortKayipMetin}</div>
+      <div style="background:#111422; border:1px solid #2d264a; border-radius:8px; padding:8px 10px;" title="Kapanan işlemlerin adet başına düşen ortalama kâr ve zararı">
+        <span class="kucuk">İşlem Başı Ort. Kâr / Zarar</span>
+        <div style="font-size:13.5px; font-weight:bold; margin-top:2px;">${ortSonucGorunum}</div>
       </div>
     </div>
     <div style="background:#131520; padding:12px; border-radius:8px; border:1px solid #383152;">
