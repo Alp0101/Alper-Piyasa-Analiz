@@ -575,7 +575,96 @@ $('#dIcerik').addEventListener('click', e => {
   detayYukle();
 });
 
-// ================= Demo Al-Sat & Portföy (Kalıcı LocalStorage Korumalı) =================
+// ================= Yapay Zeka Başarı Karnesi & Koçluk Motoru =================
+function karneHesapla(p) {
+  const kapali = p.kapananIslemler || [];
+  if (!kapali.length) {
+    $('#karneSeviyeRozet').textContent = 'Seviye: Başlangıç (İşlem Bekleniyor)';
+    $('#karneIcerik').innerHTML = `
+      <div style="background:#131520; padding:12px; border-radius:8px; border:1px dashed #383152;">
+        💡 <b>Alper Bey</b>, yapay zekanın işlem alışkanlıklarınızı analiz edip size özel stratejik tavsiyeler üretebilmesi için 
+        en az 1 adet demo işleminizi kapatmanız gerekmektedir. İşlemlerinizi kapattıkça kazanma oranınız, en karlı olduğunuz piyasa türü (BIST, Altın, Kripto) ve risk disiplininiz burada karneye dökülecek.
+      </div>`;
+    return;
+  }
+
+  const toplam = kapali.length;
+  const karli = kapali.filter(x => x.karZararTL > 0);
+  const zararli = kapali.filter(x => x.karZararTL <= 0);
+  const winrate = +((karli.length / toplam) * 100).toFixed(1);
+
+  const toplamKarTL = karli.reduce((a, b) => a + b.karZararTL, 0);
+  const toplamZararTL = Math.abs(zararli.reduce((a, b) => a + b.karZararTL, 0));
+  const karFaktoru = toplamZararTL > 0 ? +(toplamKarTL / toplamZararTL).toFixed(2) : (toplamKarTL > 0 ? 99 : 0);
+
+  // Varlık türlerine göre performans
+  const turPerf = { bist: { kar: 0, sayi: 0 }, kripto: { kar: 0, sayi: 0 }, emtia: { kar: 0, sayi: 0 } };
+  kapali.forEach(k => {
+    const s = k.sembol || '';
+    let tur = 'bist';
+    if (s.includes('BTC') || s.includes('ETH') || s.includes('GATE') || s.includes('BINANCE')) tur = 'kripto';
+    else if (s.includes('XAU') || s.includes('SILVER') || s.includes('OIL') || s.includes('ALTIN')) tur = 'emtia';
+    turPerf[tur].sayi++;
+    turPerf[tur].kar += k.karZararTL;
+  });
+
+  // Seviye unvanı
+  let unvan = 'Strateji Geliştirici';
+  let unvanRenk = '#94a3b8';
+  if (winrate >= 70 && karFaktoru >= 1.8) {
+    unvan = '🏆 Usta Fon Yöneticisi (Pro Trader)';
+    unvanRenk = '#34d399';
+  } else if (winrate >= 50 && karFaktoru >= 1.2) {
+    unvan = '⚖️ Dengeli & Disiplinli Yatırımcı';
+    unvanRenk = '#38bdf8';
+  } else if (zararli.length > karli.length) {
+    unvan = '⚠️ Risk Yönetimi Geliştirilmeli';
+    unvanRenk = '#f87171';
+  }
+
+  $('#karneSeviyeRozet').innerHTML = `<span style="color:${unvanRenk};">${unvan}</span>`;
+
+  // Koçluk tavsiyeleri
+  const tavsiyeler = [];
+  if (winrate >= 60) {
+    tavsiyeler.push(`🎯 <b>Yüksek İsabet:</b> %${winrate} kazanma oranıyla piyasa ortalamasının oldukça üzerindesiniz. Stratejinizi bozmadan aynı disiplinle devam edin.`);
+  } else {
+    tavsiyeler.push(`🛡️ <b>Zarar Kes Disiplini:</b> Kazanma oranınız %${winrate}. Zarar eden pozisyonlarda inatlaşmayıp stop seviyelerine sadık kalmak kasanızı koruyacaktır.`);
+  }
+
+  if (turPerf.emtia.sayi > 0 && turPerf.emtia.kar > 0) {
+    tavsiyeler.push(`⭐ <b>En Güçlü Alanınız (Altın/Emtia):</b> Emtia işlemlerinizde toplam +${sayi(turPerf.emtia.kar, 0)} TL net kâr ile en verimli sonuçları bu alanda alıyorsunuz.`);
+  }
+  if (turPerf.kripto.sayi > 0 && turPerf.kripto.kar < 0) {
+    tavsiyeler.push(`⚡ <b>Kripto Uyarısı:</b> Kripto para işlemlerinde oynaklık yüksek olduğu için pozisyon büyüklüğünüzü biraz daha küçük tutmanız önerilir.`);
+  }
+
+  $('#karneIcerik').innerHTML = `
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:12px;">
+      <div style="background:#111422; border:1px solid #2d264a; border-radius:8px; padding:8px 10px;">
+        <span class="kucuk">Toplam İşlem</span>
+        <div style="font-size:16px; font-weight:bold; color:#fff;">${toplam} Adet</div>
+      </div>
+      <div style="background:#111422; border:1px solid #2d264a; border-radius:8px; padding:8px 10px;">
+        <span class="kucuk">Kazanma Oranı</span>
+        <div style="font-size:16px; font-weight:bold; color:${winrate>=50 ? '#34d399' : '#f87171'};">%${winrate}</div>
+      </div>
+      <div style="background:#111422; border:1px solid #2d264a; border-radius:8px; padding:8px 10px;">
+        <span class="kucuk">Kâr Faktörü</span>
+        <div style="font-size:16px; font-weight:bold; color:#a78bfa;">${karFaktoru}</div>
+      </div>
+      <div style="background:#111422; border:1px solid #2d264a; border-radius:8px; padding:8px 10px;">
+        <span class="kucuk">Ort. Kazanç / Kayıp</span>
+        <div style="font-size:14px; font-weight:bold; color:#cbd5e1;">+${sayi(karli.length ? toplamKarTL/karli.length : 0, 0)} / -${sayi(zararli.length ? toplamZararTL/zararli.length : 0, 0)} TL</div>
+      </div>
+    </div>
+    <div style="background:#131520; padding:12px; border-radius:8px; border:1px solid #383152;">
+      <b style="color:#c4b5fd; font-size:13.5px;">🤖 Yapay Zeka Koçluk Analizi:</b>
+      <ul style="margin:6px 0 0; padding-left:18px; line-height:1.6;">
+        ${tavsiyeler.map(t => `<li style="margin-bottom:4px;">${t}</li>`).join('')}
+      </ul>
+    </div>`;
+}
 const VARSAYILAN_DEMO_KASA = 1000000;
 let demoPortfoyVerisi = null;
 
@@ -667,6 +756,7 @@ async function demoPortfoyYukle() {
     $('#demoBasariOrani').textContent = `%${basariOrani} (${basarili}K / ${basarisiz}Z)`;
 
     demoPortfoyCiz();
+    karneHesapla(demoPortfoyVerisi);
   } catch (_) {}
 }
 

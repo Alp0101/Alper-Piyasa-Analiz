@@ -431,15 +431,20 @@ tbody tr:hover { background: #1a202c; }
 @media (max-width: 768px) {
   .isi-grid { grid-template-columns: repeat(2, 1fr); }
   .isi-kutu.buyuk { grid-column: span 2; grid-row: span 1; min-height: 110px; }
-}
+  .duzen { grid-template-columns: 1fr; }
   .yan { border-right: 0; border-bottom: 1px solid #2d3545; padding: 12px; }
-  .ust { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 16px; }
-  .ust-sag { width: 100%; justify-content: space-between; }
-  .arac-cubugu { flex-direction: column; align-items: stretch; }
+  .ust { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; }
+  .ust-sag { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+  .ust-sag .btn { font-size: 11px; padding: 6px 10px; flex: 1 1 auto; text-align: center; justify-content: center; }
+  .arac-cubugu { flex-direction: column; align-items: stretch; gap: 10px; }
   .ekle-kutu { width: 100%; }
+  .filtreler { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 6px; }
+  .arama { width: 140px; flex-shrink: 0; }
   .detay { width: 100vw; }
-  .iki-kolon { grid-template-columns: 1fr; }
-  .tf-ozet { grid-template-columns: repeat(2, 1fr); }
-  .yontem { grid-template-columns: 1fr; gap: 6px; }
+  .iki-kolon { grid-template-columns: 1fr; gap: 12px; }
+  .tf-ozet { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .tf-kart { padding: 10px; }
+  .yontem { grid-template-columns: 1fr; gap: 4px; padding: 8px 0; }
+  td, th { padding: 8px 6px; font-size: 12px; }
 }
 
