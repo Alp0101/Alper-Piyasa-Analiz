@@ -407,20 +407,96 @@ $('#dIcerik').addEventListener('click', e => {
   detayYukle();
 });
 
-// ================= Demo Al-Sat & Portföy =================
+// ================= Demo Al-Sat & Portföy (Kalıcı LocalStorage Korumalı) =================
+const VARSAYILAN_DEMO_KASA = 1000000;
 let demoPortfoyVerisi = null;
+
+function demoYerelOku() {
+  try {
+    const raw = localStorage.getItem('alper_demo_portfoy');
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return {
+    bakiye: VARSAYILAN_DEMO_KASA,
+    baslangicBakiye: VARSAYILAN_DEMO_KASA,
+    acikPozisyonlar: [],
+    kapananIslemler: []
+  };
+}
+
+function demoYerelKaydet(p) {
+  try {
+    localStorage.setItem('alper_demo_portfoy', JSON.stringify(p));
+  } catch (_) {}
+}
 
 async function demoPortfoyYukle() {
   try {
-    demoPortfoyVerisi = await api('/api/demo/portfoy');
-    const p = demoPortfoyVerisi;
-    $('#ustKasaBakiye').textContent = sayi(p.toplamVarlik, 0) + ' TL';
-    $('#demoNakitBakiye').textContent = sayi(p.bakiye, 2) + ' TL';
-    $('#demoToplamVarlik').textContent = sayi(p.toplamVarlik, 2) + ' TL';
+    // 1. Önce cihazdaki (telefondaki/tarayıcıdaki) kalıcı veriyi oku
+    let yerel = demoYerelOku();
 
-    const netRenk = p.toplamNetKarTL >= 0 ? '#10b981' : '#ef4444';
-    $('#demoNetKar').innerHTML = `<span style="color:${netRenk}">${p.toplamNetKarTL >= 0 ? '+' : ''}${sayi(p.toplamNetKarTL, 2)} TL (%${sayi(p.toplamNetKarYuzde, 2)})</span>`;
-    $('#demoBasariOrani').textContent = `%${p.istatistik.basariOrani} (${p.istatistik.basarili}K / ${p.istatistik.basarisiz}Z)`;
+    // 2. Sunucuya da gönder veya senkronize et
+    try {
+      const sunucu = await api('/api/demo/portfoy');
+      // Eğer sunucuda daha güncel işlem varsa veya yerel boşsa birleştir
+      if (sunucu && sunucu.acikPozisyonlar && sunucu.acikPozisyonlar.length > 0 && yerel.acikPozisyonlar.length === 0) {
+        yerel = sunucu;
+        demoYerelKaydet(yerel);
+      }
+    } catch (_) {}
+
+    // Canlı fiyatlara göre portföyü hesapla
+    const fiyatHaritasi = {};
+    if (D.satirlar && D.satirlar.length) {
+      D.satirlar.forEach(r => { if (r.fiyat) fiyatHaritasi[r.id] = r.fiyat; });
+    }
+
+    let toplamHisseDegeri = 0;
+    const pozisyonlar = (yerel.acikPozisyonlar || []).map(poz => {
+      const anlikFiyat = fiyatHaritasi[poz.sembol] || poz.alisFiyat;
+      const anlikTutar = poz.adet * anlikFiyat;
+      const karZararTL = anlikTutar - (poz.adet * poz.alisFiyat);
+      const karZararYuzde = ((anlikFiyat - poz.alisFiyat) / poz.alisFiyat) * 100;
+      toplamHisseDegeri += anlikTutar;
+
+      return {
+        ...poz,
+        anlikFiyat: +anlikFiyat,
+        anlikTutar: +anlikTutar.toFixed(2),
+        karZararTL: +karZararTL.toFixed(2),
+        karZararYuzde: +karZararYuzde.toFixed(2)
+      };
+    });
+
+    const bakiye = yerel.bakiye ?? VARSAYILAN_DEMO_KASA;
+    const baslangic = yerel.baslangicBakiye ?? VARSAYILAN_DEMO_KASA;
+    const toplamVarlik = bakiye + toplamHisseDegeri;
+    const toplamNetKarTL = toplamVarlik - baslangic;
+    const toplamNetKarYuzde = baslangic > 0 ? ((toplamVarlik - baslangic) / baslangic) * 100 : 0;
+
+    const kapanan = yerel.kapananIslemler || [];
+    const basarili = kapanan.filter(x => x.karZararTL > 0).length;
+    const basarisiz = kapanan.filter(x => x.karZararTL <= 0).length;
+    const basariOrani = kapanan.length > 0 ? +((basarili / kapanan.length) * 100).toFixed(1) : 0;
+
+    demoPortfoyVerisi = {
+      bakiye: +bakiye.toFixed(2),
+      toplamHisseDegeri: +toplamHisseDegeri.toFixed(2),
+      toplamVarlik: +toplamVarlik.toFixed(2),
+      toplamNetKarTL: +toplamNetKarTL.toFixed(2),
+      toplamNetKarYuzde: +toplamNetKarYuzde.toFixed(2),
+      istatistik: { toplamKapali: kapanan.length, basarili, basarisiz, basariOrani },
+      acikPozisyonlar: pozisyonlar,
+      kapananIslemler: kapanan
+    };
+
+    $('#ustKasaBakiye').textContent = sayi(toplamVarlik, 0) + ' TL';
+    $('#demoNakitBakiye').textContent = sayi(bakiye, 2) + ' TL';
+    $('#demoToplamVarlik').textContent = sayi(toplamVarlik, 2) + ' TL';
+
+    const netRenk = toplamNetKarTL >= 0 ? '#10b981' : '#ef4444';
+    $('#demoNetKar').innerHTML = `<span style="color:${netRenk}">${toplamNetKarTL >= 0 ? '+' : ''}${sayi(toplamNetKarTL, 2)} TL (%${sayi(toplamNetKarYuzde, 2)})</span>`;
+    $('#demoBasariOrani').textContent = `%${basariOrani} (${basarili}K / ${basarisiz}Z)`;
 
     demoPortfoyCiz();
   } catch (_) {}
@@ -498,12 +574,41 @@ function demoPortfoyCiz() {
 window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
   if (!confirm('Bu pozisyonu güncel fiyattan kapatmak (satmak) istediğinize emin misiniz?')) return;
   try {
-    const res = await api('/api/demo/sat', {
+    const p = demoYerelOku();
+    const idx = p.acikPozisyonlar.findIndex(x => x.id === pozId);
+    if (idx !== -1) {
+      const poz = p.acikPozisyonlar[idx];
+      const satisTutar = poz.adet * guncelFiyat;
+      const alisTutar = poz.adet * poz.alisFiyat;
+      const karZararTL = satisTutar - alisTutar;
+      const karZararYuzde = ((guncelFiyat - poz.alisFiyat) / poz.alisFiyat) * 100;
+
+      p.bakiye += satisTutar;
+      p.acikPozisyonlar.splice(idx, 1);
+      p.kapananIslemler = p.kapananIslemler || [];
+      p.kapananIslemler.unshift({
+        id: poz.id,
+        sembol: poz.sembol,
+        ad: poz.ad,
+        adet: poz.adet,
+        alisFiyat: poz.alisFiyat,
+        satisFiyat: +guncelFiyat,
+        satisTarih: new Date().toISOString(),
+        karZararTL: +karZararTL.toFixed(2),
+        karZararYuzde: +karZararYuzde.toFixed(2),
+        sebep: 'manuel'
+      });
+      demoYerelKaydet(p);
+      bildir(`Pozisyon kapatıldı! Sonuç: ${karZararTL >= 0 ? '+' : ''}${sayi(karZararTL, 2)} TL`);
+    }
+
+    // Sunucuya da bildir
+    api('/api/demo/sat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pozId, satisFiyat: guncelFiyat })
-    });
-    bildir(`Pozisyon kapatıldı! Sonuç: ${res.kapandi.karZararTL >= 0 ? '+' : ''}${res.kapandi.karZararTL} TL`);
+    }).catch(() => {});
+
     await demoPortfoyYukle();
   } catch (e) {
     bildir('Hata: ' + e.message);
@@ -521,7 +626,14 @@ $('#demoKapatBtn').onclick = () => {
 };
 $('#demoSifirlaBtn').onclick = async () => {
   if (!confirm('Sanal kasanız sıfırlanacak ve 1.000.000 TL nakit bakiyeye dönecek. Tüm demo işlemler silinecek. Onaylıyor musunuz?')) return;
-  await api('/api/demo/sifirla', { method: 'POST' });
+  const p = {
+    bakiye: VARSAYILAN_DEMO_KASA,
+    baslangicBakiye: VARSAYILAN_DEMO_KASA,
+    acikPozisyonlar: [],
+    kapananIslemler: []
+  };
+  demoYerelKaydet(p);
+  api('/api/demo/sifirla', { method: 'POST' }).catch(() => {});
   bildir('Demo kasa sıfırlandı: 1.000.000 TL');
   await demoPortfoyYukle();
 };
@@ -587,25 +699,45 @@ $('#emirOnaylaBtn').onclick = async () => {
 
   if (!f || f <= 0 || !adet || adet <= 0) return bildir('Lütfen geçerli bir fiyat ve adet girin.');
 
-  try {
-    const res = await api('/api/demo/al', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sembol: v.sembol,
-        ad: v.ad,
-        fiyat: f,
-        adet: adet,
-        stopFiyat: stop,
-        hedefFiyat: hedef
-      })
-    });
-    bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${sayi(f)} seviyesinden alındı!`);
-    $('#demoEmirModal').classList.add('gizli');
-    await demoPortfoyYukle();
-  } catch (e) {
-    bildir('⚠️ ' + e.message);
+  const tutar = f * adet;
+  const p = demoYerelOku();
+  if (p.bakiye < tutar) {
+    return bildir(`Yetersiz bakiye! Gereken: ${sayi(tutar, 2)} TL, Nakit: ${sayi(p.bakiye, 2)} TL`);
   }
+
+  // 1. Cihaza (telefona) ANINDA kalıcı kaydet (Asla kaybolmaz)
+  p.bakiye -= tutar;
+  p.acikPozisyonlar = p.acikPozisyonlar || [];
+  p.acikPozisyonlar.push({
+    id: 'poz-' + Date.now(),
+    sembol: v.sembol,
+    ad: v.ad,
+    adet: adet,
+    alisFiyat: f,
+    alisTarih: new Date().toISOString(),
+    stopFiyat: stop,
+    hedefFiyat: hedef,
+    tutar: +tutar.toFixed(2)
+  });
+  demoYerelKaydet(p);
+
+  // 2. Arka planda sunucuya da gönder
+  api('/api/demo/al', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sembol: v.sembol,
+      ad: v.ad,
+      fiyat: f,
+      adet: adet,
+      stopFiyat: stop,
+      hedefFiyat: hedef
+    })
+  }).catch(() => {});
+
+  bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${sayi(f)} seviyesinden alındı!`);
+  $('#demoEmirModal').classList.add('gizli');
+  await demoPortfoyYukle();
 };
 
 // ================= Ziyaretçi İstatistikleri =================

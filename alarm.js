@@ -118,3 +118,4 @@ function kontrolEt(fiyatHaritasi = {}) {
 }
 
 module.exports = { alarmEkle, alarmSil, alarmlariOku, kontrolEt };
+
