@@ -161,12 +161,12 @@
       </div>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
         <div>
-          <label class="kucuk">Adet</label>
-          <input type="number" id="emirAdet" style="width:100%; font-size:15px; margin-top:4px;" value="1">
+          <label class="kucuk">Adet (Ondalık girilebilir)</label>
+          <input type="number" step="any" id="emirAdet" style="width:100%; font-size:15px; margin-top:4px;" value="1">
         </div>
         <div>
           <label class="kucuk">Toplam Tutar</label>
-          <div id="emirToplamTutar" style="font-size:15px; font-weight:bold; margin-top:10px; color:#f1f5f9;">— TL</div>
+          <div id="emirToplamTutar" style="font-size:15px; font-weight:bold; margin-top:10px; color:#f1f5f9;">—</div>
         </div>
       </div>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -331,31 +331,33 @@
 <section id="demoModal" class="detay gizli" style="max-width: 850px;">
   <div class="detay-ust">
     <div>
-      <div class="d-ad">💼 Demo Portföyüm & Sanal Kasa</div>
-      <div class="d-alt">Gerçek paranızı riske atmadan stratejilerinizi test edin</div>
+      <div class="d-ad">💼 Demo Portföyüm & Çift Sanal Kasa</div>
+      <div class="d-alt">BIST hisseleri TL, Kripto ve Emtialar USD kasasıyla gerçekçi simüle edilir</div>
     </div>
     <div class="detay-butonlar">
-      <button id="demoSifirlaBtn" class="btn tehlike">🔄 Kasayı Sıfırla (1.000.000 TL)</button>
+      <button id="demoSifirlaBtn" class="btn tehlike">🔄 Kasaları Sıfırla (1M ₺ / 100K $)</button>
       <button id="demoKapatBtn" class="btn">✖ Kapat</button>
     </div>
   </div>
   <div class="detay-icerik">
     <div class="tf-ozet" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 20px;">
-      <div class="kutu" style="margin:0;">
-        <div class="kucuk">Nakit Sanal Bakiye</div>
-        <div id="demoNakitBakiye" style="font-size: 20px; font-weight: bold; color:#10b981; margin-top:4px;">— TL</div>
+      <div class="kutu" style="margin:0; border-left:3px solid #10b981;">
+        <div class="kucuk">🇹🇷 BIST Sanal Kasa (₺)</div>
+        <div id="demoNakitTL" style="font-size: 19px; font-weight: bold; color:#10b981; margin-top:4px;">1.000.000 ₺</div>
+        <div class="kucuk" id="demoVarlikTL" style="margin-top:2px; color:#cbd5e1;">Varlık: 1.000.000 ₺</div>
       </div>
-      <div class="kutu" style="margin:0;">
-        <div class="kucuk">Toplam Portföy Değeri</div>
-        <div id="demoToplamVarlik" style="font-size: 20px; font-weight: bold; margin-top:4px;">— TL</div>
+      <div class="kutu" style="margin:0; border-left:3px solid #38bdf8;">
+        <div class="kucuk">🌎 Kripto / Emtia Kasası ($)</div>
+        <div id="demoNakitUSD" style="font-size: 19px; font-weight: bold; color:#38bdf8; margin-top:4px;">100.000 $</div>
+        <div class="kucuk" id="demoVarlikUSD" style="margin-top:2px; color:#cbd5e1;">Varlık: 100.000 $</div>
       </div>
       <div class="kutu" style="margin:0;">
         <div class="kucuk">Toplam Kâr / Zarar</div>
-        <div id="demoNetKar" style="font-size: 20px; font-weight: bold; margin-top:4px;">— TL</div>
+        <div id="demoNetKar" style="font-size: 16px; font-weight: bold; margin-top:4px;">—</div>
       </div>
       <div class="kutu" style="margin:0;">
         <div class="kucuk">Kazanma Oranı (Winrate)</div>
-        <div id="demoBasariOrani" style="font-size: 20px; font-weight: bold; color:#3b82f6; margin-top:4px;">%0</div>
+        <div id="demoBasariOrani" style="font-size: 20px; font-weight: bold; color:#a78bfa; margin-top:4px;">%0</div>
       </div>
     </div>
 

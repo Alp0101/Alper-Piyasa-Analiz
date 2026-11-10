@@ -48,3 +48,4 @@ async function kaydet(anahtar, veri) {
 }
 
 module.exports = { aktifMi, getir, kaydet };
+
