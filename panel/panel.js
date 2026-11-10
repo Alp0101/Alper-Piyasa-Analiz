@@ -256,29 +256,33 @@ $('#dKapat').onclick = detayKapat; $('#perde').onclick = detayKapat;
 document.addEventListener('keydown', e => { if (e.key === 'Escape') detayKapat(); });
 $('#dFavori').onclick = () => D.detaySembol && sembolEkle(D.detaySembol, 'favoriler');
 
-// Detay önbelleği (Tekrar tıklanan hisseyi anında salisesinde açar)
-const analizOnbellek = new Map();
-
+// Detay yükleyici: Her zaman canlı taze fiyatla çalışır
 async function detayYukle(zorla = false) {
   const id = D.detaySembol;
-  const onbellekKey = `${id}:${D.detayTf}`;
-  
-  if (!zorla && analizOnbellek.has(onbellekKey)) {
-    D.detayVeri = analizOnbellek.get(onbellekKey);
-    $('#dAd').textContent = `${id.split(':')[1]} · ${D.detayVeri.ad}`;
-    $('#dAlt').textContent = `Analiz zamanı: ${new Date(D.detayVeri.zaman).toLocaleString('tr-TR')}`;
-    detayCiz();
-    return;
-  }
 
-  $('#dIcerik').innerHTML = '<div class="yukleniyor">⚡ Analiz ve seviyeler hesaplanıyor...</div>';
+  $('#dIcerik').innerHTML = '<div class="yukleniyor">⚡ Canlı piyasa verileri ve analiz hesaplanıyor...</div>';
   try {
-    const v = await api(`/api/analiz?sembol=${encodeURIComponent(id)}&tf=${encodeURIComponent(D.detayTf)}`);
+    // Önbellek kullanmadan doğrudan en güncel taze veriyi çek
+    const v = await api(`/api/analiz?sembol=${encodeURIComponent(id)}&tf=${encodeURIComponent(D.detayTf)}&t=${Date.now()}`);
     if (id !== D.detaySembol) return;
-    analizOnbellek.set(onbellekKey, v);
+    
+    // Ana tablodan gelen en son canlı taze fiyatı al
+    const anaSatir = D.satirlar.find(x => x.id === id);
+    const tazeFiyat = anaSatir?.fiyat || v.canliFiyat;
+
+    // Tüm zaman dilimlerindeki fiyat seviyesini bu anlık canlı fiyatla zorla eşitle
+    if (tazeFiyat && tazeFiyat > 0) {
+      Object.keys(v.zamanDilimleri).forEach(k => {
+        const z = v.zamanDilimleri[k];
+        if (z && z.seviyeler) {
+          z.seviyeler.fiyat = tazeFiyat;
+        }
+      });
+    }
+
     D.detayVeri = v;
     $('#dAd').textContent = `${id.split(':')[1]} · ${v.ad}`;
-    $('#dAlt').textContent = `Analiz zamanı: ${new Date(v.zaman).toLocaleString('tr-TR')}` + (v.not ? ' · ' + v.not : '');
+    $('#dAlt').textContent = `Analiz zamanı: ${new Date().toLocaleTimeString('tr-TR')}` + (v.not ? ' · ' + v.not : '');
     detayCiz();
   } catch (e) {
     $('#dIcerik').innerHTML = `<div class="yukleniyor">⚠️ ${esc(e.message)}</div>`;
@@ -642,7 +646,10 @@ $('#dDemoAlBtn').onclick = () => {
   const v = D.detayVeri;
   if (!v) return;
   const z = v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1;
-  const f = z?.seviyeler?.fiyat;
+
+  // En son taze fiyatı al: Önce ana tablodan, yoksa analizden
+  const anaSatir = D.satirlar.find(x => x.id === v.sembol);
+  const f = anaSatir?.fiyat || z?.seviyeler?.fiyat;
   if (!f) return bildir('Fiyat verisi alınamadı.');
 
   const bakiye = demoPortfoyVerisi?.bakiye || 1000000;

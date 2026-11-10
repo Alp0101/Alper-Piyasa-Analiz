@@ -13,3 +13,4 @@ jobs:
       - name: Siteyi Kontrol Et ve Uyanik Tut
         run: |
           curl -s -I https://alper-piyasa-analiz.onrender.com | head -n 1
+
