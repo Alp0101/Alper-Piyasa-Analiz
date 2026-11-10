@@ -1086,19 +1086,73 @@ async function demoPortfoyYukle() {
     try {
       const q = yerelSemboller.length > 0 ? `?semboller=${encodeURIComponent(yerelSemboller.join(','))}` : '';
       const sunucu = await api(`/api/demo/portfoy${q}`);
-      if (sunucu) {
-        if (sunucu.fiyatHaritasi) {
-          Object.assign(fiyatHaritasi, sunucu.fiyatHaritasi);
-        }
-        (sunucu.acikPozisyonlar || []).forEach(p => {
-          if (p.sembol && p.anlikFiyat) fiyatHaritasi[p.sembol] = p.anlikFiyat;
-        });
-        if (sunucu.acikPozisyonlar && sunucu.acikPozisyonlar.length > 0 && (!yerel.acikPozisyonlar || yerel.acikPozisyonlar.length === 0)) {
-          yerel = sunucu;
-          demoYerelKaydet(yerel);
-        }
+      if (sunucu && sunucu.fiyatHaritasi) {
+        Object.assign(fiyatHaritasi, sunucu.fiyatHaritasi);
       }
     } catch (_) {}
+
+    // Otomatik Stop / Hedef Kontrolü (SADECE bu kullanıcının kendi açık pozisyonları için - İzole)
+    let otomatikDegisiklikVar = false;
+    for (let i = (yerel.acikPozisyonlar || []).length - 1; i >= 0; i--) {
+      const poz = yerel.acikPozisyonlar[i];
+      const anlikFiyat = fiyatHaritasi[poz.sembol];
+      if (!anlikFiyat || anlikFiyat <= 0) continue;
+
+      const isShort = poz.yon === 'SHORT';
+      let kapandi = false;
+      let sebep = '';
+
+      if (!isShort) {
+        if (poz.hedefFiyat && anlikFiyat >= poz.hedefFiyat) { kapandi = true; sebep = 'hedef'; }
+        else if (poz.stopFiyat && anlikFiyat <= poz.stopFiyat) { kapandi = true; sebep = 'stop'; }
+      } else {
+        if (poz.hedefFiyat && anlikFiyat <= poz.hedefFiyat) { kapandi = true; sebep = 'hedef'; }
+        else if (poz.stopFiyat && anlikFiyat >= poz.stopFiyat) { kapandi = true; sebep = 'stop'; }
+      }
+
+      if (kapandi) {
+        otomatikDegisiklikVar = true;
+        const birim = poz.paraBirimi || paraBirimiAl(poz.sembol);
+        const teminat = poz.teminat || +(poz.adet * poz.alisFiyat).toFixed(2);
+        const fiyatFarki = isShort ? (poz.alisFiyat - anlikFiyat) : (anlikFiyat - poz.alisFiyat);
+        const karZarar = +(fiyatFarki * poz.adet).toFixed(2);
+        const karZararYuzde = teminat > 0 ? +((karZarar / teminat) * 100).toFixed(2) : 0;
+        const iadeTutar = Math.max(0, +(teminat + karZarar).toFixed(2));
+
+        if (birim === '$') yerel.bakiyeUSD = +((yerel.bakiyeUSD || VARSAYILAN_USD_KASA) + iadeTutar).toFixed(2);
+        else yerel.bakiyeTL = +((yerel.bakiyeTL || VARSAYILAN_TL_KASA) + iadeTutar).toFixed(2);
+
+        yerel.acikPozisyonlar.splice(i, 1);
+        yerel.kapananIslemler = yerel.kapananIslemler || [];
+        yerel.kapananIslemler.unshift({
+          id: poz.id,
+          sembol: poz.sembol,
+          ad: poz.ad,
+          yon: poz.yon || 'LONG',
+          kaldirac: poz.kaldirac || 1,
+          adet: poz.adet,
+          alisFiyat: poz.alisFiyat,
+          satisFiyat: anlikFiyat,
+          paraBirimi: birim,
+          satisTarih: new Date().toISOString(),
+          teminat,
+          karZarar,
+          karZararYuzde,
+          sebep: 'otomatik_' + sebep
+        });
+
+        if (sebep === 'hedef') {
+          sesCal('kar');
+          bildir(`🎉 DEMO HEDEF VURDU! ${poz.ad} ${anlikFiyat} ${birim} ile KÂRLA otomatik kapatıldı (+${karZarar} ${birim})!`, 7000);
+        } else {
+          sesCal('ding');
+          bildir(`🛑 DEMO STOP ÇALIŞTI! ${poz.ad} ${anlikFiyat} ${birim} seviyesinden zararı kesmek için kapatıldı (${karZarar} ${birim}).`, 7000);
+        }
+      }
+    }
+    if (otomatikDegisiklikVar) {
+      demoYerelKaydet(yerel);
+    }
 
     let hisseDegeriTL = 0;
     let hisseDegeriUSD = 0;
@@ -1190,56 +1244,58 @@ function demoPortfoyCiz() {
     $('#demoAcikPozisyonlar').innerHTML = '<div class="bos" style="padding:15px;">Henüz açık demo pozisyonunuz yok. Detay penceresinden "🛒 Demo Al" butonunu kullanabilirsiniz.</div>';
   } else {
     $('#demoAcikPozisyonlar').innerHTML = `
-      <table style="width:100%;">
-        <thead>
-          <tr>
-            <th>Sembol</th>
-            <th class="sag">Adet</th>
-            <th class="sag">Alış Fiyatı</th>
-            <th class="sag">Güncel Fiyat</th>
-            <th class="sag" style="color:#ef4444;">🛑 Stop</th>
-            <th class="sag" style="color:#10b981;">🎯 Hedef</th>
-            <th class="sag">Kâr / Zarar</th>
-            <th class="orta">İşlem</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${aciklar.map(poz => {
-            const birim = poz.paraBirimi || '₺';
-            const karRenk = poz.karZarar >= 0 ? 'art' : 'eks';
-            const isShort = poz.yon === 'SHORT';
-            const kStr = poz.kaldirac > 1 ? ` ${poz.kaldirac}x` : '';
-            const yonRozet = isShort 
-              ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🔴 SHORT${kStr}</span>` 
-              : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🟢 LONG${kStr}</span>`;
-            return `
+      <div class="tablo-sarma">
+        <table style="width:100%; min-width:620px;">
+          <thead>
             <tr>
-              <td style="cursor:pointer;" title="Canlı analizi ve risk durumunu görmek için tıklayın" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">
-                <b>${esc(poz.sembol.split(':')[1])}</b>${yonRozet} <small class="kucuk">${esc(poz.ad)}</small>
-                <span style="font-size:11px; color:#38bdf8; margin-left:3px;" title="Canlı Analize Git">🔍</span>
-              </td>
-              <td class="sag">${poz.adet}</td>
-              <td class="sag">${sayi(poz.alisFiyat)} ${birim}</td>
-              <td class="sag">${sayi(poz.anlikFiyat)} ${birim}</td>
-              <td class="sag">
-                <span style="color:#f87171; font-weight:bold; cursor:pointer;" title="Değiştirmek için tıkla" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'stop', ${poz.stopFiyat || 0})">
-                  ${poz.stopFiyat ? sayi(poz.stopFiyat) + ' ' + birim : '—'} ✏️
-                </span>
-              </td>
-              <td class="sag">
-                <span style="color:#34d399; font-weight:bold; cursor:pointer;" title="Değiştirmek için tıkla" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'hedef', ${poz.hedefFiyat || 0})">
-                  ${poz.hedefFiyat ? sayi(poz.hedefFiyat) + ' ' + birim : '—'} ✏️
-                </span>
-              </td>
-              <td class="sag ${karRenk}"><b>${poz.karZarar >= 0 ? '+' : ''}${sayi(poz.karZarar, 2)} ${birim}</b> (%${sayi(poz.karZararYuzde, 2)})</td>
-              <td class="orta" style="white-space:nowrap;">
-                <button class="btn ikincil" style="padding:3px 7px; font-size:11px; margin-right:4px;" title="Pozisyonun risk durumunu ve analizini gör" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">🔍 Analiz</button>
-                <button class="btn tehlike" style="padding:3px 7px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>`;
+              <th>Sembol</th>
+              <th class="sag">Adet</th>
+              <th class="sag">Alış Fiyatı</th>
+              <th class="sag">Güncel Fiyat</th>
+              <th class="sag" style="color:#ef4444;">🛑 Stop</th>
+              <th class="sag" style="color:#10b981;">🎯 Hedef</th>
+              <th class="sag">Kâr / Zarar</th>
+              <th class="orta">İşlem</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${aciklar.map(poz => {
+              const birim = poz.paraBirimi || '₺';
+              const karRenk = poz.karZarar >= 0 ? 'art' : 'eks';
+              const isShort = poz.yon === 'SHORT';
+              const kStr = poz.kaldirac > 1 ? ` ${poz.kaldirac}x` : '';
+              const yonRozet = isShort 
+                ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🔴 SHORT${kStr}</span>` 
+                : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🟢 LONG${kStr}</span>`;
+              return `
+              <tr>
+                <td style="cursor:pointer;" title="Canlı analizi ve risk durumunu görmek için tıklayın" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">
+                  <b>${esc(poz.sembol.split(':')[1])}</b>${yonRozet} <small class="kucuk">${esc(poz.ad)}</small>
+                  <span style="font-size:11px; color:#38bdf8; margin-left:3px;" title="Canlı Analize Git">🔍</span>
+                </td>
+                <td class="sag">${poz.adet}</td>
+                <td class="sag">${sayi(poz.alisFiyat)} ${birim}</td>
+                <td class="sag">${sayi(poz.anlikFiyat)} ${birim}</td>
+                <td class="sag">
+                  <span style="color:#f87171; font-weight:bold; cursor:pointer;" title="Değiştirmek için tıkla" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'stop', ${poz.stopFiyat || 0})">
+                    ${poz.stopFiyat ? sayi(poz.stopFiyat) + ' ' + birim : '—'} ✏️
+                  </span>
+                </td>
+                <td class="sag">
+                  <span style="color:#34d399; font-weight:bold; cursor:pointer;" title="Değiştirmek için tıkla" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'hedef', ${poz.hedefFiyat || 0})">
+                    ${poz.hedefFiyat ? sayi(poz.hedefFiyat) + ' ' + birim : '—'} ✏️
+                  </span>
+                </td>
+                <td class="sag ${karRenk}"><b>${poz.karZarar >= 0 ? '+' : ''}${sayi(poz.karZarar, 2)} ${birim}</b> (%${sayi(poz.karZararYuzde, 2)})</td>
+                <td class="orta" style="white-space:nowrap;">
+                  <button class="btn ikincil" style="padding:3px 7px; font-size:11px; margin-right:4px;" title="Pozisyonun risk durumunu ve analizini gör" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">🔍 Analiz</button>
+                  <button class="btn tehlike" style="padding:3px 7px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
   }
 
   // Kapanan İşlemler
@@ -1248,37 +1304,39 @@ function demoPortfoyCiz() {
     $('#demoKapananIslemler').innerHTML = '<div class="bos" style="padding:15px;">Henüz kapanmış işlem geçmişi yok.</div>';
   } else {
     $('#demoKapananIslemler').innerHTML = `
-      <table style="width:100%;">
-        <thead>
-          <tr>
-            <th>Sembol & Yön</th>
-            <th class="sag">Adet</th>
-            <th class="sag">Giriş ➔ Çıkış</th>
-            <th class="sag">Net Sonuç</th>
-            <th class="sag">Tarih</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${kapali.map(k => {
-            const birim = k.paraBirimi || '₺';
-            const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
-            const karRenk = netSonuc >= 0 ? 'art' : 'eks';
-            const isShort = k.yon === 'SHORT';
-            const kStr = k.kaldirac > 1 ? ` ${k.kaldirac}x` : '';
-            const yonRozet = isShort 
-              ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
-              : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
-            return `
+      <div class="tablo-sarma">
+        <table style="width:100%; min-width:520px;">
+          <thead>
             <tr>
-              <td><b>${esc(k.sembol.split(':')[1])}</b>${yonRozet}</td>
-              <td class="sag">${k.adet}</td>
-              <td class="sag">${sayi(k.alisFiyat)} ${birim} ➔ ${sayi(k.satisFiyat)} ${birim}</td>
-              <td class="sag ${karRenk}"><b>${netSonuc >= 0 ? '+' : ''}${sayi(netSonuc, 2)} ${birim}</b> (%${sayi(k.karZararYuzde, 2)})</td>
-              <td class="sag kucuk">${new Date(k.satisTarih).toLocaleDateString('tr-TR')} ${new Date(k.satisTarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>`;
+              <th>Sembol & Yön</th>
+              <th class="sag">Adet</th>
+              <th class="sag">Giriş ➔ Çıkış</th>
+              <th class="sag">Net Sonuç</th>
+              <th class="sag">Tarih</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${kapali.map(k => {
+              const birim = k.paraBirimi || '₺';
+              const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
+              const karRenk = netSonuc >= 0 ? 'art' : 'eks';
+              const isShort = k.yon === 'SHORT';
+              const kStr = k.kaldirac > 1 ? ` ${k.kaldirac}x` : '';
+              const yonRozet = isShort 
+                ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
+                : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
+              return `
+              <tr>
+                <td><b>${esc(k.sembol.split(':')[1])}</b>${yonRozet}</td>
+                <td class="sag">${k.adet}</td>
+                <td class="sag">${sayi(k.alisFiyat)} ${birim} ➔ ${sayi(k.satisFiyat)} ${birim}</td>
+                <td class="sag ${karRenk}"><b>${netSonuc >= 0 ? '+' : ''}${sayi(netSonuc, 2)} ${birim}</b> (%${sayi(k.karZararYuzde, 2)})</td>
+                <td class="sag kucuk">${new Date(k.satisTarih).toLocaleDateString('tr-TR')} ${new Date(k.satisTarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
   }
 }
 
@@ -1346,13 +1404,6 @@ window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
       bildir(`✅ Pozisyon kapatıldı! Sonuç: ${karZarar >= 0 ? '+' : ''}${sayi(karZarar, 2)} ${birim}`);
     }
 
-    api('/api/demo/sat', {
-      method: 'POST',
-      sessiz: true,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pozId, satisFiyat: guncelFiyat })
-    }).catch(() => {});
-
     await demoPortfoyYukle();
   } catch (e) {
     bildir('Hata: ' + e.message);
@@ -1413,7 +1464,6 @@ $('#demoSifirlaBtn').onclick = async () => {
     kapananIslemler: []
   };
   demoYerelKaydet(p);
-  api('/api/demo/sifirla', { method: 'POST', sessiz: true }).catch(() => {});
   bildir('Demo kasalar sıfırlandı: 1.000.000 TL | 100.000 $');
   await demoPortfoyYukle();
 };
@@ -1605,22 +1655,6 @@ $('#emirOnaylaBtn').onclick = async () => {
     tutar
   });
   demoYerelKaydet(p);
-
-  api('/api/demo/al', {
-    method: 'POST',
-    sessiz: true,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sembol: v.sembol,
-      ad: v.ad,
-      fiyat: f,
-      adet: adet,
-      stopFiyat: stop,
-      hedefFiyat: hedef,
-      yon,
-      kaldirac
-    })
-  }).catch(() => {});
 
   const yonIsim = yon === 'SHORT' ? '🔴 SHORT (Açığa Satış)' : '🟢 LONG';
   bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} pozisyonu ${sayi(f)} ${birim} seviyesinden açıldı!`);

@@ -113,36 +113,7 @@ function kontrolEt(fiyatHaritasi = {}) {
     alarmlariKaydet(alarmlar);
   }
 
-  // 2. Demo Portföyündeki Stop-Loss ve Hedef Kontrolü (Otomatik Pozisyon Kapatma)
-  const portfoy = Demo.portfoyOzet(fiyatHaritasi);
-  portfoy.acikPozisyonlar.forEach(poz => {
-    const f = fiyatHaritasi[poz.sembol];
-    if (!f) return;
-
-    // Hedef vurdu mu? (Kâr Al)
-    if (poz.hedefFiyat && f >= poz.hedefFiyat) {
-      Demo.demoSat(poz.id, f, 'otomatik_hedef');
-      calacakAlarmlar.push({
-        tip: 'demo_hedef',
-        sembol: poz.sembol,
-        ad: poz.ad,
-        fiyat: f,
-        mesaj: `🎉 DEMO HEDEF VURDU! ${poz.ad} ${f} seviyesinden KÂRLA otomatik kapatıldı!`
-      });
-    }
-    // Stop oldu mu? (Zarar Kes)
-    else if (poz.stopFiyat && f <= poz.stopFiyat) {
-      Demo.demoSat(poz.id, f, 'otomatik_stop');
-      calacakAlarmlar.push({
-        tip: 'demo_stop',
-        sembol: poz.sembol,
-        ad: poz.ad,
-        fiyat: f,
-        mesaj: `🛑 DEMO STOP ÇALIŞTI! ${poz.ad} ${f} seviyesinden zararı kesmek için kapatıldı.`
-      });
-    }
-  });
-
+  // Not: Demo portföyü kişiye özel (izole) olduğu için stop/hedef kontrolleri her kullanıcının kendi tarayıcısında (panel.js) çalışır.
   return { calacakAlarmlar, aktifAlarmlar: alarmlar.filter(x => !x.tetiklendi) };
 }
 
