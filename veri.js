@@ -103,9 +103,40 @@ async function yahooMum(kod, interval, range) {
 }
 
 async function binanceMum(kod, interval) {
-  return onbellekli(`binance:${kod}:${interval}`, 2 * 60_000, async () => {
-    const j = await getJson(`https://api.binance.com/api/v3/klines?symbol=${kod}&interval=${interval}&limit=600`);
-    return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+  // api.binance.com ABD sunucularında (Render) 451 engeli verir.
+  // Bu yüzden sırasıyla Binance.US -> Global Binance -> Yahoo Crypto yedekli çalışır.
+  const intervalMap = { '15m': '15m', '1h': '1h', '2h': '2h', '4h': '4h', '1d': '1d', '1w': '1w', '1M': '1M' };
+  const intv = intervalMap[interval] || interval;
+
+  return onbellekli(`kripto:${kod}:${intv}`, 2 * 60_000, async () => {
+    // 1. Kaynak: Binance.US (Render ve ABD sunucularında %100 açık ve engelsiz)
+    try {
+      const url = `https://api.binance.us/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
+      const j = await getJson(url);
+      if (Array.isArray(j) && j.length > 0) {
+        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+      }
+    } catch (_) {}
+
+    // 2. Kaynak: Global Binance (Türkiye veya yerel bilgisayarda çalışırken)
+    try {
+      const url = `https://api.binance.com/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
+      const j = await getJson(url);
+      if (Array.isArray(j) && j.length > 0) {
+        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+      }
+    } catch (_) {}
+
+    // 3. Kaynak: Yahoo Finance Crypto (Asla engellenmeyen evrensel yedek, örn: BTC-USD)
+    try {
+      const coin = kod.replace(/USDT$/, '');
+      const yahooInterval = (interval === '15m') ? '15m' : (interval === '1d') ? '1d' : (interval === '1w') ? '1wk' : (interval === '1M') ? '1mo' : '60m';
+      const yahooRange = (interval === '15m') ? '5d' : (interval === '1d' || interval === '1w' || interval === '1M') ? '2y' : '60d';
+      const ym = await yahooMum(`${coin}-USD`, yahooInterval, yahooRange);
+      if (ym && ym.length > 0) return ym;
+    } catch (_) {}
+
+    throw new Error(`${kod} için kripto veri kaynağına ulaşılamadı.`);
   });
 }
 

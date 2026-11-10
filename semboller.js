@@ -17,7 +17,11 @@ const EKSTRA = {
   'BIST:XU030':     { ad: 'BIST 30 Endeksi',        tur: 'endeks', kaynak: { tip: 'yahoo', kod: 'XU030.IS' },  bench: 'XU100' },
 };
 
-const KRIPTO_TEMEL = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'AVAX', 'DOGE', 'ADA', 'LINK'];
+const KRIPTO_TEMEL = [
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'SUI',
+  'DOT', 'NEAR', 'SHIB', 'PEPE', 'LTC', 'BCH', 'UNI', 'APT', 'FET', 'RENDER',
+  'TAO', 'INJ', 'ATOM', 'TIA', 'FIL', 'ARB', 'OP', 'ICP', 'RUNE', 'KAS'
+];
 
 function sembolBilgisi(id, bistAdlari = {}) {
   if (EKSTRA[id]) return { id, ...EKSTRA[id] };
