@@ -132,6 +132,16 @@ $('#listeler').addEventListener('click', e => {
   D.aktifId = li.dataset.id; localStorage.setItem('aktifListe', D.aktifId);
   D.gosterilen = 150; D.satirlar = [];
   listeMenuCiz(); tablo(); tara();
+
+  // Mobilde listeye tıklayınca doğrudan hisse tablosunun başına akıcı şekilde kaydır
+  if (window.innerWidth <= 768) {
+    const ana = document.querySelector('.ana') || document.querySelector('.arac-cubugu');
+    if (ana) {
+      setTimeout(() => {
+        ana.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
+  }
 });
 
 $('#yeniListeBtn').onclick = async () => {
