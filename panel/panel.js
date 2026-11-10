@@ -1719,8 +1719,6 @@ $('#ziyaretKapatBtn').onclick = () => {
 };
 
 // ================= Bildirim Merkezi (Radar & Sniper Takipçisi) =================
-let oncekiSniperKumesi = new Set();
-let oncekiRadarKumesi = new Set();
 let bildirimIlkYukleme = true;
 
 function bildirimleriOku() {
@@ -1734,6 +1732,32 @@ function bildirimleriOku() {
 function bildirimleriKaydet(arr) {
   try {
     localStorage.setItem('alper_bildirimler', JSON.stringify(arr.slice(0, 50)));
+  } catch (_) {}
+}
+
+function gorulenBildirimleriOku() {
+  try {
+    const raw = localStorage.getItem('alper_gorulen_bildirimler');
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (_) {}
+  return new Set();
+}
+
+function gorulenBildirimiKaydet(anahtar) {
+  try {
+    const set = gorulenBildirimleriOku();
+    set.add(anahtar);
+    const arr = Array.from(set);
+    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-500)));
+  } catch (_) {}
+}
+
+function gorulenBildirimleriTopluKaydet(anahtarlar) {
+  try {
+    const set = gorulenBildirimleriOku();
+    anahtarlar.forEach(k => set.add(k));
+    const arr = Array.from(set);
+    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-500)));
   } catch (_) {}
 }
 
@@ -1772,8 +1796,21 @@ function bildirimSayisiGuncelle() {
 function radarVeSniperDegisimKontrol(satirlar) {
   if (!satirlar || !satirlar.length) return;
 
-  const suankiSniper = new Set();
-  const suankiRadar = new Set();
+  const gorulenler = gorulenBildirimleriOku();
+
+  // Sayfa ilk yüklendiğinde mevcut tüm pozitif hisseleri görüldü say
+  // Böylece sayfa açılır açılmaz veya borsa değişir değişmez eski hisseler için spam bildirim yağmaz!
+  if (bildirimIlkYukleme) {
+    const baslangicEklenenler = [];
+    satirlar.forEach(r => {
+      if (r && r.id) {
+        baslangicEklenenler.push(`${r.id}_sniper`, `${r.id}_firsat`);
+      }
+    });
+    gorulenBildirimleriTopluKaydet(baslangicEklenenler);
+    bildirimIlkYukleme = false;
+    return;
+  }
 
   satirlar.forEach(r => {
     if (!r.fiyat) return;
@@ -1783,10 +1820,14 @@ function radarVeSniperDegisimKontrol(satirlar) {
     const tg = y.g1 || 0;
     const rsi4h = r.rsi?.s4 || 50;
 
+    const sniperKey = `${r.id}_sniper`;
+    const firsatKey = `${r.id}_firsat`;
+
     // Sniper Kriteri: 2s, 4s, 1g yeşil ve RSI dengeli
     if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
-      suankiSniper.add(r.id);
-      if (!bildirimIlkYukleme && !oncekiSniperKumesi.has(r.id)) {
+      if (!gorulenler.has(sniperKey)) {
+        gorulenler.add(sniperKey);
+        gorulenBildirimiKaydet(sniperKey);
         yeniBildirimEkle(
           `🎯 YENİ SNIPER FIRSATI`,
           `${r.kod} (${r.ad || ''}) tüm periyotlarda AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)}`,
@@ -1798,8 +1839,9 @@ function radarVeSniperDegisimKontrol(satirlar) {
 
     // Fırsat Radarı Kriteri
     if (r.isaretler?.some(i => i.tip === 'firsat')) {
-      suankiRadar.add(r.id);
-      if (!bildirimIlkYukleme && !oncekiRadarKumesi.has(r.id)) {
+      if (!gorulenler.has(firsatKey)) {
+        gorulenler.add(firsatKey);
+        gorulenBildirimiKaydet(firsatKey);
         yeniBildirimEkle(
           `🟢 RADARA YENİ GİRİŞ`,
           `${r.kod} hacim ve periyot onayı alarak Fırsat Radarına girdi! Fiyat: ${sayi(r.fiyat)}`,
@@ -1809,10 +1851,6 @@ function radarVeSniperDegisimKontrol(satirlar) {
       }
     }
   });
-
-  oncekiSniperKumesi = suankiSniper;
-  oncekiRadarKumesi = suankiRadar;
-  bildirimIlkYukleme = false;
 }
 
 function bildirimMerkeziCiz() {
@@ -1855,9 +1893,19 @@ $('#bildirimKapatBtn').onclick = () => {
 };
 $('#bildirimTemizleBtn').onclick = () => {
   if (!confirm('Tüm bildirim geçmişi temizlensin mi?')) return;
+  // Temizlerken mevcut tüm taranan sembolleri de görüldü olarak işaretle ki hemen tekrar dolmasın!
+  const eklenecekler = [];
+  (D.satirlar || []).forEach(r => {
+    if (r && r.id) {
+      eklenecekler.push(`${r.id}_sniper`, `${r.id}_firsat`);
+    }
+  });
+  gorulenBildirimleriTopluKaydet(eklenecekler);
+
   bildirimleriKaydet([]);
   bildirimSayisiGuncelle();
   bildirimMerkeziCiz();
+  bildir('Tüm bildirimler temizlendi.');
 };
 
 // ================= Sniper Avcısı (Hızlı Alım Menüsü) =================
