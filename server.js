@@ -25,7 +25,24 @@ let onbellekListeler = null;
 function listeleriOku() {
   if (onbellekListeler) return onbellekListeler;
   try {
-    onbellekListeler = JSON.parse(fs.readFileSync(LISTE_DOSYA, 'utf8'));
+    const v = JSON.parse(fs.readFileSync(LISTE_DOSYA, 'utf8'));
+    let degisti = false;
+    if (!v.listeler.some(l => l.id === 'forex')) {
+      const varsayilan = varsayilanListeler().listeler.find(l => l.id === 'forex');
+      if (varsayilan) {
+        v.listeler.splice(1, 0, varsayilan);
+        degisti = true;
+      }
+    }
+    const endeksListesi = v.listeler.find(l => l.id === 'endeksler');
+    if (endeksListesi && Array.isArray(endeksListesi.semboller) && !endeksListesi.semboller.includes('BIST:XBANK')) {
+      endeksListesi.semboller.push('BIST:XBANK');
+      degisti = true;
+    }
+    if (degisti) {
+      listeleriYaz(v);
+    }
+    onbellekListeler = v;
     return onbellekListeler;
   }
   catch (_) { const v = varsayilanListeler(); listeleriYaz(v); return v; }
@@ -48,6 +65,22 @@ async function buluttanListeleriYukle() {
   if (!Bulut.aktifMi()) return;
   const veri = await Bulut.getir(BULUT_LISTE_ANAHTAR);
   if (veri && Array.isArray(veri.listeler)) {
+    let degisti = false;
+    if (!veri.listeler.some(l => l.id === 'forex')) {
+      const varsayilan = varsayilanListeler().listeler.find(l => l.id === 'forex');
+      if (varsayilan) {
+        veri.listeler.splice(1, 0, varsayilan);
+        degisti = true;
+      }
+    }
+    const endeksListesi = veri.listeler.find(l => l.id === 'endeksler');
+    if (endeksListesi && Array.isArray(endeksListesi.semboller) && !endeksListesi.semboller.includes('BIST:XBANK')) {
+      endeksListesi.semboller.push('BIST:XBANK');
+      degisti = true;
+    }
+    if (degisti) {
+      Bulut.kaydet(BULUT_LISTE_ANAHTAR, veri).catch(() => {});
+    }
     onbellekListeler = veri;
     try {
       fs.mkdirSync(path.dirname(LISTE_DOSYA), { recursive: true });

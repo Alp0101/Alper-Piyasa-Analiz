@@ -8,6 +8,26 @@
       "cikarilanlar": []
     },
     {
+      "id": "forex",
+      "ad": "🌍 Forex & Dünya Pariteleri",
+      "semboller": [
+        "FX:USDJPY",
+        "FX:EURUSD",
+        "FX:GBPUSD",
+        "FX:USDCHF",
+        "FX:AUDUSD",
+        "FX:USDCAD",
+        "FX:EURJPY",
+        "FX:GBPJPY",
+        "FX:USDTRY",
+        "FX:EURTRY",
+        "OANDA:XAUUSD",
+        "TVC:SILVER",
+        "FX:UKOIL",
+        "TVC:DXY"
+      ]
+    },
+    {
       "id": "emtia-doviz",
       "ad": "Altın, Petrol ve Döviz",
       "semboller": [
@@ -28,7 +48,8 @@
       "semboller": [
         "BIST:XU100",
         "BIST:XU030",
-        "TVC:DXY"
+        "TVC:DXY",
+        "BIST:XBANK"
       ]
     },
     {

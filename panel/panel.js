@@ -973,8 +973,10 @@ let demoPortfoyVerisi = null;
 
 function paraBirimiAl(sembolId) {
   if (!sembolId) return '₺';
+  if (sembolId === 'FX:USDTRY' || sembolId === 'FX:EURTRY') return '₺';
+  if (sembolId.startsWith('FX:') || sembolId.startsWith('OANDA:') || sembolId.startsWith('TVC:')) return '$';
   if (sembolId.startsWith('BINANCE:') || sembolId.startsWith('OKX:') || sembolId.startsWith('GATE:') || sembolId.startsWith('BYBIT:')) return '$';
-  if (sembolId.includes('XAUUSD') || sembolId.includes('SILVER') || sembolId.includes('OIL') || sembolId.includes('DXY') || sembolId.includes('EURUSD')) return '$';
+  if (sembolId.includes('XAUUSD') || sembolId.includes('SILVER') || sembolId.includes('OIL') || sembolId.includes('DXY') || sembolId.includes('EURUSD') || sembolId.includes('JPY')) return '$';
   return '₺';
 }
 
