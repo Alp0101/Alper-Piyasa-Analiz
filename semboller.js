@@ -19,9 +19,9 @@ const EKSTRA = {
 };
 
 const KRIPTO_TEMEL = [
-  'PI', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'SUI',
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'SUI',
   'DOT', 'NEAR', 'SHIB', 'PEPE', 'LTC', 'BCH', 'UNI', 'APT', 'FET', 'RENDER',
-  'TAO', 'INJ', 'ATOM', 'TIA', 'FIL', 'ARB', 'OP', 'ICP', 'RUNE', 'KAS'
+  'TAO', 'INJ', 'ATOM', 'TIA', 'FIL', 'ARB', 'OP', 'ICP', 'RUNE', 'KAS', 'PI'
 ];
 
 function sembolBilgisi(id, bistAdlari = {}) {
@@ -47,8 +47,8 @@ function varsayilanListeler() {
       { id: 'tum-bist', ad: 'Tüm BIST Hisseleri', dinamik: 'bist', cikarilanlar: [] },
       { id: 'emtia-doviz', ad: 'Altın, Petrol ve Döviz', semboller: ['OANDA:XAUUSD', 'BIST:ALTIN', 'TVC:SILVER', 'FX:UKOIL', 'FX:USOIL', 'FX:USDTRY', 'FX:EURTRY', 'FX:EURUSD', 'TVC:DXY'] },
       { id: 'endeksler', ad: 'Endeksler', semboller: ['BIST:XU100', 'BIST:XU030', 'TVC:DXY'] },
-      { id: 'kripto', ad: 'Kripto Paralar', semboller: ['GATE:PIUSDT', ...KRIPTO_TEMEL.filter(k => k !== 'PI').map(k => `BINANCE:${k}USDT`)] },
-      { id: 'favoriler', ad: '⭐ Favorilerim', semboller: ['GATE:PIUSDT', 'OANDA:XAUUSD', 'BIST:ALTIN', 'FX:UKOIL', 'BIST:THYAO', 'BIST:TUPRS', 'BIST:ASELS', 'BINANCE:BTCUSDT'] },
+      { id: 'kripto', ad: 'Kripto Paralar', semboller: [...KRIPTO_TEMEL.filter(k => k !== 'PI').map(k => `BINANCE:${k}USDT`), 'GATE:PIUSDT'] },
+      { id: 'favoriler', ad: '⭐ Favorilerim', semboller: ['OANDA:XAUUSD', 'BIST:ALTIN', 'FX:UKOIL', 'BIST:THYAO', 'BIST:TUPRS', 'BIST:ASELS', 'BINANCE:BTCUSDT', 'GATE:PIUSDT'] },
     ],
   };
 }
