@@ -1962,7 +1962,6 @@ function sesCal(tur = 'ding') {
 
 async function alarmlariKontrolEt() {
   if (!D.satirlar || !D.satirlar.length) return;
-  if (!yoneticiSifre()) return; // Sunucudaki alarmlar yalnızca yönetici oturumunda kontrol edilir
   const fiyatHaritasi = {};
   D.satirlar.forEach(r => { if (r.fiyat) fiyatHaritasi[r.id] = r.fiyat; });
 

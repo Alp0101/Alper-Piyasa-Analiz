@@ -62,13 +62,8 @@ function yetkiKontrol(req, res) {
   return false;
 }
 
-// Korunan (yalnızca ana sunucu izleme listelerini kalıcı değiştiren işlemler)
-const KORUNAN = new Set([
-  'POST /api/listeler',
-  'POST /api/listeler/varsayilan',
-  'POST /api/yonetici/dogrula',
-]);
-const korunanMi = (method, p) => KORUNAN.has(`${method} ${p}`);
+// Tüm site herkese açık ve özgürdür: Liste ekleme/çıkarma, kripto ekleme, demo ve alarmlar şifre istemez
+const korunanMi = () => false;
 
 module.exports = { yetkiKontrol, korunanMi };
 
