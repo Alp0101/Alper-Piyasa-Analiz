@@ -891,32 +891,56 @@ function karneHesapla(p) {
   }
 
   const toplam = kapali.length;
-  const karli = kapali.filter(x => x.karZararTL > 0);
-  const zararli = kapali.filter(x => x.karZararTL <= 0);
+  // Hem TL hem USD işlemlerini doğru tespit et (karZarar veya eski karZararTL)
+  const netSonuc = k => (typeof k.karZarar === 'number' ? k.karZarar : (typeof k.karZararTL === 'number' ? k.karZararTL : 0));
+  const karli = kapali.filter(x => netSonuc(x) > 0);
+  const zararli = kapali.filter(x => netSonuc(x) <= 0);
   const winrate = +((karli.length / toplam) * 100).toFixed(1);
 
-  const toplamKarTL = karli.reduce((a, b) => a + b.karZararTL, 0);
-  const toplamZararTL = Math.abs(zararli.reduce((a, b) => a + b.karZararTL, 0));
-  const karFaktoru = toplamZararTL > 0 ? +(toplamKarTL / toplamZararTL).toFixed(2) : (toplamKarTL > 0 ? 99 : 0);
+  // Kâr ve Zarar toplamları (USD ve TL ayrık veya normalize)
+  let toplamKarTL = 0, toplamZararTL = 0;
+  let toplamKarUSD = 0, toplamZararUSD = 0;
+
+  kapali.forEach(k => {
+    const val = netSonuc(k);
+    const birim = k.paraBirimi || (k.sembol?.includes('USDT') || k.sembol?.startsWith('BINANCE:') ? '$' : '₺');
+    if (val > 0) {
+      if (birim === '$') toplamKarUSD += val;
+      else toplamKarTL += val;
+    } else {
+      if (birim === '$') toplamZararUSD += Math.abs(val);
+      else toplamZararTL += Math.abs(val);
+    }
+  });
+
+  // Kâr Faktörü: Toplam Kazanç / Toplam Kayıp
+  let karFaktoru = 0;
+  const toplamKazancSayi = toplamKarUSD + (toplamKarTL / 50); // Gösterge amaçlı normalize
+  const toplamKayipSayi = toplamZararUSD + (toplamZararTL / 50);
+  if (toplamKayipSayi > 0) {
+    karFaktoru = +(toplamKazancSayi / toplamKayipSayi).toFixed(2);
+  } else if (toplamKazancSayi > 0) {
+    karFaktoru = '∞ (Kayıpsız)';
+  }
 
   // Varlık türlerine göre performans
   const turPerf = { bist: { kar: 0, sayi: 0 }, kripto: { kar: 0, sayi: 0 }, emtia: { kar: 0, sayi: 0 } };
   kapali.forEach(k => {
     const s = k.sembol || '';
     let tur = 'bist';
-    if (s.includes('BTC') || s.includes('ETH') || s.includes('GATE') || s.includes('BINANCE')) tur = 'kripto';
+    if (s.includes('BTC') || s.includes('ETH') || s.includes('GATE') || s.includes('BINANCE') || s.includes('USDT')) tur = 'kripto';
     else if (s.includes('XAU') || s.includes('SILVER') || s.includes('OIL') || s.includes('ALTIN')) tur = 'emtia';
     turPerf[tur].sayi++;
-    turPerf[tur].kar += k.karZararTL;
+    turPerf[tur].kar += netSonuc(k);
   });
 
   // Seviye unvanı
   let unvan = 'Strateji Geliştirici';
   let unvanRenk = '#94a3b8';
-  if (winrate >= 70 && karFaktoru >= 1.8) {
+  if (winrate >= 70) {
     unvan = '🏆 Usta Fon Yöneticisi (Pro Trader)';
     unvanRenk = '#34d399';
-  } else if (winrate >= 50 && karFaktoru >= 1.2) {
+  } else if (winrate >= 50) {
     unvan = '⚖️ Dengeli & Disiplinli Yatırımcı';
     unvanRenk = '#38bdf8';
   } else if (zararli.length > karli.length) {
@@ -928,17 +952,37 @@ function karneHesapla(p) {
 
   // Koçluk tavsiyeleri
   const tavsiyeler = [];
-  if (winrate >= 60) {
-    tavsiyeler.push(`🎯 <b>Yüksek İsabet:</b> %${winrate} kazanma oranıyla piyasa ortalamasının oldukça üzerindesiniz. Stratejinizi bozmadan aynı disiplinle devam edin.`);
+  if (winrate >= 80) {
+    tavsiyeler.push(`🎯 <b>Kusursuz İsabet:</b> %${winrate} kazanma oranıyla harika bir performans sergiliyorsunuz! Kâr eden stratejinizi bozmadan devam edin.`);
+  } else if (winrate >= 55) {
+    tavsiyeler.push(`⚖️ <b>İstikrarlı Başarı:</b> %${winrate} kazanma oranıyla pozitif alandasınız. Kâr al ve stop disiplininizi sürdürün.`);
   } else {
     tavsiyeler.push(`🛡️ <b>Zarar Kes Disiplini:</b> Kazanma oranınız %${winrate}. Zarar eden pozisyonlarda inatlaşmayıp stop seviyelerine sadık kalmak kasanızı koruyacaktır.`);
   }
 
-  if (turPerf.emtia.sayi > 0 && turPerf.emtia.kar > 0) {
-    tavsiyeler.push(`⭐ <b>En Güçlü Alanınız (Altın/Emtia):</b> Emtia işlemlerinizde toplam +${sayi(turPerf.emtia.kar, 0)} TL net kâr ile en verimli sonuçları bu alanda alıyorsunuz.`);
+  if (turPerf.kripto.sayi > 0 && turPerf.kripto.kar > 0) {
+    tavsiyeler.push(`⭐ <b>Kriptoda Güçlü Başarı:</b> Kripto işlemlerinizde toplam +${sayi(turPerf.kripto.kar, 2)} $ net kâr ile piyasayı doğru okuyorsunuz.`);
   }
-  if (turPerf.kripto.sayi > 0 && turPerf.kripto.kar < 0) {
-    tavsiyeler.push(`⚡ <b>Kripto Uyarısı:</b> Kripto para işlemlerinde oynaklık yüksek olduğu için pozisyon büyüklüğünüzü biraz daha küçük tutmanız önerilir.`);
+  if (turPerf.emtia.sayi > 0 && turPerf.emtia.kar > 0) {
+    tavsiyeler.push(`⭐ <b>Emtia / Forex Verimliliği:</b> Emtia ve döviz işlemlerinizde kârlılık oranınız gayet yüksek.`);
+  }
+
+  // Ortalama Kazanç / Kayıp Metni
+  let ortKazancMetin = '—';
+  if (karli.length > 0) {
+    if (toplamKarUSD > 0 && toplamKarTL > 0) {
+      ortKazancMetin = `+${sayi(toplamKarUSD / karli.length, 1)} $ / +${sayi(toplamKarTL / karli.length, 0)} ₺`;
+    } else if (toplamKarUSD > 0) {
+      ortKazancMetin = `+${sayi(toplamKarUSD / karli.length, 2)} $`;
+    } else {
+      ortKazancMetin = `+${sayi(toplamKarTL / karli.length, 0)} ₺`;
+    }
+  }
+
+  let ortKayipMetin = '0';
+  if (zararli.length > 0) {
+    if (toplamZararUSD > 0) ortKayipMetin = `-${sayi(toplamZararUSD / zararli.length, 2)} $`;
+    else ortKayipMetin = `-${sayi(toplamZararTL / zararli.length, 0)} ₺`;
   }
 
   $('#karneIcerik').innerHTML = `
@@ -957,7 +1001,7 @@ function karneHesapla(p) {
       </div>
       <div style="background:#111422; border:1px solid #2d264a; border-radius:8px; padding:8px 10px;">
         <span class="kucuk">Ort. Kazanç / Kayıp</span>
-        <div style="font-size:14px; font-weight:bold; color:#cbd5e1;">+${sayi(karli.length ? toplamKarTL/karli.length : 0, 0)} / -${sayi(zararli.length ? toplamZararTL/zararli.length : 0, 0)} TL</div>
+        <div style="font-size:14px; font-weight:bold; color:#cbd5e1;">${ortKazancMetin} / ${ortKayipMetin}</div>
       </div>
     </div>
     <div style="background:#131520; padding:12px; border-radius:8px; border:1px solid #383152;">
