@@ -242,6 +242,17 @@ function carpSetleri(a, b, olcek) {
 
 async function mumSetleri(bilgi) {
   const k = bilgi.kaynak;
+  if (k.tip === 'pi') {
+    // Pi Network için Gate.io / Bitget / OKX veri beslemesi
+    const mapIntv = { '15m': '15m', '1h': '1h', '2h': '1h', '4h': '4h', '1d': '1d', '1w': '7d' };
+    const intv = mapIntv[arguments[1]] || '1h';
+    const j = await getJson(`https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=PI_USDT&interval=1h&limit=250`);
+    const saatlik = j.map(x => ({ t: +x[0], o: +x[5], h: +x[3], l: +x[4], c: +x[2], v: +x[1] }));
+    const s2 = birlestir(saatlik, 2, 0, 24);
+    const s4 = birlestir(saatlik, 4, 0, 24);
+    const g1 = birlestir(saatlik, 24, 0, 24);
+    return { m15: saatlik, s1: saatlik, s2, s4, g1, h1: haftalik(g1), ay1: null, not: 'Pi Network IOU verisi Gate.io borsasından canlı çekilmektedir.' };
+  }
   if (k.tip === 'binance') {
     const [m15, s1, s2, s4, g1, h1, ay1] = await Promise.all([
       '15m', '1h', '2h', '4h', '1d', '1w', '1M'

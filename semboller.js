@@ -15,10 +15,11 @@ const EKSTRA = {
   'TVC:DXY':        { ad: 'Dolar Endeksi (DXY)',    tur: 'endeks', kaynak: { tip: 'yahoo', kod: 'DX-Y.NYB' },  bench: null },
   'BIST:XU100':     { ad: 'BIST 100 Endeksi',       tur: 'endeks', kaynak: { tip: 'yahoo', kod: 'XU100.IS' },  bench: null },
   'BIST:XU030':     { ad: 'BIST 30 Endeksi',        tur: 'endeks', kaynak: { tip: 'yahoo', kod: 'XU030.IS' },  bench: 'XU100' },
+  'GATE:PIUSDT':    { ad: 'Pi Network (PI / USDT)', tur: 'kripto', kaynak: { tip: 'pi' },                      bench: 'BTC' },
 };
 
 const KRIPTO_TEMEL = [
-  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'SUI',
+  'PI', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'SUI',
   'DOT', 'NEAR', 'SHIB', 'PEPE', 'LTC', 'BCH', 'UNI', 'APT', 'FET', 'RENDER',
   'TAO', 'INJ', 'ATOM', 'TIA', 'FIL', 'ARB', 'OP', 'ICP', 'RUNE', 'KAS'
 ];
@@ -41,13 +42,13 @@ function sembolBilgisi(id, bistAdlari = {}) {
 
 function varsayilanListeler() {
   return {
-    surum: 1,
+    surum: 2,
     listeler: [
       { id: 'tum-bist', ad: 'Tüm BIST Hisseleri', dinamik: 'bist', cikarilanlar: [] },
       { id: 'emtia-doviz', ad: 'Altın, Petrol ve Döviz', semboller: ['OANDA:XAUUSD', 'BIST:ALTIN', 'TVC:SILVER', 'FX:UKOIL', 'FX:USOIL', 'FX:USDTRY', 'FX:EURTRY', 'FX:EURUSD', 'TVC:DXY'] },
       { id: 'endeksler', ad: 'Endeksler', semboller: ['BIST:XU100', 'BIST:XU030', 'TVC:DXY'] },
-      { id: 'kripto', ad: 'Kripto Paralar', semboller: KRIPTO_TEMEL.map(k => `BINANCE:${k}USDT`) },
-      { id: 'favoriler', ad: '⭐ Favorilerim', semboller: ['OANDA:XAUUSD', 'BIST:ALTIN', 'FX:UKOIL', 'BIST:THYAO', 'BIST:TUPRS', 'BIST:ASELS', 'BINANCE:BTCUSDT'] },
+      { id: 'kripto', ad: 'Kripto Paralar', semboller: ['GATE:PIUSDT', ...KRIPTO_TEMEL.filter(k => k !== 'PI').map(k => `BINANCE:${k}USDT`)] },
+      { id: 'favoriler', ad: '⭐ Favorilerim', semboller: ['GATE:PIUSDT', 'OANDA:XAUUSD', 'BIST:ALTIN', 'FX:UKOIL', 'BIST:THYAO', 'BIST:TUPRS', 'BIST:ASELS', 'BINANCE:BTCUSDT'] },
     ],
   };
 }
