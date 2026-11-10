@@ -222,6 +222,19 @@ $('#filtreCipler').addEventListener('click', e => {
   document.querySelectorAll('.cip').forEach(x => x.classList.toggle('aktif', x === b));
   D.filtre = b.dataset.f; D.gosterilen = 150; tablo();
 });
+
+// Fırsat Radarı: En temiz, çoklu periyotta onaylı varlıkları öne çıkarır
+$('#firsatRadarBtn').onclick = () => {
+  const fCip = document.querySelector('.cip[data-f="firsat"]');
+  if (fCip) {
+    document.querySelectorAll('.cip').forEach(x => x.classList.remove('aktif'));
+    fCip.classList.add('aktif');
+    D.filtre = 'firsat';
+    D.gosterilen = 150;
+    tablo();
+    bildir('🎯 Fırsat Radarı Aktif: Çoklu periyot ve hacim onayı almış varlıklar listelendi.');
+  }
+};
 $('#aramaInput').addEventListener('input', e => { D.arama = e.target.value.trim(); D.gosterilen = 150; tablo(); });
 $('#hacimFiltre').addEventListener('change', tablo);
 $('#dahaBtn').onclick = () => { D.gosterilen += 150; tablo(); };
