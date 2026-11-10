@@ -448,3 +448,7 @@ tbody tr:hover { background: #1a202c; }
   td, th { padding: 8px 6px; font-size: 12px; }
 }
 
+
+/* Yönetici girişi butonu */
+#yoneticiBtn.girisli { border-color: #10b981; color: #10b981; }
+

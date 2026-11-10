@@ -8,9 +8,45 @@ const D = {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-async function api(yol, ayar) {
-  const r = await fetch(yol, ayar);
+// ================= Yönetici Şifresi =================
+// Okuma herkese açık; sunucuda veri değiştiren işlemler yönetici şifresi ister.
+const YONETICI_ANAHTAR = 'alper_yonetici_sifre';
+const yoneticiSifre = () => localStorage.getItem(YONETICI_ANAHTAR) || '';
+
+function yoneticiDurumCiz() {
+  const b = document.getElementById('yoneticiBtn');
+  if (!b) return;
+  const girisli = !!yoneticiSifre();
+  b.textContent = girisli ? '🔓 Yönetici' : '🔒 Giriş';
+  b.title = girisli ? 'Yönetici olarak giriş yapıldı (çıkış için tıklayın)' : 'Liste, alarm ve demo kayıtlarını değiştirmek için yönetici girişi';
+  b.classList.toggle('girisli', girisli);
+}
+
+async function yoneticiGiris(mesaj) {
+  const s = prompt(`🔐 ${mesaj || 'Bu işlem için yönetici şifresi gerekli.'}\n\nYönetici şifresini girin:`);
+  if (!s) return false;
+  try {
+    const r = await fetch('/api/yonetici/dogrula', { method: 'POST', headers: { 'X-Yonetici-Sifre': encodeURIComponent(s) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { bildir('⛔ ' + (j.hata || 'Şifre doğrulanamadı.'), 4000); return false; }
+    localStorage.setItem(YONETICI_ANAHTAR, s);
+    yoneticiDurumCiz();
+    bildir('🔓 Yönetici girişi başarılı.');
+    return true;
+  } catch (e) { bildir('⛔ ' + e.message); return false; }
+}
+
+async function api(yol, ayar = {}, tekrar = true) {
+  const { sessiz, ...fetchAyar } = ayar;
+  const basliklar = { ...(fetchAyar.headers || {}) };
+  const s = yoneticiSifre();
+  if (s) basliklar['X-Yonetici-Sifre'] = encodeURIComponent(s);
+  const r = await fetch(yol, { ...fetchAyar, headers: basliklar });
   const j = await r.json().catch(() => ({}));
+  if (r.status === 401) {
+    if (s) { localStorage.removeItem(YONETICI_ANAHTAR); yoneticiDurumCiz(); }
+    if (tekrar && !sessiz && await yoneticiGiris(j.hata)) return api(yol, ayar, false);
+  }
   if (!r.ok) throw new Error(j.hata || ('Sunucu hatası ' + r.status));
   return j;
 }
@@ -69,8 +105,15 @@ async function listeleriYukle() {
   listeMenuCiz();
 }
 async function listeleriKaydet() {
-  D.listeler = await api('/api/listeler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(D.listeler) });
-  listeMenuCiz();
+  try {
+    D.listeler = await api('/api/listeler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(D.listeler) });
+    listeMenuCiz();
+  } catch (e) {
+    // Kaydedilemediyse ekrandaki listeyi sunucudaki gerçek haline geri döndür
+    try { D.listeler = await api('/api/listeler'); listeMenuCiz(); tara(); } catch (_) {}
+    bildir('⚠️ Liste kaydedilemedi: ' + e.message, 4000);
+    throw e;
+  }
 }
 const aktifListe = () => D.listeler.listeler.find(l => l.id === D.aktifId);
 
@@ -933,6 +976,7 @@ window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
     // Sunucuya da bildir
     api('/api/demo/sat', {
       method: 'POST',
+      sessiz: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pozId, satisFiyat: guncelFiyat })
     }).catch(() => {});
@@ -961,7 +1005,7 @@ $('#demoSifirlaBtn').onclick = async () => {
     kapananIslemler: []
   };
   demoYerelKaydet(p);
-  api('/api/demo/sifirla', { method: 'POST' }).catch(() => {});
+  api('/api/demo/sifirla', { method: 'POST', sessiz: true }).catch(() => {});
   bildir('Demo kasa sıfırlandı: 1.000.000 TL');
   await demoPortfoyYukle();
 };
@@ -1055,6 +1099,7 @@ $('#emirOnaylaBtn').onclick = async () => {
   // 2. Arka planda sunucuya da gönder
   api('/api/demo/al', {
     method: 'POST',
+    sessiz: true,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       sembol: v.sembol,
@@ -1458,12 +1503,14 @@ function sesCal(tur = 'ding') {
 
 async function alarmlariKontrolEt() {
   if (!D.satirlar || !D.satirlar.length) return;
+  if (!yoneticiSifre()) return; // Sunucudaki alarmlar yalnızca yönetici oturumunda kontrol edilir
   const fiyatHaritasi = {};
   D.satirlar.forEach(r => { if (r.fiyat) fiyatHaritasi[r.id] = r.fiyat; });
 
   try {
     const res = await api('/api/alarm/kontrol', {
       method: 'POST',
+      sessiz: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fiyatHaritasi })
     });
@@ -1569,6 +1616,19 @@ $('#alarmKapatBtn').onclick = () => {
 };
 
 // ================= Başlangıç =================
+$('#yoneticiBtn').onclick = async () => {
+  if (yoneticiSifre()) {
+    if (confirm('Yönetici oturumu kapatılsın mı?\n(Bu cihazda kayıtlı şifre silinir.)')) {
+      localStorage.removeItem(YONETICI_ANAHTAR);
+      yoneticiDurumCiz();
+      bildir('🔒 Yönetici oturumu kapatıldı.');
+    }
+  } else {
+    await yoneticiGiris('Yönetici girişi');
+  }
+};
+yoneticiDurumCiz();
+
 (async () => {
   try { 
     await listeleriYukle(); 

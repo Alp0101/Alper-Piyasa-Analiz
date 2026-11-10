@@ -11,6 +11,7 @@ const { geriyeTest } = require('./backtest');
 const Demo = require('./demo');
 const Ziyaret = require('./ziyaret');
 const Alarm = require('./alarm');
+const Guvenlik = require('./guvenlik');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
@@ -134,6 +135,10 @@ const sunucu = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const p = url.pathname;
   try {
+    // Yönetici şifresi koruması: veri değiştiren işlemler şifre ister
+    if (Guvenlik.korunanMi(req.method, p) && !Guvenlik.yetkiKontrol(req, res)) return;
+    if (p === '/api/yonetici/dogrula') return gonder(res, 200, { yetki: true });
+
     if (p === '/api/listeler' && req.method === 'GET') return gonder(res, 200, listeleriOku());
     if (p === '/api/listeler' && req.method === 'POST') { const v = listeDogrula(await govdeOku(req)); listeleriYaz(v); return gonder(res, 200, v); }
     if (p === '/api/listeler/varsayilan' && req.method === 'POST') { const v = varsayilanListeler(); listeleriYaz(v); return gonder(res, 200, v); }
