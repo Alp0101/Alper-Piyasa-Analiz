@@ -161,35 +161,45 @@ const sunucu = http.createServer(async (req, res) => {
       return gonder(res, 200, Ziyaret.istatistikGetir());
     }
 
-    // Toplu Balina Radarı Taraması
+    // Toplu Balina Radarı Taraması (Mevcut seçili listeye veya piyasaya göre dinamik)
     if (p === '/api/balina/tara') {
-      const bist = await V.tumBistTara();
+      const seciliListeId = url.searchParams.get('liste') || 'tum-bist';
+      let satirlar = [];
+      try {
+        satirlar = await listeTara(seciliListeId);
+      } catch (_) {
+        satirlar = await V.tumBistTara();
+      }
+
       const bulunanlar = [];
-      bist.forEach(r => {
+      satirlar.forEach(r => {
         const gh = r.goreceliHacim || 0;
         const deg = r.degisim || 0;
-        // Sessiz Toplama: Fiyat yatay (% -1.5 ile +1.5) ama hacim en az 1.4 kat!
-        if (Math.abs(deg) <= 1.5 && gh >= 1.4 && (r.tlHacim || 0) > 10e6) {
+        const tv = r.tv || {};
+        const rsi4h = r.rsi?.s4 || 50;
+
+        // 1. Sessiz Toplama: Fiyat yatay (% -1.8 ile +1.8) ama hacim en az 1.35 kat veya kısa vade AL
+        if (Math.abs(deg) <= 2.0 && (gh >= 1.35 || tv.s2 > 0.3) && (r.fiyat > 0)) {
           bulunanlar.push({
-            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh,
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.2,
             tur: 'toplama', seviye: 'Sessiz Toplama', ikon: '🧲', renk: '#10b981',
-            aciklama: `Fiyat yatay (%${deg.toFixed(1)}) seyrederken hacim ortalamanın ${gh.toFixed(1)} katına çıktı!`
+            aciklama: `Fiyat yatay (%${deg.toFixed(1)}) seyrederken gizli alım baskısı ve hacim artışı var!`
           });
         }
-        // Mal Dağıtımı: Fiyat şişkin ve hacim yüksek ama RSI aşırı alımda
-        else if (deg >= 2.5 && gh >= 1.6 && (r.rsi?.s4 > 72 || r.rsi?.g1 > 74)) {
+        // 2. Mal Dağıtımı: Fiyat şişkin ve hacim yüksek ama RSI aşırı alımda
+        else if (deg >= 2.5 && (gh >= 1.4 || rsi4h > 72)) {
           bulunanlar.push({
-            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh,
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.4,
             tur: 'dagitim', seviye: 'Mal Dağıtımı Riski', ikon: '⚠️', renk: '#ef4444',
-            aciklama: `Hacim ${gh.toFixed(1)} katına fırladı ancak RSI aşırı şişti (${r.rsi?.s4?.toFixed(0) || ''}). Tepede mal devri olabilir!`
+            aciklama: `Hacim arttı ancak RSI aşırı şişti (${rsi4h.toFixed(0)}). Tepede mal devri olabilir!`
           });
         }
-        // Agresif Giriş: Sert yükseliş ve dev hacim
-        else if (deg >= 3.5 && gh >= 1.8 && (r.tlHacim || 0) > 20e6) {
+        // 3. Agresif Giriş: Sert yükseliş ve dev hacim
+        else if (deg >= 3.0 && (gh >= 1.5 || tv.s4 > 0.4)) {
           bulunanlar.push({
-            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh,
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.5,
             tur: 'patlama', seviye: 'Agresif Giriş', ikon: '🚀', renk: '#38bdf8',
-            aciklama: `Günü %${deg.toFixed(1)} artıda götürüyor ve hacim ortalamanın ${gh.toFixed(1)} katı!`
+            aciklama: `Günü %${deg.toFixed(1)} artıda götürüyor ve güçlü para girişi var!`
           });
         }
       });

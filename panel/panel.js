@@ -1222,9 +1222,13 @@ $('#bildirimTemizleBtn').onclick = () => {
 
 // ================= Sniper Avcısı (Hızlı Alım Menüsü) =================
 function sniperAvcisiYukle() {
+  const l = aktifListe();
+  const listeAdi = l ? l.ad : 'Seçili Piyasa';
+  $('#sniperModal .d-alt').textContent = `[${listeAdi}] listesinde 15dk, 1s, 4s ve Günlük periyotları tam AL veren varlıklar`;
+
   const satirlar = D.satirlar || [];
   if (!satirlar.length) {
-    $('#sniperRadarListesi').innerHTML = '<div class="bos">Henüz taranmış veri yok.</div>';
+    $('#sniperRadarListesi').innerHTML = `<div class="bos">${listeAdi} listesinde taranmış veri yok.</div>`;
     return;
   }
 
@@ -1320,9 +1324,13 @@ $('#sniperKapatBtn').onclick = () => {
 
 // ================= Balina Radarı Menüsü =================
 async function balinaRadariYukle() {
-  $('#balinaRadarListesi').innerHTML = '<div class="yukleniyor">⏳ Tüm piyasa balina ve akıllı para hareketleri için taranıyor...</div>';
+  const l = aktifListe();
+  const listeAdi = l ? l.ad : 'Seçili Piyasa';
+  $('#balinaModal .d-alt').textContent = `[${listeAdi}] kapsamındaki akıllı para ve balina hareketleri taranıyor...`;
+  $('#balinaRadarListesi').innerHTML = `<div class="yukleniyor">⏳ ${listeAdi} için balina ve akıllı para hareketleri taranıyor...</div>`;
+  
   try {
-    const res = await api('/api/balina/tara');
+    const res = await api(`/api/balina/tara?liste=${encodeURIComponent(D.aktifId)}`);
     const liste = res.liste || [];
 
     const toplama = liste.filter(x => x.tur === 'toplama');
