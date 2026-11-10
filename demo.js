@@ -275,4 +275,9 @@ function portfoyOzet(fiyatHaritasi = {}) {
   };
 }
 
-module.exports = { demoAl, demoSat, demoSifirla, portfoyOzet, paraBirimiAl };
+function acikSembolleriAl() {
+  const p = portfoyOku();
+  return [...new Set((p.acikPozisyonlar || []).map(x => x.sembol).filter(Boolean))];
+}
+
+module.exports = { demoAl, demoSat, demoSifirla, portfoyOzet, paraBirimiAl, portfoyOku, acikSembolleriAl };

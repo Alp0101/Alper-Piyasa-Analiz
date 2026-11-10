@@ -186,9 +186,20 @@ const sunucu = http.createServer(async (req, res) => {
     if (p === '/api/analiz') return gonder(res, 200, await sembolAnaliz(url.searchParams.get('sembol') || '', url.searchParams.get('tf') || 's4'));
     if (p === '/api/ara') return gonder(res, 200, await V.ara(url.searchParams.get('q') || ''));
 
-    // Demo Al-Sat Uç Noktaları
+    // Demo Al-Sat Uç Noktaları (Canlı Piyasa Fiyatlarıyla Birlikte)
     if (p === '/api/demo/portfoy' && req.method === 'GET') {
-      return gonder(res, 200, Demo.portfoyOzet());
+      const qSembol = url.searchParams.get('semboller');
+      const gelenSemboller = qSembol ? qSembol.split(',').filter(Boolean) : [];
+      const semboller = [...new Set([...Demo.acikSembolleriAl(), ...gelenSemboller])];
+      const fiyatHaritasi = {};
+      if (semboller.length > 0) {
+        try {
+          const satirlar = await V.sembolleriTara(semboller);
+          (satirlar || []).forEach(r => { if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat; });
+        } catch (_) {}
+      }
+      const ozet = Demo.portfoyOzet(fiyatHaritasi);
+      return gonder(res, 200, { ...ozet, fiyatHaritasi });
     }
     if (p === '/api/demo/al' && req.method === 'POST') {
       const g = await govdeOku(req);

@@ -429,7 +429,12 @@ $('#hacimFiltre').addEventListener('change', tablo);
 $('#dahaBtn').onclick = () => { D.gosterilen += 150; tablo(); };
 $('#yenileBtn').onclick = () => { tara(); if (D.detaySembol) detayYukle(true); };
 // Canlı Piyasa Akışı: 5 saniyede bir otomatik yenile (TradingView gibi akıcı)
-setInterval(() => { if ($('#otoYenile').checked && !document.hidden) tara(); }, 5000);
+setInterval(() => {
+  if ($('#otoYenile').checked && !document.hidden) {
+    tara();
+    demoPortfoyYukle();
+  }
+}, 5000);
 
 // ================= Ayrıntılı analiz =================
 function detayAc(id) {
@@ -1018,19 +1023,29 @@ function demoYerelKaydet(p) {
 async function demoPortfoyYukle() {
   try {
     let yerel = demoYerelOku();
-
-    try {
-      const sunucu = await api('/api/demo/portfoy');
-      if (sunucu && sunucu.acikPozisyonlar && sunucu.acikPozisyonlar.length > 0 && yerel.acikPozisyonlar.length === 0) {
-        yerel = sunucu;
-        demoYerelKaydet(yerel);
-      }
-    } catch (_) {}
+    const yerelSemboller = (yerel.acikPozisyonlar || []).map(x => x.sembol).filter(Boolean);
 
     const fiyatHaritasi = {};
     if (D.satirlar && D.satirlar.length) {
       D.satirlar.forEach(r => { if (r.fiyat) fiyatHaritasi[r.id] = r.fiyat; });
     }
+
+    try {
+      const q = yerelSemboller.length > 0 ? `?semboller=${encodeURIComponent(yerelSemboller.join(','))}` : '';
+      const sunucu = await api(`/api/demo/portfoy${q}`);
+      if (sunucu) {
+        if (sunucu.fiyatHaritasi) {
+          Object.assign(fiyatHaritasi, sunucu.fiyatHaritasi);
+        }
+        (sunucu.acikPozisyonlar || []).forEach(p => {
+          if (p.sembol && p.anlikFiyat) fiyatHaritasi[p.sembol] = p.anlikFiyat;
+        });
+        if (sunucu.acikPozisyonlar && sunucu.acikPozisyonlar.length > 0 && (!yerel.acikPozisyonlar || yerel.acikPozisyonlar.length === 0)) {
+          yerel = sunucu;
+          demoYerelKaydet(yerel);
+        }
+      }
+    } catch (_) {}
 
     let hisseDegeriTL = 0;
     let hisseDegeriUSD = 0;
@@ -1313,12 +1328,24 @@ window.demoPozisyonKapatVeYenile = async (pozId, guncelFiyat) => {
   detayYukle();
 };
 
+let demoCanliSayac = null;
+
 $('#demoPortfoyBtn').onclick = () => {
   $('#perde').classList.remove('gizli');
   $('#demoModal').classList.remove('gizli');
   demoPortfoyYukle();
+  if (demoCanliSayac) clearInterval(demoCanliSayac);
+  demoCanliSayac = setInterval(() => {
+    if (!$('#demoModal').classList.contains('gizli')) {
+      demoPortfoyYukle();
+    } else {
+      clearInterval(demoCanliSayac);
+      demoCanliSayac = null;
+    }
+  }, 4000);
 };
 $('#demoKapatBtn').onclick = () => {
+  if (demoCanliSayac) { clearInterval(demoCanliSayac); demoCanliSayac = null; }
   $('#perde').classList.add('gizli');
   $('#demoModal').classList.add('gizli');
 };
