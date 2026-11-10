@@ -439,6 +439,7 @@ function detayAc(id) {
   $('#dAd').textContent = (r ? r.kod + ' · ' + (r.ad || '') : id);
   $('#dAlt').textContent = 'Analiz ediliyor...';
   $('#dTv').href = 'https://tr.tradingview.com/chart/?symbol=' + encodeURIComponent(id.startsWith('YAHOO:') ? id.split(':')[1] : id);
+  if (!demoPortfoyVerisi) demoPortfoyYukle();
   detayYukle();
 }
 function detayKapat() { D.detaySembol = null; $('#perde').classList.add('gizli'); $('#detay').classList.add('gizli'); }
@@ -557,6 +558,200 @@ function sniperMatrisiHesapla(zamanDilimleri) {
   </div>`;
 }
 
+// ================= Canlı Açık Pozisyon Risk Değerlendirmesi =================
+function pozisyonRiskKarti(poz, z, v) {
+  if (!poz || !z || !z.seviyeler) return '';
+  const s = z.seviyeler;
+  const t = z.tuzak || {};
+  const b = z.balina || {};
+  const birim = poz.paraBirimi || '₺';
+  const isShort = poz.yon === 'SHORT';
+  const anlikFiyat = s.fiyat || poz.alisFiyat;
+  const teminat = poz.teminat || +(poz.adet * poz.alisFiyat).toFixed(2);
+  const fiyatFarki = isShort ? (poz.alisFiyat - anlikFiyat) : (anlikFiyat - poz.alisFiyat);
+  const karZarar = +(fiyatFarki * poz.adet).toFixed(2);
+  const karZararYuzde = teminat > 0 ? +((karZarar / teminat) * 100).toFixed(2) : 0;
+  const karRenk = karZarar >= 0 ? '#10b981' : '#ef4444';
+  const kStr = poz.kaldirac > 1 ? ` ${poz.kaldirac}x` : '';
+
+  // 1. Stop Mesafesi Analizi
+  let stopHtml = '';
+  if (poz.stopFiyat && poz.stopFiyat > 0) {
+    if (isShort) {
+      const stopFark = poz.stopFiyat - anlikFiyat;
+      const stopYuzde = +((stopFark / anlikFiyat) * 100).toFixed(1);
+      if (anlikFiyat >= poz.stopFiyat) {
+        stopHtml = `<span style="color:#ef4444; font-weight:bold;">🛑 FİYAT SHORT STOPUNU AŞTI (${sayi(poz.stopFiyat)} ${birim})! Zarar-kes seviyesi ihlal edildi.</span>`;
+      } else if (stopYuzde <= 1.2) {
+        stopHtml = `<span style="color:#ef4444; font-weight:bold;">⚠️ TEHLİKE: Stop seviyesine sadece %${stopYuzde} kaldı (${sayi(poz.stopFiyat)} ${birim})!</span>`;
+      } else {
+        stopHtml = `<span style="color:#10b981;">Stopa %${stopYuzde} güvenli mesafe var (${sayi(poz.stopFiyat)} ${birim}).</span>`;
+      }
+    } else {
+      const stopFark = anlikFiyat - poz.stopFiyat;
+      const stopYuzde = +((stopFark / anlikFiyat) * 100).toFixed(1);
+      if (anlikFiyat <= poz.stopFiyat) {
+        stopHtml = `<span style="color:#ef4444; font-weight:bold;">🛑 FİYAT STOP SEVİYESİNİN ALTINDA (${sayi(poz.stopFiyat)} ${birim})! Zarar-kes seviyesi ihlal edildi.</span>`;
+      } else if (stopYuzde <= 1.2) {
+        stopHtml = `<span style="color:#ef4444; font-weight:bold;">⚠️ TEHLİKE: Stop seviyesine sadece %${stopYuzde} kaldı (${sayi(poz.stopFiyat)} ${birim})!</span>`;
+      } else {
+        stopHtml = `<span style="color:#10b981;">Stopa %${stopYuzde} güvenli mesafe var (${sayi(poz.stopFiyat)} ${birim}).</span>`;
+      }
+    }
+  } else {
+    stopHtml = `<span style="color:#f59e0b;">⚠️ Stop-Loss tanımlanmamış! Ani dalgalanmada risk yüksek.</span>`;
+  }
+
+  // 2. Hedef Mesafesi Analizi
+  let hedefHtml = '';
+  if (poz.hedefFiyat && poz.hedefFiyat > 0) {
+    if (isShort) {
+      const hedefFark = anlikFiyat - poz.hedefFiyat;
+      const hedefYuzde = +((hedefFark / anlikFiyat) * 100).toFixed(1);
+      if (anlikFiyat <= poz.hedefFiyat) {
+        hedefHtml = `<span style="color:#10b981; font-weight:bold;">🎯 DÜŞÜŞ HEDEFİNE ULAŞILDI (${sayi(poz.hedefFiyat)} ${birim})! Kârı alabilirsiniz.</span>`;
+      } else {
+        hedefHtml = `<span style="color:#38bdf8;">Hedefe %${hedefYuzde} kaldı (${sayi(poz.hedefFiyat)} ${birim}).</span>`;
+      }
+    } else {
+      const hedefFark = poz.hedefFiyat - anlikFiyat;
+      const hedefYuzde = +((hedefFark / anlikFiyat) * 100).toFixed(1);
+      if (anlikFiyat >= poz.hedefFiyat) {
+        hedefHtml = `<span style="color:#10b981; font-weight:bold;">🎯 KÂR HEDEFİNE ULAŞILDI (${sayi(poz.hedefFiyat)} ${birim})! Kârı alabilirsiniz.</span>`;
+      } else {
+        hedefHtml = `<span style="color:#38bdf8;">Hedefe %${hedefYuzde} kaldı (${sayi(poz.hedefFiyat)} ${birim}).</span>`;
+      }
+    }
+  } else {
+    hedefHtml = `<span style="color:#94a3b8;">Hedef tanımlanmamış.</span>`;
+  }
+
+  // 3. Yapay Zeka & Trend Yönü ile Pozisyon Uyumu Değerlendirmesi
+  let riskSeviye = 'DÜŞÜK';
+  let riskRenk = '#10b981';
+  let riskYorum = '';
+
+  if (!isShort) {
+    if (z.yonKod >= 1) {
+      if (t.seviye === 'Yüksek' && t.tip === 'boga') {
+        riskSeviye = 'YÜKSEK (TUZAK)';
+        riskRenk = '#ef4444';
+        riskYorum = '⚠️ <b>Boğa Tuzağı Uyarısı:</b> Yükseliş görünümüne rağmen sahte kırılım / gel-gel riski yüksek. Fiyat sert düşebilir, kârınızı korumak için stopunuzu yukarı çekin veya kâr almayı değerlendirin.';
+      } else if (b.durum === 'dagitim') {
+        riskSeviye = 'ORTA-YÜKSEK';
+        riskRenk = '#f59e0b';
+        riskYorum = '⚠️ <b>Balina Dağıtımı:</b> Büyük yatırımcılar satış yapıyor. Yükseliş gücünü kaybedebilir, temkinli olun.';
+      } else {
+        riskSeviye = 'DÜŞÜK (TREND LEHİNİZE)';
+        riskRenk = '#10b981';
+        riskYorum = '🟢 <b>Mükemmel Uyum:</b> Analiz ve göstergeler yükseliş trendinde sizi destekliyor. Pozisyon güvende.';
+      }
+    } else if (z.yonKod <= -1) {
+      riskSeviye = 'YÜKSEK (TREND ALEYHİNİZE)';
+      riskRenk = '#ef4444';
+      riskYorum = '🔴 <b>DİKKAT:</b> Göstergeler SAT / DÜŞÜŞ moduna geçmiş durumda! Long pozisyonunuz ters rüzgarda kalmış. Zarar büyümeden pozisyonu kapatmayı veya stopu daraltmayı düşünün.';
+    } else {
+      riskSeviye = 'ORTA (KARARSIZ)';
+      riskRenk = '#94a3b8';
+      riskYorum = '⚪ Piyasa kararsız / yatay bantta. Seviye kırılımlarını ve stopunuzu takip edin.';
+    }
+  } else {
+    if (z.yonKod <= -1) {
+      if (t.seviye === 'Yüksek' && t.tip === 'ayi') {
+        riskSeviye = 'YÜKSEK (TUZAK)';
+        riskRenk = '#ef4444';
+        riskYorum = '⚠️ <b>Ayı Tuzağı Uyarısı:</b> Düşüş görünümüne rağmen sert yukarı tepki gelebilir! Short pozisyonunuz ani yükselişle stop olabilir.';
+      } else if (b.durum === 'toplama' || b.durum === 'patlama') {
+        riskSeviye = 'ORTA-YÜKSEK';
+        riskRenk = '#f59e0b';
+        riskYorum = '⚠️ <b>Akıllı Para Alımı:</b> Kurumsal alıcılar dipten topluyor. Short pozisyona karşı yukarı baskı riski var.';
+      } else {
+        riskSeviye = 'DÜŞÜK (DÜŞÜŞ LEHİNİZE)';
+        riskRenk = '#10b981';
+        riskYorum = '🟢 <b>Mükemmel Uyum:</b> Düşüş baskısı ve göstergeler short pozisyonunuzu teyit ediyor. Kârlılığı koruyabilirsiniz.';
+      }
+    } else if (z.yonKod >= 1) {
+      riskSeviye = 'YÜKSEK (YÜKSELİŞ BAŞLADI)';
+      riskRenk = '#ef4444';
+      riskYorum = '🔴 <b>DİKKAT:</b> Göstergeler AL / YÜKSELİŞ moduna döndü! Short pozisyonunuz aleyhine alım baskısı var. Pozisyonu kapatmayı değerlendirin.';
+    } else {
+      riskSeviye = 'ORTA (KARARSIZ)';
+      riskRenk = '#94a3b8';
+      riskYorum = '⚪ Piyasa yatay yönsüz seyrediyor. Destek/direnç kırılımlarını izleyin.';
+    }
+  }
+
+  const yonRozet = isShort 
+    ? `<span style="background:#ef4444; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold;">🔴 SHORT${kStr}</span>` 
+    : `<span style="background:#10b981; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold;">🟢 LONG${kStr}</span>`;
+
+  return `
+  <div class="kutu" style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.92)); border: 2px solid ${riskRenk}; box-shadow: 0 4px 25px ${riskRenk}44; margin-bottom: 20px; border-radius: 12px; padding: 16px 20px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:24px;">🛡️</span>
+        <div>
+          <div style="font-size:16px; font-weight:bold; color:#f1f5f9;">Canlı Pozisyon Risk Değerlendirmesi</div>
+          <div style="font-size:12px; color:#94a3b8;">Açık sanal işleminizin anlık sağlık durumu ve yapay zeka analiz uyumu</div>
+        </div>
+      </div>
+      <div>
+        ${yonRozet}
+        <span style="background:${riskRenk}22; color:${riskRenk}; border: 1px solid ${riskRenk}66; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:bold; margin-left:6px;">
+          Risk: ${riskSeviye}
+        </span>
+      </div>
+    </div>
+
+    <!-- Pozisyon Metrikleri -->
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap:10px; margin-bottom: 12px;">
+      <div style="background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:8px;">
+        <div class="kucuk">Giriş Maliyeti</div>
+        <div style="font-size:15px; font-weight:bold; color:#f8fafc; margin-top:2px;">${sayi(poz.alisFiyat)} ${birim}</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:8px;">
+        <div class="kucuk">Anlık Fiyat</div>
+        <div style="font-size:15px; font-weight:bold; color:#38bdf8; margin-top:2px;">${sayi(anlikFiyat)} ${birim}</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:8px;">
+        <div class="kucuk">Miktar</div>
+        <div style="font-size:15px; font-weight:bold; color:#e2e8f0; margin-top:2px;">${poz.adet} Adet</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:8px; border:1px solid ${karRenk}55;">
+        <div class="kucuk">Net Kâr / Zarar</div>
+        <div style="font-size:15px; font-weight:bold; color:${karRenk}; margin-top:2px;">${karZarar >= 0 ? '+' : ''}${sayi(karZarar, 2)} ${birim} (%${sayi(karZararYuzde, 2)})</div>
+      </div>
+    </div>
+
+    <!-- Seviye Mesafeleri -->
+    <div style="background:rgba(0,0,0,0.25); border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; line-height:1.6;">
+      <div>🎯 <b>Hedef Durumu:</b> ${hedefHtml}</div>
+      <div style="margin-top:4px;">🛑 <b>Stop Durumu:</b> ${stopHtml}</div>
+    </div>
+
+    <!-- AI & Trend Uyarı Mesajı -->
+    <div style="background:${riskRenk}15; border-left: 4px solid ${riskRenk}; padding:10px 14px; border-radius:6px; font-size:13px; color:#f1f5f9; line-height:1.5; margin-bottom: 14px;">
+      ${riskYorum}
+    </div>
+
+    <!-- Hızlı Aksiyon Butonları -->
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+      <button class="btn" style="background:#0284c7; font-size:12px; padding:6px 12px; font-weight:bold;" onclick="demoStopuMaliyeteCek('${esc(poz.id)}')">
+        🛡️ Stop'u Giriş Fiyatına Çek (Breakeven - Sıfır Risk)
+      </button>
+      <button class="btn ikincil" style="font-size:12px; padding:6px 12px;" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'stop', ${poz.stopFiyat || 0})">
+        ✏️ Stop Düzenle
+      </button>
+      <button class="btn ikincil" style="font-size:12px; padding:6px 12px;" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'hedef', ${poz.hedefFiyat || 0})">
+        ✏️ Hedef Düzenle
+      </button>
+      <button class="btn tehlike" style="font-size:12px; padding:6px 12px; margin-left:auto; font-weight:bold;" onclick="demoPozisyonKapatVeYenile('${esc(poz.id)}', ${anlikFiyat})">
+        💰 Pozisyonu Kapat (Kâr/Zararı Al)
+      </button>
+    </div>
+  </div>`;
+}
+
 function detayCiz() {
   const v = D.detayVeri; if (!v) return;
   const tfler = ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1'];
@@ -667,7 +862,9 @@ function detayCiz() {
     </div>
     <div class="uyari">Son mum: ${new Date(z.sonMum).toLocaleString('tr-TR')} · ${z.mumSayisi} mum incelendi. Bu analiz bir karar destek aracıdır, yatırım tavsiyesi değildir. Son karar her zaman sizindir.</div>`;
   }
-  $('#dIcerik').innerHTML = `<div class="tf-ozet">${ozet}</div>${sniperHtml || ''}${alt}`;
+  const poz = (demoPortfoyVerisi?.acikPozisyonlar || []).find(x => x.sembol === v.sembol);
+  const riskKartiHtml = poz ? pozisyonRiskKarti(poz, z, v) : '';
+  $('#dIcerik').innerHTML = `${riskKartiHtml}<div class="tf-ozet">${ozet}</div>${sniperHtml || ''}${alt}`;
 }
 $('#dIcerik').addEventListener('click', e => {
   const k = e.target.closest('.tf-kart[data-tf]'); if (!k) return;
@@ -949,7 +1146,10 @@ function demoPortfoyCiz() {
               : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🟢 LONG${kStr}</span>`;
             return `
             <tr>
-              <td><b>${esc(poz.sembol.split(':')[1])}</b>${yonRozet} <small class="kucuk">${esc(poz.ad)}</small></td>
+              <td style="cursor:pointer;" title="Canlı analizi ve risk durumunu görmek için tıklayın" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">
+                <b>${esc(poz.sembol.split(':')[1])}</b>${yonRozet} <small class="kucuk">${esc(poz.ad)}</small>
+                <span style="font-size:11px; color:#38bdf8; margin-left:3px;" title="Canlı Analize Git">🔍</span>
+              </td>
               <td class="sag">${poz.adet}</td>
               <td class="sag">${sayi(poz.alisFiyat)} ${birim}</td>
               <td class="sag">${sayi(poz.anlikFiyat)} ${birim}</td>
@@ -964,7 +1164,10 @@ function demoPortfoyCiz() {
                 </span>
               </td>
               <td class="sag ${karRenk}"><b>${poz.karZarar >= 0 ? '+' : ''}${sayi(poz.karZarar, 2)} ${birim}</b> (%${sayi(poz.karZararYuzde, 2)})</td>
-              <td class="orta"><button class="btn tehlike" style="padding:3px 8px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Pozisyonu Kapat</button></td>
+              <td class="orta" style="white-space:nowrap;">
+                <button class="btn ikincil" style="padding:3px 7px; font-size:11px; margin-right:4px;" title="Pozisyonun risk durumunu ve analizini gör" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">🔍 Analiz</button>
+                <button class="btn tehlike" style="padding:3px 7px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat</button>
+              </td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -1086,6 +1289,28 @@ window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
   } catch (e) {
     bildir('Hata: ' + e.message);
   }
+};
+
+window.demoPozisyonAnalizAc = (sembol) => {
+  $('#demoModal').classList.add('gizli');
+  detayAc(sembol);
+};
+
+window.demoStopuMaliyeteCek = (pozId) => {
+  const p = demoYerelOku();
+  const idx = p.acikPozisyonlar.findIndex(x => x.id === pozId);
+  if (idx === -1) return;
+  const poz = p.acikPozisyonlar[idx];
+  poz.stopFiyat = poz.alisFiyat;
+  demoYerelKaydet(p);
+  bildir(`🛡️ Harika! Stop seviyesi maliyetinize (${sayi(poz.alisFiyat)}) çekildi. Bu işlemde artık zarar riski kalmadı.`);
+  demoPortfoyYukle();
+  detayYukle();
+};
+
+window.demoPozisyonKapatVeYenile = async (pozId, guncelFiyat) => {
+  await demoPozisyonKapat(pozId, guncelFiyat);
+  detayYukle();
 };
 
 $('#demoPortfoyBtn').onclick = () => {
