@@ -202,6 +202,14 @@ const sunucu = http.createServer(async (req, res) => {
             aciklama: `Günü %${deg.toFixed(1)} artıda götürüyor ve güçlü para girişi var!`
           });
         }
+        // 4. Dip Karşılama / Panik Alımı: Düşüş varken güçlü hacimle satışların emilmesi
+        else if (deg <= -2.0 && gh >= 1.35 && (rsi4h < 42 || (r.rsi?.s2 || 50) < 38)) {
+          bulunanlar.push({
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg, gh: gh || 1.35,
+            tur: 'toplama', seviye: 'Dip Karşılama (Panik Alımı)', ikon: '💎', renk: '#a855f7',
+            aciklama: `Düşüşe rağmen hacim ${gh.toFixed(1)} katına çıktı; dip seviyeden satışlar balinalarca karşılanıyor!`
+          });
+        }
       });
       return gonder(res, 200, { zaman: new Date().toISOString(), liste: bulunanlar });
     }
