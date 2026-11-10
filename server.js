@@ -10,6 +10,7 @@ const { analizEt } = require('./analiz');
 const { geriyeTest } = require('./backtest');
 const Demo = require('./demo');
 const Ziyaret = require('./ziyaret');
+const Alarm = require('./alarm');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
@@ -158,6 +159,23 @@ const sunucu = http.createServer(async (req, res) => {
     // Ziyaretçi İstatistikleri
     if (p === '/api/ziyaret/istatistik') {
       return gonder(res, 200, Ziyaret.istatistikGetir());
+    }
+
+    // Fiyat Alarmları Uç Noktaları
+    if (p === '/api/alarm/liste' && req.method === 'GET') {
+      return gonder(res, 200, Alarm.alarmlariOku());
+    }
+    if (p === '/api/alarm/ekle' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      return gonder(res, 200, Alarm.alarmEkle(g.sembol, g.ad, g.hedefFiyat, g.yon, g.not));
+    }
+    if (p === '/api/alarm/sil' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      return gonder(res, 200, Alarm.alarmSil(g.id));
+    }
+    if (p === '/api/alarm/kontrol' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      return gonder(res, 200, Alarm.kontrolEt(g.fiyatHaritasi || {}));
     }
 
     if (p.startsWith('/api/')) return gonder(res, 404, { hata: 'Bilinmeyen istek' });

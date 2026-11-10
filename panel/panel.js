@@ -654,8 +654,156 @@ $('#ziyaretKapatBtn').onclick = () => {
   $('#ziyaretModal').classList.add('gizli');
 };
 
+// ================= Sesli Alarm & Bildirim Motoru =================
+function sesCal(tur = 'ding') {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (tur === 'ding') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } else { // Başarı / Kâr sesi
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.12);
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.24);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.8);
+    }
+  } catch (_) {}
+}
+
+async function alarmlariKontrolEt() {
+  if (!D.satirlar || !D.satirlar.length) return;
+  const fiyatHaritasi = {};
+  D.satirlar.forEach(r => { if (r.fiyat) fiyatHaritasi[r.id] = r.fiyat; });
+
+  try {
+    const res = await api('/api/alarm/kontrol', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fiyatHaritasi })
+    });
+
+    const aktifler = res.aktifAlarmlar || [];
+    $('#ustAlarmSayisi').textContent = aktifler.length;
+
+    if (res.calacakAlarmlar && res.calacakAlarmlar.length > 0) {
+      res.calacakAlarmlar.forEach(a => {
+        sesCal(a.tip === 'demo_hedef' ? 'kar' : 'ding');
+        alert(a.mesaj); // Ekrana net uyarı bas
+        bildir(a.mesaj, 6000);
+      });
+      demoPortfoyYukle();
+    }
+  } catch (_) {}
+}
+
+$('#dAlarmBtn').onclick = async () => {
+  const v = D.detayVeri;
+  if (!v) return;
+  const z = v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4;
+  const anlik = z?.seviyeler?.fiyat || 0;
+
+  const girdi = prompt(`🔔 ${v.sembol.split(':')[1]} için Fiyat Alarmı Kur\nŞu Anki Fiyat: ${sayi(anlik)}\n\nHangi fiyata geldiğinde SESLİ uyarı çalsın?`, anlik);
+  if (!girdi || isNaN(+girdi) || +girdi <= 0) return;
+
+  const hedefFiyat = +girdi;
+  const yon = hedefFiyat > anlik ? 'yukari' : 'asagi';
+
+  try {
+    await api('/api/alarm/ekle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sembol: v.sembol,
+        ad: v.ad,
+        hedefFiyat,
+        yon,
+        not: `${sayi(hedefFiyat)} seviyesine ulaşıldı.`
+      })
+    });
+    sesCal('ding');
+    bildir(`🔔 Alarm kuruldu: ${v.sembol.split(':')[1]} ➔ ${sayi(hedefFiyat)}`);
+    alarmlariListele();
+  } catch (e) {
+    bildir('Hata: ' + e.message);
+  }
+};
+
+async function alarmlariListele() {
+  try {
+    const list = await api('/api/alarm/liste');
+    const aktifler = list.filter(x => !x.tetiklendi);
+    $('#ustAlarmSayisi').textContent = aktifler.length;
+
+    if (!aktifler.length) {
+      $('#aktifAlarmlarListesi').innerHTML = '<div class="bos" style="padding:15px;">Henüz aktif fiyat alarmınız yok. Bir hissenin detayından "🔔 Alarm Kur" diyebilirsiniz.</div>';
+    } else {
+      $('#aktifAlarmlarListesi').innerHTML = `
+        <table style="width:100%;">
+          <thead>
+            <tr>
+              <th>Sembol</th>
+              <th class="sag">Hedef Fiyat</th>
+              <th class="orta">Yön</th>
+              <th class="orta">Sil</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${aktifler.map(a => `
+              <tr>
+                <td><b>${esc(a.sembol.split(':')[1])}</b> <small class="kucuk">${esc(a.ad)}</small></td>
+                <td class="sag" style="color:#38bdf8; font-weight:bold;">${sayi(a.hedefFiyat)}</td>
+                <td class="orta">${a.yon === 'yukari' ? '▲ Yukarı Kırarsa' : '▼ Aşağı İnerse'}</td>
+                <td class="orta"><button class="sil" onclick="alarmSil('${esc(a.id)}')">✖</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+  } catch (_) {}
+}
+
+window.alarmSil = async id => {
+  await api('/api/alarm/sil', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  bildir('Alarm silindi.');
+  alarmlariListele();
+};
+
+$('#alarmListesiBtn').onclick = () => {
+  $('#perde').classList.remove('gizli');
+  $('#alarmModal').classList.remove('gizli');
+  alarmlariListele();
+};
+$('#alarmKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#alarmModal').classList.add('gizli');
+};
+
 // ================= Başlangıç =================
 (async () => {
-  try { await listeleriYukle(); await tara(); await demoPortfoyYukle(); await ziyaretciYukle(); }
-  catch (e) { $('#durum').textContent = '⚠️ Sunucuya bağlanılamadı: ' + e.message; }
+  try { 
+    await listeleriYukle(); 
+    await tara(); 
+    await demoPortfoyYukle(); 
+    await ziyaretciYukle(); 
+    alarmlariListele();
+    setInterval(alarmlariKontrolEt, 15000); // 15 saniyede bir fiyatları ve alarmları denetle
+  } catch (e) { $('#durum').textContent = '⚠️ Sunucuya bağlanılamadı: ' + e.message; }
 })();

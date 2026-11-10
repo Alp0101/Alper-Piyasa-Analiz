@@ -14,6 +14,7 @@
     <span class="alt-baslik">BIST · Altın · Petrol · Döviz · Kripto</span>
   </div>
   <div class="ust-sag">
+    <button id="alarmListesiBtn" class="btn ikincil" style="font-size:12px;" title="Kurulan Fiyat Alarmları">🔔 Alarmlar (<span id="ustAlarmSayisi">0</span>)</button>
     <button id="ziyaretciSayacBtn" class="btn ikincil" style="font-size:12px;" title="Siteyi kullanan kişi sayısı">👥 Ziyaretçi: <b id="ustTekilKisi">1</b></button>
     <button id="demoPortfoyBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: bold;">💼 Demo Kasa: <span id="ustKasaBakiye">1.000.000 TL</span></button>
     <span id="durum" class="durum">Hazırlanıyor...</span>
@@ -110,6 +111,7 @@
       <div id="dAlt" class="d-alt"></div>
     </div>
     <div class="detay-butonlar">
+      <button id="dAlarmBtn" class="btn ikincil" title="Bu hisseye fiyat alarmı kur">🔔 Alarm Kur</button>
       <button id="dDemoAlBtn" class="btn" style="background:#10b981; font-weight:bold;">🛒 Demo Al</button>
       <a id="dTv" class="btn ikincil" target="_blank" rel="noopener">📈 TradingView'de aç</a>
       <button id="dFavori" class="btn ikincil">⭐ Favorilere ekle</button>
@@ -161,6 +163,25 @@
         <div class="seviye-satir" style="border:0; padding:2px 0;"><span>Olası Kâr / Zarar:</span><b id="emirOlasiKarZarar">—</b></div>
       </div>
       <button id="emirOnaylaBtn" class="btn tam" style="background:#10b981; font-size:15px; font-weight:bold; text-align:center; padding:10px; margin-top:8px;">✅ Emri Gerçekleştir</button>
+    </div>
+  </div>
+</section>
+
+<!-- Alarmlar Listesi Modal -->
+<section id="alarmModal" class="detay gizli" style="max-width: 600px;">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">🔔 Fiyat Alarmları & Sesli Uyarılar</div>
+      <div class="d-alt">Seviyeye ulaşıldığında çalar ve bildirim verir</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="alarmKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div class="kutu">
+      <h4>📌 Aktif Fiyat Alarmlarınız</h4>
+      <div id="aktifAlarmlarListesi"></div>
     </div>
   </div>
 </section>
