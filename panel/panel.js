@@ -2555,7 +2555,7 @@ async function kurumsalMasayiYukle() {
   listeKutusu.innerHTML = '';
 
   try {
-    const res = await apiGet(`/api/kurumsal/tara?piyasa=${seciliKurumsalFiltre}`);
+    const res = await api(`/api/kurumsal/tara?piyasa=${seciliKurumsalFiltre}`);
     yukleniyor.classList.add('gizli');
     listeKutusu.classList.remove('gizli');
 
