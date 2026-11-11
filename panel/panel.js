@@ -124,7 +124,7 @@ function listeMenuCiz() {
     </li>`).join('');
   const l = aktifListe();
   $('#listeBaslik').textContent = l ? l.ad : '—';
-  $('#hacimFiltre').classList.toggle('gizli', !(l && l.dinamik));
+  $('#hacimFiltre').classList.toggle('gizli', !(l && l.dinamik === 'bist'));
 }
 
 $('#listeler').addEventListener('click', e => {
@@ -186,17 +186,21 @@ async function sembolEkle(id, listeId = D.aktifId) {
       tara();
     } else if (l.dinamik === 'kripto' || l.id === 'kripto') {
       l.semboller = l.semboller || [];
-      if (l.semboller.includes(id)) return bildir('Bu sembol zaten kripto listesinde.');
+      if (l.semboller.includes(id)) return bildir(`Bu sembol zaten "${l.ad}" listenizde kayıtlı.`);
       l.semboller.push(id);
       await listeleriKaydet();
       bildir(`${id.split(':')[1]} → Kripto listesine eklendi.`);
       tara();
     } else {
-      bildir('Bu liste zaten tüm BIST hisselerini kapsıyor. Başka bir listeye ekleyin.');
+      // BIST listesindeyken kripto sembolü eklenmeye çalışılırsa otomatik kripto listesine yönlendir
+      if (id.startsWith('BINANCE:') || id.endsWith('USDT') || id === 'GATE:PIUSDT') {
+        return sembolEkle(id, 'kripto');
+      }
+      bildir('Bu liste zaten tüm BIST hisselerini kapsıyor. Kripto veya favori listenize ekleyebilirsiniz.');
     }
     return;
   }
-  if (l.semboller.includes(id)) return bildir('Bu sembol listede zaten var.');
+  if (l.semboller.includes(id)) return bildir(`Bu sembol zaten "${l.ad}" listenizde var.`);
   l.semboller.push(id); await listeleriKaydet();
   bildir(`${id.split(':')[1]} → "${l.ad}" listesine eklendi.`);
   if (listeId === D.aktifId) tara();
@@ -350,21 +354,67 @@ async function tara() {
 const deger = (r, alan) => alan.split('.').reduce((o, k) => (o == null ? null : o[k]), r);
 const norm = s => String(s || '').toLocaleUpperCase('tr-TR')
   .replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C');
+function digerListelerdeBul(aramaStr) {
+  if (!aramaStr || !D.listeler?.listeler) return [];
+  const q = norm(aramaStr);
+  const sonuclar = [];
+  for (const l of D.listeler.listeler) {
+    if (l.id === D.aktifId) continue;
+    const eslesenSembol = (l.semboller || []).find(s => {
+      const salt = s.includes(':') ? s.split(':')[1] : s;
+      return norm(s).includes(q) || norm(salt).includes(q);
+    });
+    if (eslesenSembol) {
+      sonuclar.push({ liste: l, sembol: eslesenSembol });
+    }
+  }
+  return sonuclar;
+}
+
+window.listeGec = function(listeId, aramaKelimesi = '') {
+  D.aktifId = listeId;
+  localStorage.setItem('aktifListe', listeId);
+  D.gosterilen = 150;
+  D.satirlar = [];
+  if (aramaKelimesi) {
+    D.arama = aramaKelimesi;
+    const aramaInp = $('#aramaInput');
+    if (aramaInp) aramaInp.value = aramaKelimesi;
+  }
+  listeMenuCiz();
+  tablo();
+  tara();
+  if (window.innerWidth <= 768) {
+    const ana = document.querySelector('.ana') || document.querySelector('.arac-cubugu');
+    if (ana) setTimeout(() => ana.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
+};
+
 function filtreliSatirlar() {
   const q = norm(D.arama);
   const l = aktifListe();
-  const minHacim = l && l.dinamik ? +$('#hacimFiltre').value : 0;
+  // Hacim filtresi sadece BIST listesinde ve arama yapılmıyorken geçerlidir
+  const minHacim = (l && l.dinamik === 'bist' && !q) ? +$('#hacimFiltre').value : 0;
   let s = D.satirlar.filter(r => {
-    if (q && !(norm(r.kod).includes(q) || norm(r.ad).includes(q))) return false;
-    if (minHacim && (r.tlHacim || 0) < minHacim) return false;
-    const y = r.yon || {};
-    switch (D.filtre) {
-      case 'firsat': return r.isaretler?.some(i => i.tip === 'firsat');
-      case 'tuzak': return r.isaretler?.some(i => i.tip === 'tuzak');
-      case 'yukselis': return y.s2 > 0 && y.s4 > 0 && y.g1 > 0;
-      case 'dusus': return y.s2 < 0 && y.s4 < 0 && y.g1 < 0;
-      default: return true;
+    if (q) {
+      const kod = norm(r.kod);
+      const ad = norm(r.ad);
+      const id = norm(r.id);
+      const salt = norm((r.id || '').split(':')[1] || '');
+      if (!kod.includes(q) && !ad.includes(q) && !id.includes(q) && !salt.includes(q)) return false;
     }
+    if (minHacim && (r.tlHacim || 0) < minHacim) return false;
+    if (!q) {
+      const y = r.yon || {};
+      switch (D.filtre) {
+        case 'firsat': return r.isaretler?.some(i => i.tip === 'firsat');
+        case 'tuzak': return r.isaretler?.some(i => i.tip === 'tuzak');
+        case 'yukselis': return y.s2 > 0 && y.s4 > 0 && y.g1 > 0;
+        case 'dusus': return y.s2 < 0 && y.s4 < 0 && y.g1 < 0;
+        default: return true;
+      }
+    }
+    return true;
   });
   if (D.sirala.alan) {
     const a = D.sirala.alan, k = D.sirala.artan ? 1 : -1;
@@ -401,7 +451,33 @@ function tablo() {
     </tr>`;
   }).join('');
   $('#dahaFazla').classList.toggle('gizli', s.length <= D.gosterilen);
-  $('#bosMesaj').classList.toggle('gizli', s.length > 0 || !D.satirlar.length);
+  
+  const bosMesaj = $('#bosMesaj');
+  if (s.length === 0 && D.satirlar.length > 0) {
+    bosMesaj.classList.remove('gizli');
+    if (D.arama) {
+      const digerleri = digerListelerdeBul(D.arama);
+      if (digerleri.length > 0) {
+        bosMesaj.innerHTML = `
+          <div style="padding:16px; background:rgba(30,41,59,0.9); border:1px solid #3b82f6; border-radius:10px; margin:15px auto; max-width:550px; text-align:left;">
+            <div style="font-size:14px; font-weight:700; color:#60a5fa; margin-bottom:8px;">💡 Aradığınız "${esc(D.arama)}" şu anki "${esc(aktifListe()?.ad || '')}" listesinde değil, başka bir listenizde kayıtlı:</div>
+            ${digerleri.map(d => `
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; background:#0f172a; padding:10px 14px; border-radius:8px; border:1px solid #334155;">
+                <span><b>${esc(d.sembol.split(':')[1] || d.sembol)}</b> &rarr; <span style="color:#cbd5e1">${esc(d.liste.ad)}</span></span>
+                <button class="btn" style="padding:5px 12px; font-size:12px; background:#2563eb;" onclick="window.listeGec('${esc(d.liste.id)}', '${esc(D.arama)}')">${esc(d.liste.ad)} Listesine Git ➔</button>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        bosMesaj.innerHTML = `Bu listede "<b>${esc(D.arama)}</b>" bulunamadı.`;
+      }
+    } else {
+      bosMesaj.innerHTML = 'Bu filtreye uyan varlık yok.';
+    }
+  } else {
+    bosMesaj.classList.toggle('gizli', s.length > 0 || !D.satirlar.length);
+  }
   document.querySelectorAll('th[data-s]').forEach(th => {
     th.classList.toggle('sirali', th.dataset.s === D.sirala.alan);
     th.classList.toggle('artan', th.dataset.s === D.sirala.alan && D.sirala.artan);

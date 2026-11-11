@@ -138,7 +138,18 @@ async function listeTara(listeId) {
     if (ozelSemboller.length > 0) {
       try {
         const ekstra = await V.sembolleriTara(ozelSemboller);
-        kriptolar = [...kriptolar, ...ekstra];
+        const formatliEkstra = (ekstra || []).map(r => {
+          const kod = r.kod ? r.kod.replace(/USDT$/, '') : (r.id ? r.id.split(':')[1].replace(/USDT$/, '') : '');
+          const usdHacim = r.usdHacim || (r.hacim && r.fiyat ? r.hacim * r.fiyat : null);
+          return {
+            ...r,
+            kod: kod || r.kod,
+            ad: r.ad || (kod + ' / USDT'),
+            usdHacim,
+            tlHacim: usdHacim ? +(usdHacim * 50).toFixed(0) : null
+          };
+        });
+        kriptolar = [...kriptolar, ...formatliEkstra];
       } catch (_) {}
     }
     satirlar = kriptolar.filter(r => !cik.has(r.id));
