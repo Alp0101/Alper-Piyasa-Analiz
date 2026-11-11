@@ -966,18 +966,51 @@ function detayCiz() {
           <div class="seviye-satir"><span>2. Destek</span><b class="art">${sayi(s.destek2)}</b></div>
           <div class="seviye-satir"><span>Ortalama mum oynaklığı (ATR)</span><b>${sayi(s.atr)}</b></div>
         </div>
-        <div class="kutu">
-          <h4>🎯 Long & Short Örnek Planları</h4>
-          <div style="font-weight:bold; color:#10b981; font-size:12px; margin-top:4px;">🟢 Long (Alış) Planı:</div>
-          <div class="seviye-satir"><span>Zarar-kes (stop)</span><b class="eks">${sayi(s.alimStop)}</b></div>
-          <div class="seviye-satir"><span>1. Hedef</span><b class="art">${sayi(s.alimHedef)}</b></div>
-          <div class="seviye-satir"><span>Risk / Kazanç</span><b>1 : ${sayi(s.riskOdul, 2)}</b></div>
+        <div class="kutu" style="border: 2px solid rgba(56, 189, 248, 0.4); background: linear-gradient(180deg, #131824 0%, #0d121f 100%);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+            <h4 style="margin:0; font-size:15px; color:#f8fafc;">🎯 Long & Short Örnek Planları (Yapay Zeka Stratejisi)</h4>
+            <span style="font-size:11px; background:#38bdf822; color:#38bdf8; border:1px solid #38bdf855; padding:2px 8px; border-radius:12px; font-weight:bold;">⚡ Otomatik Demo Emir</span>
+          </div>
 
-          <div style="font-weight:bold; color:#ef4444; font-size:12px; margin-top:10px;">🔴 Short (Açığa Satış) Planı:</div>
-          <div class="seviye-satir"><span>Zarar-kes (stop)</span><b class="eks">${sayi(s.satisStop || '—')}</b></div>
-          <div class="seviye-satir"><span>1. Hedef</span><b class="art">${sayi(s.satisHedef || '—')}</b></div>
-          <div class="seviye-satir"><span>Risk / Kazanç</span><b>1 : ${sayi(s.satisRiskOdul || '—', 2)}</b></div>
-          <div class="uyari">Seviyeler oynaklık (ATR), destek ve dirençlere göre otomatik türetilir.</div>
+          <!-- Long Planı -->
+          <div style="background:rgba(16, 185, 129, 0.08); border:1px solid rgba(16, 185, 129, 0.3); border-radius:8px; padding:10px 12px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:bold; color:#10b981; font-size:13px;">🟢 Long (Yükseliş / Alış) Planı</span>
+              <span class="kucuk" style="color:#a7f3d0;">R/R: <b>1 : ${sayi(s.riskOdul, 2)}</b></span>
+            </div>
+            <div class="seviye-satir" style="margin-top:6px;"><span>🛑 Zarar-kes (Stop-Loss)</span><b class="eks">${sayi(s.alimStop)}</b></div>
+            <div class="seviye-satir"><span>🎯 1. Kâr Hedefi</span><b class="art">${sayi(s.alimHedef)}</b></div>
+            <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn" style="background:#10b981; color:#fff; font-size:12px; font-weight:bold; padding:7px 14px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 0 10px rgba(16,185,129,0.3);" onclick="otomatikPlanUygula('LONG')">
+                ⚡ Bu Planla Demo Long Aç (Otomatik Al)
+              </button>
+              <button class="btn ikincil" style="font-size:12px; padding:7px 12px;" title="Emri özelleştirerek aç" onclick="emirModaliAc('LONG')">
+                ✏️ Özelleştir
+              </button>
+            </div>
+          </div>
+
+          <!-- Short Planı -->
+          <div style="background:rgba(239, 68, 68, 0.08); border:1px solid rgba(239, 68, 68, 0.3); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:bold; color:#ef4444; font-size:13px;">🔴 Short (Düşüş / Açığa Satış) Planı</span>
+              <span class="kucuk" style="color:#fecaca;">R/R: <b>1 : ${sayi(s.satisRiskOdul || '—', 2)}</b></span>
+            </div>
+            <div class="seviye-satir" style="margin-top:6px;"><span>🛑 Zarar-kes (Stop-Loss)</span><b class="eks">${sayi(s.satisStop || '—')}</b></div>
+            <div class="seviye-satir"><span>🎯 1. Kâr Hedefi</span><b class="art">${sayi(s.satisHedef || '—')}</b></div>
+            <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn" style="background:#ef4444; color:#fff; font-size:12px; font-weight:bold; padding:7px 14px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 0 10px rgba(239,68,68,0.3);" onclick="otomatikPlanUygula('SHORT')">
+                ⚡ Bu Planla Demo Short Aç (Otomatik Sat)
+              </button>
+              <button class="btn ikincil" style="font-size:12px; padding:7px 12px;" title="Emri özelleştirerek aç" onclick="emirModaliAc('SHORT')">
+                ✏️ Özelleştir
+              </button>
+            </div>
+          </div>
+
+          <div class="uyari" style="margin:0; font-size:11.5px; opacity:0.9; line-height:1.5;">
+            💡 <b>Tek Dokunuşla Otomatik Test:</b> Butona bastığınızda analizdeki Stop ve Kâr Hedefi seviyeleri sisteme otomatik girilir. Kasanızdan güvenli (%5) bir bütçeyle demo pozisyon açılır ve grafik hareket ettikçe hedefe/stopa ulaşıp ulaşmadığı canlı takip edilir.
+          </div>
         </div>
         ${fibHtml}
         ${btHtml}
@@ -1787,6 +1820,93 @@ function emirModaliAc(yon = 'LONG') {
 
 $('#dDemoAlBtn').onclick = () => emirModaliAc('LONG');
 $('#dDemoSatBtn').onclick = () => emirModaliAc('SHORT');
+
+// Analiz planını tek tıkla otomatik demo portföyde başlatan fonksiyon
+window.otomatikPlanUygula = async function(yon = 'LONG') {
+  const v = D.detayVeri;
+  if (!v) return bildir('⚠️ Analiz verisi yüklenemedi.');
+
+  const z = v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1;
+  const s = z?.seviyeler;
+  if (!s) return bildir('⚠️ Bu zaman dilimi için seviye verisi bulunamadı.');
+
+  const anaSatir = D.satirlar.find(x => x.id === v.sembol);
+  const f = anaSatir?.fiyat || s.fiyat;
+  if (!f || f <= 0) return bildir('⚠️ Güncel canlı fiyat verisi alınamadı.');
+
+  const isShort = (yon === 'SHORT');
+  const stop = isShort ? (s.satisStop || null) : (s.alimStop || null);
+  const hedef = isShort ? (s.satisHedef || null) : (s.alimHedef || null);
+
+  if (!stop || !hedef) {
+    return bildir(`⚠️ Bu varlık için otomatik ${yon} seviyeleri türetilemedi. Lütfen "Özelleştir" ile manuel deneyin.`);
+  }
+
+  const birim = paraBirimiAl(v.sembol);
+  const p = demoYerelOku();
+
+  const mevcutPoz = (p.acikPozisyonlar || []).find(x => x.sembol === v.sembol);
+  if (mevcutPoz) {
+    if (!confirm(`${v.sembol.split(':')[1]} için zaten açık bir ${mevcutPoz.yon} demo işleminiz var. Yeni bir pozisyon daha eklensin mi?`)) {
+      return;
+    }
+  }
+
+  const bakiye = birim === '$' ? (p.bakiyeUSD ?? VARSAYILAN_USD_KASA) : (p.bakiyeTL ?? VARSAYILAN_TL_KASA);
+
+  // Kasanın %5'i kadar güvenli pozisyon büyüklüğü hesapla
+  let ayrilacakBakiye = Math.max(100, bakiye * 0.05);
+  if (bakiye < ayrilacakBakiye) ayrilacakBakiye = bakiye * 0.9;
+  if (ayrilacakBakiye < 1) return bildir(`⚠️ Yetersiz bakiye! Nakit: ${sayi(bakiye, 2)} ${birim}`);
+
+  let adet = ayrilacakBakiye / f;
+  if (birim === '$') {
+    if (f >= 1000) adet = Math.max(0.001, +adet.toFixed(3));
+    else if (f >= 10) adet = Math.max(0.01, +adet.toFixed(2));
+    else if (f >= 0.01) adet = Math.max(1, Math.round(adet));
+    else adet = Math.max(10, Math.round(adet));
+  } else {
+    adet = Math.max(1, Math.round(adet));
+  }
+
+  const tutar = +(f * adet).toFixed(2);
+  const teminat = tutar; // 1x kaldıraç (güvenli)
+
+  if (birim === '$') {
+    if (p.bakiyeUSD < teminat) return bildir(`Yetersiz USD bakiye! Gereken: ${sayi(teminat, 2)} $, Nakit: ${sayi(p.bakiyeUSD, 2)} $`);
+    p.bakiyeUSD = +(p.bakiyeUSD - teminat).toFixed(2);
+  } else {
+    if (p.bakiyeTL < teminat) return bildir(`Yetersiz TL bakiye! Gereken: ${sayi(teminat, 2)} TL, Nakit: ${sayi(p.bakiyeTL, 2)} TL`);
+    p.bakiyeTL = +(p.bakiyeTL - teminat).toFixed(2);
+  }
+
+  p.acikPozisyonlar = p.acikPozisyonlar || [];
+  const sembolKodu = v.sembol.split(':')[1];
+  p.acikPozisyonlar.push({
+    id: 'poz-' + Date.now(),
+    sembol: v.sembol,
+    ad: v.ad,
+    yon: isShort ? 'SHORT' : 'LONG',
+    kaldirac: 1,
+    adet,
+    alisFiyat: f,
+    paraBirimi: birim,
+    alisTarih: new Date().toISOString(),
+    stopFiyat: stop,
+    hedefFiyat: hedef,
+    teminat,
+    tutar,
+    planTf: D.detayTf
+  });
+  demoYerelKaydet(p);
+
+  sesCal('kar');
+  const yonMetni = isShort ? '🔴 SHORT (Düşüş)' : '🟢 LONG (Yükseliş)';
+  bildir(`🚀 ${sembolKodu} ${yonMetni} demo işlemi analiz planıyla açıldı!\n🎯 Hedef: ${sayi(hedef)} ${birim} | 🛑 Stop: ${sayi(stop)} ${birim}`, 6000);
+
+  await demoPortfoyYukle();
+  detayCiz();
+};
 
 $('#emirYonLongBtn').onclick = () => emirYonAyarla('LONG');
 $('#emirYonShortBtn').onclick = () => emirYonAyarla('SHORT');
