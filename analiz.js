@@ -515,7 +515,101 @@ function analizEt(setler, benchSet, bilgi) {
       mumSayisi: d.c.length,
     };
   }
-  return { sembol: bilgi.id, ad: bilgi.ad, tur: bilgi.tur, zamanDilimleri, not: setler.not, zaman: new Date().toISOString() };
+  const ozelTaktikler = ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi);
+  return { sembol: bilgi.id, ad: bilgi.ad, tur: bilgi.tur, zamanDilimleri, ozelTaktikler, not: setler.not, zaman: new Date().toISOString() };
+}
+
+function ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi) {
+  const d = hazir.s4 || hazir.g1 || hazir.s1 || hazir.m15;
+  if (!d || d.c.length < 20) return [];
+
+  const c = d.c, v = d.v, rsi = d.rsi, bb = d.bb, atr = d.atr;
+  const sonC = son(c);
+  const sonRsi = son(rsi) || 50;
+
+  const son20 = c.slice(-20);
+  const min20 = Math.min(...son20);
+  const max20 = Math.max(...son20);
+  const aralikYuzde = sonC > 0 ? ((max20 - min20) / sonC) * 100 : 0;
+
+  // Hacim ortalaması (son 5 vs önceki 15)
+  const son5V = v.slice(-5);
+  const ort5V = son5V.reduce((a, b) => a + b, 0) / (son5V.length || 1);
+  const onc15V = v.slice(-20, -5);
+  const ort15V = onc15V.length ? (onc15V.reduce((a, b) => a + b, 0) / onc15V.length) : ort5V;
+  const hacimKati = ort15V > 0 ? +(ort5V / ort15V).toFixed(1) : 1;
+
+  // 1. Taktik: Endekse Direnç / Alfa Gücü
+  let alfaAktif = false;
+  let alfaYorum = 'Piyasa genel havasıyla uyumlu hareket ediyor.';
+  const b = benchHazir ? (benchHazir.s4 || benchHazir.g1) : null;
+  if (b && b.c.length >= 5) {
+    const varlikGetiri = ((son(c) - c[c.length - 5]) / c[c.length - 5]) * 100;
+    const benchGetiri = ((son(b.c) - b.c[b.c.length - 5]) / b.c[b.c.length - 5]) * 100;
+    if (benchGetiri < -0.5 && varlikGetiri > 0.5) {
+      alfaAktif = true;
+      alfaYorum = `Endeks son periyotta %${yuvarla(benchGetiri, 1)} düşerken varlık %${yuvarla(varlikGetiri, 1)} pozitif ayrıştı. Güçlü kurumsal savunma var.`;
+    } else if (varlikGetiri - benchGetiri >= 2.5) {
+      alfaAktif = true;
+      alfaYorum = `Endekse göre %${yuvarla(varlikGetiri - benchGetiri, 1)} daha yüksek getiri üreterek piyasa lideri konumunda.`;
+    }
+  } else if (d.e20 && sonC > son(d.e20) && d.e50 && son(d.e20) > son(d.e50)) {
+    alfaAktif = true;
+    alfaYorum = 'Kısa ve orta vadeli hareketli ortalamaların üzerinde güçlü bir yükseliş trendi korunuyor.';
+  }
+
+  // 2. Taktik: Gizli Toplama (Balina Hacim Anomalisi)
+  let toplamaAktif = false;
+  let toplamaYorum = 'Hacim ve fiyat normal doğal seyrinde.';
+  if (aralikYuzde <= 4.0 && hacimKati >= 1.6) {
+    toplamaAktif = true;
+    toplamaYorum = `Fiyat son periyotlarda sadece %${yuvarla(aralikYuzde, 1)} yatay aralıkta kalmasına rağmen hacim ${hacimKati} katına fırladı. Sessiz blok toplama emareleri var.`;
+  }
+
+  // 3. Taktik: Volatilite Sıkışması (Bahar Yayı)
+  let sikismaAktif = false;
+  let sikismaYorum = 'Volatilite normal seviyede, belirgin bir sıkışma yok.';
+  if (bb && bb.middle && son(bb.middle) > 0) {
+    const bbGenislik = (son(bb.upper) - son(bb.lower)) / son(bb.middle) * 100;
+    if (bbGenislik <= 4.5 || aralikYuzde <= 2.2) {
+      sikismaAktif = true;
+      sikismaYorum = `Bollinger bant genişliği %${yuvarla(bbGenislik, 1)} seviyesine kadar daraldı. Fiyat yay gibi gerildi; yön kırılımı sert olabilir.`;
+    }
+  }
+
+  // 4. Taktik: Likidite & Stop Avı (Liquidity Sweep)
+  let stopAviAktif = false;
+  let stopAviYorum = 'Belirgin bir stop patlatma ve geri dönüş iğnesi görülmedi.';
+  const son5Mum = d.mumlar.slice(-5);
+  for (const m of son5Mum) {
+    const govde = Math.abs(m.c - m.o);
+    const altGolge = Math.min(m.o, m.c) - m.l;
+    if (altGolge > govde * 1.4 && m.l <= min20 && m.c > min20) {
+      stopAviAktif = true;
+      stopAviYorum = 'Desteğin altına sarkıp panik satışı tetiklendikten sonra alıcılar hızla devreye girerek fiyatı yukarı çekti. Silkeleme tamamlanmış görünüyor.';
+      break;
+    }
+  }
+
+  // 5. Taktik: RSI Pozitif Uyumsuzluk
+  let uyumsuzlukAktif = false;
+  let uyumsuzlukYorum = 'Fiyat ve RSI uyumlu seyrediyor.';
+  if (c.length >= 20) {
+    const dip1Idx = c.length - 12;
+    const dip2Idx = c.length - 2;
+    if (c[dip2Idx] <= c[dip1Idx] && rsi[dip2Idx] > rsi[dip1Idx] + 3 && sonRsi < 55) {
+      uyumsuzlukAktif = true;
+      uyumsuzlukYorum = 'Fiyat daha düşük veya eşit dip yaparken RSI indikatörü yükseldi. Satış baskısının bittiğini ve alıcıların güçlendiğini gösteriyor.';
+    }
+  }
+
+  return [
+    { id: 'alfa', baslik: '🛡️ Endekse Direnç (Alfa Gücü)', aktif: alfaAktif, yorum: alfaYorum },
+    { id: 'toplama', baslik: '📦 Gizli Balina Toplaması', aktif: toplamaAktif, yorum: toplamaYorum },
+    { id: 'sikisma', baslik: '🌀 Volatilite Sıkışması (Bahar Yayı)', aktif: sikismaAktif, yorum: sikismaYorum },
+    { id: 'stop_avi', baslik: '🧲 Likidite & Stop Avı', aktif: stopAviAktif, yorum: stopAviYorum },
+    { id: 'uyumsuzluk', baslik: '📈 Pozitif RSI Uyumsuzluğu', aktif: uyumsuzlukAktif, yorum: uyumsuzlukYorum }
+  ];
 }
 
 module.exports = { analizEt };

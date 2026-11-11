@@ -103,21 +103,62 @@ function listeDogrula(v) {
 
 // ---------------- Hızlı değerlendirme (tarama tablosu) ----------------
 const tvEtiket = x => (x == null ? null : x > 0.5 ? 2 : x > 0.1 ? 1 : x < -0.5 ? -2 : x < -0.1 ? -1 : 0);
-function hizliDegerlendir(r) {
-  const t = r.tv, rs = r.rsi;
+function hizliDegerlendir(r, benchmarkDegisim = 0) {
+  const t = r.tv || {}, rs = r.rsi || {};
   const isaretler = [];
+  const ozelTaktikler = [];
   const gh = r.goreceliHacim || 0;
+  const deg = r.degisim || 0;
+
+  // Standart analiz işaretleri
   if (t.s2 > 0.1 && t.s4 > 0.1 && t.g1 > 0.1 && rs.s4 >= 45 && rs.s4 <= 65 && gh >= 1.2) isaretler.push({ tip: 'firsat', metin: 'Kısa vade alım adayı' });
   if (rs.g1 != null && rs.g1 < 32 && t.s2 > 0.3 && t.s4 > -0.1) isaretler.push({ tip: 'firsat', metin: 'Dipten dönüş adayı' });
   if (r.degisim > 3 && r.goreceliHacim != null && r.goreceliHacim < 0.8) isaretler.push({ tip: 'tuzak', metin: 'Hacimsiz yükseliş' });
   if (rs.s4 > 75 || rs.g1 > 78) isaretler.push({ tip: 'tuzak', metin: 'Aşırı alım' });
   if (rs.g1 != null && rs.g1 < 25) isaretler.push({ tip: 'bilgi', metin: 'Aşırı satım' });
-  const agirlikli = [t.s2, t.s4, t.g1].some(x => x == null) ? null : Math.round((t.s2 * 0.25 + t.s4 * 0.35 + t.g1 * 0.4) * 100);
+
   const ayKonum = r.ayYuksek > r.ayDusuk ? Math.round(((r.fiyat - r.ayDusuk) / (r.ayYuksek - r.ayDusuk)) * 100) : null;
+
+  // 1. Taktik: 🛡️ Endekse Direnç / Alfa Gücü
+  if ((benchmarkDegisim <= -0.2 && (deg >= 0.2 || (deg - benchmarkDegisim) >= 1.8)) || (benchmarkDegisim > -0.2 && deg >= 3.0 && gh >= 1.4 && t.s4 > 0.2)) {
+    ozelTaktikler.push('alfa');
+    isaretler.push({ tip: 'ozel_alfa', metin: '🛡️ Alfa' });
+  }
+
+  // 2. Taktik: 📦 Gizli Toplama (Balina Hacim Anomalisi)
+  if (Math.abs(deg) <= 2.2 && gh >= 1.8) {
+    ozelTaktikler.push('toplama');
+    isaretler.push({ tip: 'ozel_toplama', metin: '📦 Gizli Toplama' });
+  }
+
+  // 3. Taktik: 🌀 Volatilite Sıkışması (Bahar Yayı)
+  if (Math.abs(deg) <= 1.2 && gh >= 0.8 && rs.s4 >= 42 && rs.s4 <= 58 && (t.s4 >= 0 || t.s2 >= 0)) {
+    ozelTaktikler.push('sikisma');
+    isaretler.push({ tip: 'ozel_sikisma', metin: '🌀 Sıkışma' });
+  }
+
+  // 4. Taktik: 🧲 Stop Avı & Silkeleme Dönüşü
+  if (ayKonum != null && ayKonum <= 22 && (t.s2 > 0.1 || deg > 0.3) && (rs.s4 < 48 || rs.g1 < 42)) {
+    ozelTaktikler.push('stop_avi');
+    isaretler.push({ tip: 'ozel_stop_avi', metin: '🧲 Stop Avı' });
+  }
+
+  // 5. Taktik: 📈 Pozitif Uyumsuzluk
+  if (ayKonum != null && ayKonum <= 40 && (rs.s4 > (rs.g1 || 50) + 4 || (rs.s4 > 35 && t.s2 > 0.2 && (t.g1 || 0) <= 0))) {
+    ozelTaktikler.push('uyumsuzluk');
+    isaretler.push({ tip: 'ozel_uyumsuzluk', metin: '📈 Uyumsuzluk' });
+  }
+
+  // Kombo Rozeti: 2 veya daha fazla taktik aynı anda tetiklendiyse en başa altın rozet koy
+  if (ozelTaktikler.length >= 2) {
+    isaretler.unshift({ tip: 'kombo', metin: `⭐ ${ozelTaktikler.length}x Özel Taktik` });
+  }
+
+  const agirlikli = [t.s2, t.s4, t.g1].some(x => x == null) ? null : Math.round((t.s2 * 0.25 + t.s4 * 0.35 + t.g1 * 0.4) * 100);
   return {
     ...r,
     yon: { s2: tvEtiket(t.s2), s4: tvEtiket(t.s4), g1: tvEtiket(t.g1) },
-    hizliPuan: agirlikli, ayKonum, isaretler,
+    hizliPuan: agirlikli, ayKonum, isaretler, ozelTaktikler,
     tlHacim: r.tlHacim || (r.hacim && r.fiyat ? r.hacim * r.fiyat : null),
     usdHacim: r.usdHacim || (r.id?.includes('USDT') && r.hacim && r.fiyat ? r.hacim * r.fiyat : null),
   };
@@ -160,7 +201,13 @@ async function listeTara(listeId) {
   }
   const adlar = {};
   satirlar.forEach(r => { const b = sembolBilgisi(r.id); if (b && b.tur !== 'bist' && b.ad) adlar[r.id] = b.ad; });
-  return satirlar.map(r => hizliDegerlendir({ ...r, ad: adlar[r.id] || r.ad }));
+  
+  // Benchmark (BIST için XU100, Kripto için BTC) günlük değişimini tespit et
+  let benchDeg = 0;
+  const bSatir = satirlar.find(x => x.id === 'BIST:XU100' || x.id === 'BINANCE:BTCUSDT' || x.kod === 'BTC');
+  if (bSatir && bSatir.degisim != null) benchDeg = bSatir.degisim;
+
+  return satirlar.map(r => hizliDegerlendir({ ...r, ad: adlar[r.id] || r.ad }, benchDeg));
 }
 
 async function sembolAnaliz(id, tf = 's4') {

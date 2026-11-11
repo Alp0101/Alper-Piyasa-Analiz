@@ -408,6 +408,7 @@ function filtreliSatirlar() {
     if (!q) {
       const y = r.yon || {};
       switch (D.filtre) {
+        case 'ozel': return (r.ozelTaktikler && r.ozelTaktikler.length > 0) || r.isaretler?.some(i => i.tip?.startsWith('ozel_') || i.tip === 'kombo');
         case 'firsat': return r.isaretler?.some(i => i.tip === 'firsat');
         case 'tuzak': return r.isaretler?.some(i => i.tip === 'tuzak');
         case 'yukselis': return y.s2 > 0 && y.s4 > 0 && y.g1 > 0;
@@ -945,6 +946,32 @@ function detayCiz() {
       </div>`;
     }
 
+    const ozelKarne = v.ozelTaktikler || [];
+    const aktifOzelSayisi = ozelKarne.filter(x => x.aktif).length;
+    let ozelTaktiklerHtml = '';
+    if (ozelKarne.length > 0) {
+      ozelTaktiklerHtml = `
+      <div class="kutu" style="border: 2px solid ${aktifOzelSayisi >= 2 ? '#f59e0b' : '#8b5cf6'}; background: linear-gradient(180deg, #161226 0%, #0d0b17 100%); box-shadow: 0 4px 20px rgba(139,92,246,0.15);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:6px;">
+          <h4 style="margin:0; font-size:15px; color:#e2e8f0;">🧠 5 Özel Taktik & Akıllı Para Karnesi</h4>
+          <span style="font-size:12px; background:${aktifOzelSayisi >= 2 ? '#f59e0b22' : '#8b5cf622'}; color:${aktifOzelSayisi >= 2 ? '#fde047' : '#c4b5fd'}; border:1px solid ${aktifOzelSayisi >= 2 ? '#f59e0b66' : '#8b5cf666'}; padding:3px 10px; border-radius:14px; font-weight:bold;">
+            ${aktifOzelSayisi >= 2 ? `⭐ ${aktifOzelSayisi} / 5 Taktik Aktif (GÜÇLÜ SİNYAL)` : `${aktifOzelSayisi} / 5 Taktik Aktif`}
+          </span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${ozelKarne.map(k => `
+            <div style="background:${k.aktif ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${k.aktif ? 'rgba(16, 185, 129, 0.35)' : 'rgba(255,255,255,0.06)'}; border-left: 3px solid ${k.aktif ? '#10b981' : '#475569'}; border-radius:6px; padding:8px 10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b style="font-size:13px; color:${k.aktif ? '#34d399' : '#cbd5e1'};">${k.baslik}</b>
+                <span style="font-size:11px; font-weight:bold; color:${k.aktif ? '#10b981' : '#64748b'};">${k.aktif ? '✅ AKTİF' : '⚪ Beklemede'}</span>
+              </div>
+              <div style="font-size:12px; color:#94a3b8; margin-top:4px; line-height:1.4;">${esc(k.yorum)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }
+
     alt = `<div class="iki-kolon">
       <div class="kutu"><h4>🔍 ${z.ad} grafik – 8 yöntemin yorumu</h4>${yontemler}</div>
       <div>
@@ -957,6 +984,7 @@ function detayCiz() {
           <h4>${b.ikon} Balina & Akıllı Para Dedektörü: <span style="color:${b.renk}">${esc(b.seviye)}</span></h4>
           <div style="font-size:13px; line-height:1.5;">${esc(b.mesaj)}</div>
         </div>
+        ${ozelTaktiklerHtml}
         <div class="kutu">
           <h4>📏 Önemli Seviyeler</h4>
           <div class="seviye-satir"><span>Şu anki fiyat</span><b>${sayi(s.fiyat)}</b></div>
