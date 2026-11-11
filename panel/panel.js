@@ -125,6 +125,7 @@ function listeMenuCiz() {
   const l = aktifListe();
   $('#listeBaslik').textContent = l ? l.ad : '—';
   $('#hacimFiltre').classList.toggle('gizli', !(l && l.dinamik === 'bist'));
+  bildirimSayisiGuncelle();
 }
 
 $('#listeler').addEventListener('click', e => {
@@ -1946,7 +1947,24 @@ $('#ziyaretKapatBtn').onclick = () => {
 };
 
 // ================= Bildirim Merkezi (Radar & Sniper Takipçisi) =================
-let bildirimIlkYukleme = true;
+const bildirimIlkBastirilanListeler = new Set();
+D.bildirimFiltre = 'aktif'; // 'aktif' | 'hepsi' | 'bist' | 'kripto' | 'diger'
+
+function sembolPiyasasi(id) {
+  if (!id) return 'diger';
+  if (id.startsWith('BIST:')) return 'bist';
+  if (id.startsWith('BINANCE:') || id.endsWith('USDT') || id.startsWith('GATE:')) return 'kripto';
+  return 'diger';
+}
+
+function aktifPiyasa() {
+  const l = aktifListe();
+  if (!l) return 'hepsi';
+  if (l.dinamik === 'bist' || l.id === 'tum-bist') return 'bist';
+  if (l.dinamik === 'kripto' || l.id === 'kripto') return 'kripto';
+  if (l.id === 'forex' || l.id === 'emtia-doviz') return 'diger';
+  return 'hepsi'; // Favoriler veya özel karma listeler
+}
 
 function bildirimleriOku() {
   try {
@@ -1958,7 +1976,7 @@ function bildirimleriOku() {
 
 function bildirimleriKaydet(arr) {
   try {
-    localStorage.setItem('alper_bildirimler', JSON.stringify(arr.slice(0, 50)));
+    localStorage.setItem('alper_bildirimler', JSON.stringify(arr.slice(0, 100)));
   } catch (_) {}
 }
 
@@ -1975,7 +1993,7 @@ function gorulenBildirimiKaydet(anahtar) {
     const set = gorulenBildirimleriOku();
     set.add(anahtar);
     const arr = Array.from(set);
-    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-500)));
+    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-5000)));
   } catch (_) {}
 }
 
@@ -1984,11 +2002,14 @@ function gorulenBildirimleriTopluKaydet(anahtarlar) {
     const set = gorulenBildirimleriOku();
     anahtarlar.forEach(k => set.add(k));
     const arr = Array.from(set);
-    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-500)));
+    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-5000)));
   } catch (_) {}
 }
 
 function yeniBildirimEkle(baslik, mesaj, tur, sembolId) {
+  const piyasa = sembolPiyasasi(sembolId);
+  const curPiyasa = aktifPiyasa();
+
   const liste = bildirimleriOku();
   const yeni = {
     id: 'bld-' + Date.now() + Math.random().toString(36).substring(2, 5),
@@ -1996,22 +2017,30 @@ function yeniBildirimEkle(baslik, mesaj, tur, sembolId) {
     mesaj,
     tur, // 'sniper' | 'balina' | 'firsat'
     sembolId,
+    piyasa, // 'bist' | 'kripto' | 'diger'
     tarih: new Date().toISOString(),
     okundu: false
   };
   liste.unshift(yeni);
   bildirimleriKaydet(liste);
 
-  // Ekrana canlı bildirim fırlat ve ses çal
-  sesCal('kar');
-  bildir(`🔔 ${baslik}: ${mesaj}`, 7000);
-  $('#bildirimRozetNokta').classList.remove('gizli');
+  // Yalnızca kullanıcı şu anda o piyasayı izliyorsa ekrana ses çal ve popup fırlat!
+  // (Örn: BIST'teyken Kripto bildirim sesi çalmaz veya popup ile rahatsız etmez)
+  if (curPiyasa === 'hepsi' || curPiyasa === piyasa) {
+    sesCal('kar');
+    bildir(`🔔 ${baslik}: ${mesaj}`, 7000);
+  }
   bildirimSayisiGuncelle();
 }
 
 function bildirimSayisiGuncelle() {
   const liste = bildirimleriOku();
-  const okunmamis = liste.filter(x => !x.okundu).length;
+  const curPiyasa = aktifPiyasa();
+  // Kullanıcı BIST tarafındaysa sadece BIST, Kripto tarafındaysa sadece Kripto okunmamış sayısı
+  const filtrelenmis = curPiyasa === 'hepsi' 
+    ? liste 
+    : liste.filter(x => (x.piyasa || sembolPiyasasi(x.sembolId)) === curPiyasa);
+  const okunmamis = filtrelenmis.filter(x => !x.okundu).length;
   $('#ustBildirimSayisi').textContent = okunmamis;
   if (okunmamis > 0) {
     $('#bildirimRozetNokta').classList.remove('gizli');
@@ -2024,10 +2053,13 @@ function radarVeSniperDegisimKontrol(satirlar) {
   if (!satirlar || !satirlar.length) return;
 
   const gorulenler = gorulenBildirimleriOku();
+  const listeId = D.aktifId || 'varsayilan';
 
-  // Sayfa ilk yüklendiğinde mevcut tüm pozitif hisseleri görüldü say
-  // Böylece sayfa açılır açılmaz veya borsa değişir değişmez eski hisseler için spam bildirim yağmaz!
-  if (bildirimIlkYukleme) {
+  // Bir liste (BIST, Kripto, Forex vb.) oturumda İLK kez tarandığında:
+  // Mevcut tüm hisseleri 'görüldü' olarak hafızaya al ve sessiz kal!
+  // Böylece borsa veya liste değiştirildiğinde eski hisseler için tekrar BİLDİRİM PATLAMASI ASLA OLMAZ!
+  if (!bildirimIlkBastirilanListeler.has(listeId)) {
+    bildirimIlkBastirilanListeler.add(listeId);
     const baslangicEklenenler = [];
     satirlar.forEach(r => {
       if (r && r.id) {
@@ -2035,7 +2067,6 @@ function radarVeSniperDegisimKontrol(satirlar) {
       }
     });
     gorulenBildirimleriTopluKaydet(baslangicEklenenler);
-    bildirimIlkYukleme = false;
     return;
   }
 
@@ -2080,10 +2111,40 @@ function radarVeSniperDegisimKontrol(satirlar) {
   });
 }
 
+window.tekBildirimSil = function(id, e) {
+  if (e) e.stopPropagation();
+  let liste = bildirimleriOku();
+  liste = liste.filter(x => x.id !== id);
+  bildirimleriKaydet(liste);
+  bildirimSayisiGuncelle();
+  bildirimMerkeziCiz();
+};
+
 function bildirimMerkeziCiz() {
-  const liste = bildirimleriOku();
+  const hamListe = bildirimleriOku();
+  const curPiyasa = aktifPiyasa();
+
+  let liste = hamListe;
+  if (D.bildirimFiltre === 'aktif') {
+    liste = curPiyasa === 'hepsi' ? hamListe : hamListe.filter(x => (x.piyasa || sembolPiyasasi(x.sembolId)) === curPiyasa);
+  } else if (D.bildirimFiltre === 'bist') {
+    liste = hamListe.filter(x => (x.piyasa || sembolPiyasasi(x.sembolId)) === 'bist');
+  } else if (D.bildirimFiltre === 'kripto') {
+    liste = hamListe.filter(x => (x.piyasa || sembolPiyasasi(x.sembolId)) === 'kripto');
+  } else if (D.bildirimFiltre === 'diger') {
+    liste = hamListe.filter(x => (x.piyasa || sembolPiyasasi(x.sembolId)) === 'diger');
+  }
+
+  // Buton aktifliklerini ayarla
+  document.querySelectorAll('#bildirimFiltreCipler .cip').forEach(b => {
+    b.classList.toggle('aktif', b.dataset.bfiltre === D.bildirimFiltre);
+  });
+
   if (!liste.length) {
-    $('#bildirimKutusuListesi').innerHTML = '<div class="bos" style="padding:25px;">Henüz yeni bir fırsat bildirimi gelmedi. Radara yeni bir hisse girdiğinde buraya düşecek.</div>';
+    const baslik = D.bildirimFiltre === 'aktif'
+      ? (curPiyasa === 'bist' ? 'BIST için' : curPiyasa === 'kripto' ? 'Kripto için' : 'Bu piyasa için')
+      : 'Bu filtrede';
+    $('#bildirimKutusuListesi').innerHTML = `<div class="bos" style="padding:25px;">${baslik} henüz bir fırsat bildirimi yok. Yeni bir sinyal oluştuğunda buraya düşecektir.</div>`;
     return;
   }
 
@@ -2091,12 +2152,21 @@ function bildirimMerkeziCiz() {
     <div style="display:flex; flex-direction:column; gap:10px;">
       ${liste.map(b => {
         const renk = b.tur === 'sniper' ? '#38bdf8' : '#10b981';
+        const p = b.piyasa || sembolPiyasasi(b.sembolId);
+        const pEtiket = p === 'bist' ? '🇹🇷 BIST' : (p === 'kripto' ? '🪙 Kripto' : '🌍 Emtia/Fx');
         return `
         <div class="kutu" style="margin:0; border-left:3px solid ${renk}; cursor:pointer;" 
              onclick="detayAc('${esc(b.sembolId)}'); $('#bildirimModal').classList.add('gizli');">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <b style="color:${renk}; font-size:13px;">${esc(b.baslik)}</b>
-            <span class="kucuk">${new Date(b.tarih).toLocaleDateString('tr-TR')} ${new Date(b.tarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
+            <div>
+              <b style="color:${renk}; font-size:13px;">${esc(b.baslik)}</b>
+              <span class="kucuk" style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; margin-left:6px; font-size:11px;">${pEtiket}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="kucuk">${new Date(b.tarih).toLocaleDateString('tr-TR')} ${new Date(b.tarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
+              <button class="sil-bildirim" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:14px; padding:2px;" 
+                      title="Bildirimi sil" onclick="tekBildirimSil('${esc(b.id)}', event)">✖</button>
+            </div>
           </div>
           <div style="font-size:13px; color:#f1f5f9; margin-top:4px;">${esc(b.mesaj)}</div>
         </div>`;
@@ -2105,8 +2175,15 @@ function bildirimMerkeziCiz() {
 }
 
 $('#bildirimMerkeziBtn').onclick = () => {
+  D.bildirimFiltre = 'aktif';
   const liste = bildirimleriOku();
-  liste.forEach(x => x.okundu = true);
+  const curPiyasa = aktifPiyasa();
+  // O anki piyasanın bildirimlerini okundu olarak işaretle
+  liste.forEach(x => {
+    if (curPiyasa === 'hepsi' || (x.piyasa || sembolPiyasasi(x.sembolId)) === curPiyasa) {
+      x.okundu = true;
+    }
+  });
   bildirimleriKaydet(liste);
   bildirimSayisiGuncelle();
 
@@ -2114,10 +2191,22 @@ $('#bildirimMerkeziBtn').onclick = () => {
   $('#bildirimModal').classList.remove('gizli');
   bildirimMerkeziCiz();
 };
+
+const bCipler = $('#bildirimFiltreCipler');
+if (bCipler) {
+  bCipler.addEventListener('click', e => {
+    const btn = e.target.closest('.cip');
+    if (!btn) return;
+    D.bildirimFiltre = btn.dataset.bfiltre;
+    bildirimMerkeziCiz();
+  });
+}
+
 $('#bildirimKapatBtn').onclick = () => {
   $('#perde').classList.add('gizli');
   $('#bildirimModal').classList.add('gizli');
 };
+
 $('#bildirimTemizleBtn').onclick = () => {
   if (!confirm('Tüm bildirim geçmişi temizlensin mi?')) return;
   // Temizlerken mevcut tüm taranan sembolleri de görüldü olarak işaretle ki hemen tekrar dolmasın!
@@ -2128,6 +2217,9 @@ $('#bildirimTemizleBtn').onclick = () => {
     }
   });
   gorulenBildirimleriTopluKaydet(eklenecekler);
+
+  // Başlangıç listeleri setini sıfırla ki kullanıcı başka listeye geçtiğinde oradaki eski hisseler de yeniden dolmasın
+  bildirimIlkBastirilanListeler.clear();
 
   bildirimleriKaydet([]);
   bildirimSayisiGuncelle();
