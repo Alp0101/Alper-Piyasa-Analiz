@@ -2,15 +2,19 @@ name: 7/24 Kesintisiz Acik Tutucu (Uyanik Tut)
 
 on:
   schedule:
-    # Her 10 dakikada bir otomatik calisir (Render'in uyumasini %100 engeller)
-    - cron: '*/10 * * * *'
+    # Her 5 dakikada bir tetiklenir (Render'in 15 dakikalik uyku esigini asmasini onler)
+    - cron: '*/5 * * * *'
+    - cron: '*/7 * * * *'
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Siteyi Kontrol Et ve Uyanik Tut
+      - name: Render Sunucusunu Uyanik Tut
         run: |
-          curl -s -I https://alper-piyasa-analiz.onrender.com | head -n 1
+          curl -s -I -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GitHubActions/KeepAlive" https://alper-piyasa-analiz.onrender.com | head -n 1
+          sleep 2
+          curl -s -I -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GitHubActions/KeepAlive" https://alper-piyasa-analiz.onrender.com/api/listeler | head -n 1
+
 
