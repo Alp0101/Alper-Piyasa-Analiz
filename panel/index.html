@@ -18,6 +18,7 @@
       📬 Bildirimler (<span id="ustBildirimSayisi">0</span>)
       <span id="bildirimRozetNokta" class="gizli" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:#ef4444; border-radius:50%; box-shadow:0 0 8px #ef4444;"></span>
     </button>
+    <button id="kurumsalVipBtn" class="btn" style="background: linear-gradient(135deg, #d97706, #b45309); font-size:12px; font-weight:bold; box-shadow:0 0 12px rgba(217,119,6,0.45); border:1px solid #f59e0b;">👑 Kurumsal VIP (%80+)</button>
     <button id="sniperRadarBtn" class="btn" style="background: linear-gradient(135deg, #0284c7, #0369a1); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(2,132,199,0.35);">🎯 Sniper Avcısı</button>
     <button id="balinaRadarBtn" class="btn" style="background: linear-gradient(135deg, #059669, #047857); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(16,185,129,0.3);">🧲 Balina Radarı</button>
     <button id="alarmListesiBtn" class="btn ikincil" style="font-size:12px;" title="Kurulan Fiyat Alarmları">🔔 Alarmlar (<span id="ustAlarmSayisi">0</span>)</button>
@@ -239,6 +240,46 @@
       <button class="cip" data-bfiltre="diger">🌍 Emtia & Forex</button>
     </div>
     <div id="bildirimKutusuListesi"></div>
+  </div>
+</section>
+
+<!-- 👑 Kurumsal VIP / %80+ Elit Fırsatlar Masası Modal -->
+<section id="kurumsalModal" class="detay gizli" style="max-width: 900px; border: 1px solid #f59e0b88; box-shadow: 0 0 35px rgba(245, 158, 11, 0.2);">
+  <div class="detay-ust" style="border-bottom: 1px solid #332610; background: linear-gradient(180deg, #1f1606, #120e05);">
+    <div>
+      <div class="d-ad" style="color: #fbbf24; font-size: 19px; display: flex; align-items: center; gap: 8px;">
+        <span>👑 Kurumsal VIP Masası</span>
+        <span style="font-size: 11px; padding: 3px 8px; background: #f59e0b22; border: 1px solid #f59e0b; border-radius: 12px; color: #fbbf24; font-weight: 800;">A+ ELİT SİSTEM (%80+)</span>
+      </div>
+      <div class="d-alt" style="color: #cbd5e1; margin-top: 4px;">
+        Piyasa Rejimi Filtreli, Fair Value Gap (FVG) ve POC Destekli, Çift Kademeli Çıkış (TP1 & Breakeven) Modeli.
+      </div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="kurumsalYenileBtn" class="btn" style="background: #231b0c; border: 1px solid #f59e0b66; color: #fbbf24; font-size: 12px;">⟳ Tara</button>
+      <button id="kurumsalKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+
+  <div style="padding: 12px 18px 6px 18px; display: flex; gap: 8px; flex-wrap: wrap; background: #0c0a06; border-bottom: 1px solid #231b0c;">
+    <button class="cip aktif" data-kfiltre="hepsi" style="border-color:#f59e0b;">🌐 Tümü</button>
+    <button class="cip" data-kfiltre="bist">🇹🇷 BIST Hisseleri (Öncelikli)</button>
+    <button class="cip" data-kfiltre="altin">🏅 Altın & Emtia (Öncelikli)</button>
+    <button class="cip" data-kfiltre="kripto">🪙 Kripto (7/24)</button>
+  </div>
+
+  <div style="padding: 16px 20px; max-height: 70vh; overflow-y: auto;">
+    <div style="background: #141009; border: 1px solid #382c16; border-radius: 8px; padding: 12px 16px; margin-bottom: 15px; font-size: 12.5px; line-height: 1.5; color: #fde68a;">
+      <b>🛡️ Kurumsal Başarı Kuralı:</b> Testere piyasasında olan hisseler <u>kırmızı engelle</u> elenir. Sadece <b>A+ Elit</b> onaylı fırsatlarda işleme girilir. Fiyat <b>TP1 (+%3.2)</b> hedefine vurduğunda pozisyonun %50'si kârla satılır, kalan yarısının stopu maliyete çekilerek işlem <u>%100 risksiz</u> taşınır.
+    </div>
+
+    <div id="kurumsalYukleniyor" class="bos" style="padding: 30px; text-align: center; color: #fbbf24;">
+      ⏳ Kurumsal piyasa rejimi ve likidite boşlukları taranıyor...
+    </div>
+
+    <div id="kurumsalListe" class="gizli" style="display: flex; flex-direction: column; gap: 12px;">
+      <!-- Dinamik Kartlar -->
+    </div>
   </div>
 </section>
 

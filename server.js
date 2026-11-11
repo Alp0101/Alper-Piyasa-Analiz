@@ -13,6 +13,7 @@ const Ziyaret = require('./ziyaret');
 const Alarm = require('./alarm');
 const Guvenlik = require('./guvenlik');
 const Bulut = require('./bulut');
+const Kurumsal = require('./kurumsal_analiz');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
@@ -365,6 +366,58 @@ const sunucu = http.createServer(async (req, res) => {
         }
       });
       return gonder(res, 200, { zaman: new Date().toISOString(), liste: bulunanlar });
+    }
+
+    // 👑 Kurumsal VIP / %80+ Elit Fırsatlar Taraması (Öncelik: BIST ve Altın, tam uyumlu Kripto)
+    if (p === '/api/kurumsal/tara') {
+      const piyasa = url.searchParams.get('piyasa') || 'hepsi';
+      // Öncelikli A+ takip havuzu
+      const elitHavuz = [
+        // BIST Yıldızları (G1 periyot odaklı)
+        'BIST:THYAO', 'BIST:ASELS', 'BIST:TUPRS', 'BIST:KCHOL', 'BIST:BIMAS',
+        'BIST:AKBNK', 'BIST:GARAN', 'BIST:ISCTR', 'BIST:YKBNK', 'BIST:EREGL',
+        'BIST:SAHOL', 'BIST:SISE', 'BIST:FROTO', 'BIST:PETKM', 'BIST:ENKAI',
+        // Altın ve Değerli Madenler
+        'OANDA:XAUUSD', 'BIST:ALTIN', 'TVC:SILVER',
+        // Kripto Majörleri
+        'BINANCE:BTCUSDT', 'BINANCE:ETHUSDT', 'BINANCE:SOLUSDT', 'BINANCE:AVAXUSDT'
+      ];
+
+      const filtrelenmis = elitHavuz.filter(s => {
+        if (piyasa === 'bist') return s.startsWith('BIST:') && s !== 'BIST:ALTIN';
+        if (piyasa === 'altin') return s.includes('XAU') || s.includes('ALTIN') || s.includes('SILVER');
+        if (piyasa === 'kripto') return s.startsWith('BINANCE:');
+        return true;
+      });
+
+      const sonuclar = [];
+      let bMum = null;
+      try {
+        const bBilgi = sembolBilgisi('BIST:XU100');
+        if (bBilgi) {
+          const bSet = await V.mumSetleri(bBilgi);
+          bMum = bSet ? (bSet.g1 || bSet.s4) : null;
+        }
+      } catch (_) {}
+
+      for (const sembolId of filtrelenmis) {
+        const b = sembolBilgisi(sembolId);
+        if (!b) continue;
+        try {
+          const set = await V.mumSetleri(b);
+          const mumlar = set ? (set.g1 || set.s4) : null;
+          if (!mumlar || mumlar.length < 35) continue;
+
+          const analiz = Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, mumlar, bMum);
+          if (analiz) {
+            sonuclar.push(analiz);
+          }
+        } catch (_) {}
+      }
+
+      // Puana göre sırala (En yüksek A+ adayları en başta)
+      sonuclar.sort((a, b) => b.puan - a.puan);
+      return gonder(res, 200, { zaman: new Date().toISOString(), liste: sonuclar });
     }
 
     // Fiyat Alarmları Uç Noktaları

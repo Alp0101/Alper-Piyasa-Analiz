@@ -563,7 +563,7 @@ $('#perde').onclick = () => {
   }
   detayKapat();
   demoPortfoyKapat();
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal'].forEach(sel => {
     const el = $(sel);
     if (el) el.classList.add('gizli');
   });
@@ -2543,6 +2543,103 @@ $('#balinaKapatBtn').onclick = () => {
   $('#perde').classList.add('gizli');
   $('#balinaModal').classList.add('gizli');
 };
+
+// ================= 👑 Kurumsal VIP (%80+ Elit Masa) =================
+let seciliKurumsalFiltre = 'hepsi';
+
+async function kurumsalMasayiYukle() {
+  const yukleniyor = $('#kurumsalYukleniyor');
+  const listeKutusu = $('#kurumsalListe');
+  yukleniyor.classList.remove('gizli');
+  listeKutusu.classList.add('gizli');
+  listeKutusu.innerHTML = '';
+
+  try {
+    const res = await apiGet(`/api/kurumsal/tara?piyasa=${seciliKurumsalFiltre}`);
+    yukleniyor.classList.add('gizli');
+    listeKutusu.classList.remove('gizli');
+
+    const liste = res.liste || [];
+    if (liste.length === 0) {
+      listeKutusu.innerHTML = '<div class="bos" style="padding:25px; text-align:center;">Seçili piyasada şu an taranmış veri bulunamadı.</div>';
+      return;
+    }
+
+    let html = '';
+    liste.forEach(item => {
+      const isElit = item.onay && item.puan >= 80;
+      const kartBorder = isElit ? 'border: 1px solid #f59e0b; box-shadow: 0 0 16px rgba(245,158,11,0.25); background: linear-gradient(180deg, #181309, #0d0a05);' : 'border: 1px solid #232b3d; background: #0c1017;';
+      const durumRozeti = isElit
+        ? `<span style="background:#f59e0b; color:#000; font-weight:800; font-size:11px; padding:3px 8px; border-radius:10px;">⭐ A+ ELİT ONAYLI</span>`
+        : `<span style="background:#334155; color:#94a3b8; font-weight:700; font-size:11px; padding:3px 8px; border-radius:10px;">⏳ BEKLEMEDE / FİLTRELENDİ</span>`;
+
+      const onayMaddeleri = (item.onaylar || []).map(o => `<div style="font-size:12px; color:#cbd5e1; margin-top:3px;">✔ ${esc(o)}</div>`).join('');
+      const engellemeNedeni = !item.rejim?.islemYapilabilir ? `<div style="font-size:12px; color:#f87171; margin-top:4px;">⛔ ${esc(item.rejim?.aciklama || item.neden)}</div>` : '';
+
+      const sev = item.seviyeler || {};
+      const seviyeKutusu = isElit ? `
+        <div style="margin-top:10px; padding:8px 12px; background:#00000066; border:1px solid #f59e0b44; border-radius:6px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:12px;">
+          <div><span style="color:#94a3b8;">Giriş:</span> <b style="color:#fff;">${sayi(sev.giris)}</b></div>
+          <div><span style="color:#ef4444;">Zarar Kes (Stop):</span> <b style="color:#ef4444;">${sayi(sev.stop)} (-%${sev.riskYuzde})</b></div>
+          <div><span style="color:#10b981;">TP1 (Kâr Al & Risksiz Yap):</span> <b style="color:#10b981;">${sayi(sev.tp1)} (${sev.tp1Yuzde})</b></div>
+          <div><span style="color:#38bdf8;">TP2 (Trend Hedefi):</span> <b style="color:#38bdf8;">${sayi(sev.tp2)} (${sev.tp2Yuzde})</b></div>
+        </div>
+      ` : '';
+
+      const planMetni = `<div style="margin-top:8px; font-size:11.5px; color:#fbbf24; font-style:italic;">${esc(item.taktikPlani)}</div>`;
+
+      html += `
+        <div style="border-radius:8px; padding:14px 16px; ${kartBorder} transition:all 0.2s;" onclick="detayAc('${esc(item.sembol)}'); $('#kurumsalModal').classList.add('gizli');">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:16px; font-weight:800; color:#fff;">${esc(item.sembol.split(':')[1] || item.sembol)}</span>
+              <span style="font-size:13px; color:#94a3b8;">${esc(item.ad || '')}</span>
+              <span style="font-size:14px; font-weight:bold; color:#10b981; margin-left:8px;">${sayi(item.fiyat)}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:12px; font-weight:700; color:${item.puan >= 80 ? '#fbbf24' : '#94a3b8'};">Skor: ${item.puan}/100</span>
+              ${durumRozeti}
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <div style="font-size:12px; font-weight:700; color:#38bdf8;">📊 Rejim: ${esc(item.rejim?.etiket || '')}</div>
+            ${engellemeNedeni}
+            ${onayMaddeleri}
+            ${seviyeKutusu}
+            ${planMetni}
+          </div>
+        </div>`;
+    });
+
+    listeKutusu.innerHTML = html;
+  } catch (e) {
+    yukleniyor.classList.add('gizli');
+    listeKutusu.classList.remove('gizli');
+    listeKutusu.innerHTML = `<div class="yukleniyor" style="color:#ef4444;">⚠️ Veri alınamadı: ${esc(e.message)}</div>`;
+  }
+}
+
+$('#kurumsalVipBtn').onclick = () => {
+  $('#perde').classList.remove('gizli');
+  $('#kurumsalModal').classList.remove('gizli');
+  kurumsalMasayiYukle();
+};
+$('#kurumsalKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#kurumsalModal').classList.add('gizli');
+};
+$('#kurumsalYenileBtn').onclick = () => {
+  kurumsalMasayiYukle();
+};
+
+document.querySelectorAll('#kurumsalModal .cip[data-kfiltre]').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#kurumsalModal .cip[data-kfiltre]').forEach(b => b.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    seciliKurumsalFiltre = btn.dataset.kfiltre;
+    kurumsalMasayiYukle();
+  };
+});
 function sesCal(tur = 'ding') {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2717,7 +2814,7 @@ window.addEventListener('popstate', () => {
     return;
   }
   // 4. Diğer açık pencereler
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal'].forEach(sel => {
     const el = $(sel);
     if (el && !el.classList.contains('gizli')) el.classList.add('gizli');
   });
