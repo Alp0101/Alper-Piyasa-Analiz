@@ -1284,8 +1284,9 @@ function demoPortfoyCiz() {
   if (!aciklar.length) {
     $('#demoAcikPozisyonlar').innerHTML = '<div class="bos" style="padding:15px;">Henüz açık demo pozisyonunuz yok. Detay penceresinden "🛒 Demo Al" butonunu kullanabilirsiniz.</div>';
   } else {
-    $('#demoAcikPozisyonlar').innerHTML = `
-      <div class="tablo-sarma">
+    // 1. Masaüstü Tablo Görünümü
+    const tabloHtml = `
+      <div class="demo-masaustu-tablo tablo-sarma">
         <table style="width:100%; min-width:620px;">
           <thead>
             <tr>
@@ -1337,6 +1338,78 @@ function demoPortfoyCiz() {
           </tbody>
         </table>
       </div>`;
+
+    // 2. Mobil Kart Görünümü (Kaydırma Olmadan %100 Görünür ve Sabit)
+    const kartlarHtml = `
+      <div class="demo-mobil-kartlar">
+        ${aciklar.map(poz => {
+          const birim = poz.paraBirimi || '₺';
+          const karPozitif = poz.karZarar >= 0;
+          const karRenkKod = karPozitif ? '#10b981' : '#ef4444';
+          const isShort = poz.yon === 'SHORT';
+          const kStr = poz.kaldirac > 1 ? ` ${poz.kaldirac}x` : '';
+          const yonRozet = isShort 
+            ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;">🔴 SHORT${kStr}</span>` 
+            : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;">🟢 LONG${kStr}</span>`;
+          return `
+          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${karRenkKod}; border-radius:10px; padding:12px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <b style="font-size:15px; color:#fff;">${esc(poz.sembol.split(':')[1])}</b>
+                  ${yonRozet}
+                </div>
+                <div class="kucuk" style="color:#94a3b8; margin-top:2px;">${esc(poz.ad)}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:16px; font-weight:800; color:${karRenkKod};">
+                  ${karPozitif ? '+' : ''}${sayi(poz.karZarar, 2)} ${birim}
+                </div>
+                <div style="font-size:12px; font-weight:bold; color:${karRenkKod}; margin-top:1px;">
+                  (%${sayi(poz.karZararYuzde, 2)})
+                </div>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; background:#181e2b; padding:8px; border-radius:6px; margin:8px 0; font-size:12px;">
+              <div>
+                <span class="kucuk" style="color:#64748b; display:block;">Adet</span>
+                <b>${poz.adet}</b>
+              </div>
+              <div>
+                <span class="kucuk" style="color:#64748b; display:block;">Giriş Fiyatı</span>
+                <b>${sayi(poz.alisFiyat)} ${birim}</b>
+              </div>
+              <div>
+                <span class="kucuk" style="color:#64748b; display:block;">Güncel Fiyat</span>
+                <b style="color:#38bdf8;">${sayi(poz.anlikFiyat)} ${birim}</b>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
+              <div style="background:#ef444412; border:1px dashed #ef444455; padding:6px 8px; border-radius:6px; cursor:pointer;" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'stop', ${poz.stopFiyat || 0})">
+                <span style="color:#ef4444; font-size:11px; display:block;">🛑 Stop:</span>
+                <b style="color:#f87171; font-size:12px;">${poz.stopFiyat ? sayi(poz.stopFiyat) + ' ' + birim : 'Belirtilmedi'} ✏️</b>
+              </div>
+              <div style="background:#10b98112; border:1px dashed #10b98155; padding:6px 8px; border-radius:6px; cursor:pointer;" onclick="demoSeviyeDuzenle('${esc(poz.id)}', 'hedef', ${poz.hedefFiyat || 0})">
+                <span style="color:#10b981; font-size:11px; display:block;">🎯 Hedef:</span>
+                <b style="color:#34d399; font-size:12px;">${poz.hedefFiyat ? sayi(poz.hedefFiyat) + ' ' + birim : 'Belirtilmedi'} ✏️</b>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1.3fr; gap:8px;">
+              <button class="btn ikincil" style="padding:8px 6px; font-size:12px; font-weight:bold; justify-content:center;" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">
+                🔍 Analiz Et
+              </button>
+              <button class="btn tehlike" style="padding:8px 6px; font-size:12px; font-weight:bold; justify-content:center;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">
+                💰 Pozisyonu Kapat
+              </button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+    $('#demoAcikPozisyonlar').innerHTML = tabloHtml + kartlarHtml;
   }
 
   // Kapanan İşlemler
@@ -1344,8 +1417,8 @@ function demoPortfoyCiz() {
   if (!kapali.length) {
     $('#demoKapananIslemler').innerHTML = '<div class="bos" style="padding:15px;">Henüz kapanmış işlem geçmişi yok.</div>';
   } else {
-    $('#demoKapananIslemler').innerHTML = `
-      <div class="tablo-sarma">
+    const kapaliTablo = `
+      <div class="demo-masaustu-tablo tablo-sarma">
         <table style="width:100%; min-width:520px;">
           <thead>
             <tr>
@@ -1378,6 +1451,41 @@ function demoPortfoyCiz() {
           </tbody>
         </table>
       </div>`;
+
+    const kapaliKartlar = `
+      <div class="demo-mobil-kartlar">
+        ${kapali.map(k => {
+          const birim = k.paraBirimi || '₺';
+          const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
+          const karPozitif = netSonuc >= 0;
+          const netRenkKod = karPozitif ? '#10b981' : '#ef4444';
+          const isShort = k.yon === 'SHORT';
+          const kStr = k.kaldirac > 1 ? ` ${k.kaldirac}x` : '';
+          const yonRozet = isShort 
+            ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
+            : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
+          return `
+          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${netRenkKod}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <b style="font-size:14px; color:#fff;">${esc(k.sembol.split(':')[1])}</b> ${yonRozet}
+                <div class="kucuk" style="color:#64748b; margin-top:3px;">
+                  ${k.adet} adet · ${sayi(k.alisFiyat)} ➔ ${sayi(k.satisFiyat)} ${birim}
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <b style="font-size:15px; color:${netRenkKod};">${karPozitif ? '+' : ''}${sayi(netSonuc, 2)} ${birim}</b>
+                <div class="kucuk" style="color:${netRenkKod}; font-weight:bold;">(%${sayi(k.karZararYuzde, 2)})</div>
+              </div>
+            </div>
+            <div class="kucuk" style="color:#475569; margin-top:4px; text-align:right;">
+              ${new Date(k.satisTarih).toLocaleDateString('tr-TR')} ${new Date(k.satisTarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+    $('#demoKapananIslemler').innerHTML = kapaliTablo + kapaliKartlar;
   }
 }
 

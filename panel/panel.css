@@ -1019,6 +1019,27 @@ tbody tr:hover {
   border-radius: 8px;
 }
 
+/* Demo Masaüstü Tablo vs Mobil Kart Görünümü */
+.demo-masaustu-tablo {
+  display: block;
+  width: 100%;
+}
+.demo-mobil-kartlar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .demo-masaustu-tablo {
+    display: none !important;
+  }
+  .demo-mobil-kartlar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+}
+
 #demoModal table {
   width: 100%;
   border-collapse: collapse;
