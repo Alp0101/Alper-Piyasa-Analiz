@@ -451,9 +451,14 @@ setInterval(() => {
 }, 5000);
 
 // ================= Ayrıntılı analiz =================
-function detayAc(id) {
+function detayAc(id, pushHistory = true) {
   D.detaySembol = id;
   $('#perde').classList.remove('gizli'); $('#detay').classList.remove('gizli');
+  if (pushHistory) {
+    try {
+      history.pushState({ modal: 'detay', sembol: id }, '', `#analiz-${encodeURIComponent(id)}`);
+    } catch (_) {}
+  }
   const r = D.satirlar.find(x => x.id === id);
   $('#dAd').textContent = (r ? r.kod + ' · ' + (r.ad || '') : id);
   $('#dAlt').textContent = 'Analiz ediliyor...';
@@ -461,9 +466,31 @@ function detayAc(id) {
   if (!demoPortfoyVerisi) demoPortfoyYukle();
   detayYukle();
 }
-function detayKapat() { D.detaySembol = null; $('#perde').classList.add('gizli'); $('#detay').classList.add('gizli'); }
-$('#dKapat').onclick = detayKapat; $('#perde').onclick = detayKapat;
-document.addEventListener('keydown', e => { if (e.key === 'Escape') detayKapat(); });
+
+function detayKapat(popHistory = true) {
+  D.detaySembol = null;
+  $('#perde').classList.add('gizli');
+  $('#detay').classList.add('gizli');
+  if (popHistory && window.location.hash.startsWith('#analiz-')) {
+    try { history.back(); } catch (_) {}
+  }
+}
+
+if ($('#dGeriBtn')) $('#dGeriBtn').onclick = () => detayKapat();
+$('#dKapat').onclick = () => detayKapat();
+$('#perde').onclick = () => {
+  if (!$('#demoEmirModal').classList.contains('gizli')) {
+    $('#demoEmirModal').classList.add('gizli');
+    return;
+  }
+  detayKapat();
+  demoPortfoyKapat();
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.classList.add('gizli');
+  });
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { detayKapat(); demoPortfoyKapat(); } });
 $('#dFavori').onclick = () => D.detaySembol && sembolEkle(D.detaySembol, 'favoriler');
 
 // Detay yükleyici: Her zaman canlı taze fiyatla çalışır
@@ -1448,9 +1475,13 @@ window.demoPozisyonKapatVeYenile = async (pozId, guncelFiyat) => {
 
 let demoCanliSayac = null;
 
-$('#demoPortfoyBtn').onclick = () => {
+function demoPortfoyAc(pushHistory = true) {
+  sessionStorage.setItem('alper_demo_modal_acik', '1');
   $('#perde').classList.remove('gizli');
   $('#demoModal').classList.remove('gizli');
+  if (pushHistory && window.location.hash !== '#demo') {
+    try { history.pushState({ modal: 'demo' }, '', '#demo'); } catch (_) {}
+  }
   demoPortfoyYukle();
   if (demoCanliSayac) clearInterval(demoCanliSayac);
   demoCanliSayac = setInterval(() => {
@@ -1461,12 +1492,20 @@ $('#demoPortfoyBtn').onclick = () => {
       demoCanliSayac = null;
     }
   }, 4000);
-};
-$('#demoKapatBtn').onclick = () => {
+}
+
+function demoPortfoyKapat(popHistory = true) {
+  sessionStorage.removeItem('alper_demo_modal_acik');
   if (demoCanliSayac) { clearInterval(demoCanliSayac); demoCanliSayac = null; }
   $('#perde').classList.add('gizli');
   $('#demoModal').classList.add('gizli');
-};
+  if (popHistory && window.location.hash === '#demo') {
+    try { history.back(); } catch (_) {}
+  }
+}
+
+$('#demoPortfoyBtn').onclick = () => demoPortfoyAc();
+$('#demoKapatBtn').onclick = () => demoPortfoyKapat();
 $('#demoSifirlaBtn').onclick = async () => {
   if (!confirm('Tüm sanal kasalarınız sıfırlanacak (1.000.000 TL ve 100.000 USD nakit bakiye). Tüm işlemler silinecek. Onaylıyor musunuz?')) return;
   const p = {
@@ -2236,6 +2275,31 @@ $('#yoneticiBtn').onclick = async () => {
 };
 yoneticiDurumCiz();
 
+// Mobil Tarayıcı Geri Tuşu (Popstate) ve Kaydırma Desteği
+window.addEventListener('popstate', () => {
+  // 1. Emir modalı açıksa kapat
+  if ($('#demoEmirModal') && !$('#demoEmirModal').classList.contains('gizli')) {
+    $('#demoEmirModal').classList.add('gizli');
+    return;
+  }
+  // 2. Detay analiz açıksa ana sayfaya dön
+  if ($('#detay') && !$('#detay').classList.contains('gizli')) {
+    detayKapat(false);
+    return;
+  }
+  // 3. Demo modalı açıksa kapat
+  if ($('#demoModal') && !$('#demoModal').classList.contains('gizli')) {
+    demoPortfoyKapat(false);
+    return;
+  }
+  // 4. Diğer açık pencereler
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal'].forEach(sel => {
+    const el = $(sel);
+    if (el && !el.classList.contains('gizli')) el.classList.add('gizli');
+  });
+  $('#perde').classList.add('gizli');
+});
+
 (async () => {
   try { 
     await listeleriYukle(); 
@@ -2245,5 +2309,13 @@ yoneticiDurumCiz();
     alarmlariListele();
     bildirimSayisiGuncelle();
     setInterval(alarmlariKontrolEt, 15000); // 15 saniyede bir fiyatları ve alarmları denetle
+
+    // Sayfa yenilendiğinde demo ekranı açıktıysa doğrudan açık olarak geri getir
+    if (sessionStorage.getItem('alper_demo_modal_acik') === '1' || window.location.hash === '#demo') {
+      demoPortfoyAc(false);
+    } else if (window.location.hash.startsWith('#analiz-')) {
+      const sId = decodeURIComponent(window.location.hash.replace('#analiz-', ''));
+      if (sId) detayAc(sId, false);
+    }
   } catch (e) { $('#durum').textContent = '⚠️ Sunucuya bağlanılamadı: ' + e.message; }
 })();
