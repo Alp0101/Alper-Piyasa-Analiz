@@ -2,27 +2,72 @@
 'use strict';
 const { EKSTRA, sembolBilgisi, KRIPTO_HAVUZ } = require('./semboller');
 
-const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' };
+const UA = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+  'Accept': '*/*',
+  'Accept-Language': 'tr,en-US;q=0.9,en;q=0.8',
+  'Origin': 'https://www.tradingview.com',
+  'Referer': 'https://www.tradingview.com/'
+};
 const onbellek = new Map();
 
 async function onbellekli(anahtar, sureMs, fn) {
   const k = onbellek.get(anahtar);
-  if (k && Date.now() - k.t < sureMs) return k.v;
+  const simdi = Date.now();
+
+  // 1. Önbellek taze ise doğrudan dön
+  if (k && (simdi - k.t < sureMs)) return k.v;
+
+  // 2. Zaten devam eden bir sorgu varsa mükerrer istek atma
   if (k && k.bekleyen) return k.bekleyen;
-  const bekleyen = fn().then(v => { onbellek.set(anahtar, { t: Date.now(), v }); return v; })
-    .catch(e => { onbellek.delete(anahtar); throw e; });
-  onbellek.set(anahtar, { ...(k || {}), t: k ? k.t : 0, bekleyen });
+
+  // 3. Son 15 saniyede rate-limit (429) yediysek ve elimizde eski veri varsa, TradingView'e yüklenmeyip eski veriyi dön
+  if (k && k.v && k.hataZamani && (simdi - k.hataZamani < 15_000)) {
+    return k.v;
+  }
+
+  const bekleyen = fn()
+    .then(v => {
+      onbellek.set(anahtar, { t: Date.now(), v, hataZamani: 0, bekleyen: null });
+      return v;
+    })
+    .catch(e => {
+      // 4. Hata durumunda (özellikle 429 Too Many Requests):
+      // Elimizde eski veri varsa asla hata fırlatma, kullanıcıyı kesintisiz besle!
+      if (k && k.v) {
+        console.warn(`[KORUMA] ${anahtar} için API uyarısı (${e.message}). Önbellekteki veri korunarak sunuluyor.`);
+        onbellek.set(anahtar, { ...k, t: Date.now(), hataZamani: Date.now(), bekleyen: null });
+        return k.v;
+      }
+      onbellek.delete(anahtar);
+      throw e;
+    });
+
+  onbellek.set(anahtar, { ...(k || {}), bekleyen });
   return bekleyen;
 }
 
 async function getJson(url, opts = {}) {
-  const ctrl = new AbortController();
-  const zam = setTimeout(() => ctrl.abort(), 15000);
-  try {
-    const r = await fetch(url, { ...opts, headers: { ...UA, ...(opts.headers || {}) }, signal: ctrl.signal });
-    if (!r.ok) throw new Error(`HTTP ${r.status} – ${url.split('?')[0]}`);
-    return await r.json();
-  } finally { clearTimeout(zam); }
+  const maxDeneme = 2;
+  for (let deneme = 1; deneme <= maxDeneme; deneme++) {
+    const ctrl = new AbortController();
+    const zam = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const r = await fetch(url, { ...opts, headers: { ...UA, ...(opts.headers || {}) }, signal: ctrl.signal });
+      if (r.status === 429) {
+        if (deneme < maxDeneme) {
+          // 429 durumunda 1 saniye bekle ve bir kez daha dene
+          await new Promise(res => setTimeout(res, 1200));
+          continue;
+        }
+        throw new Error(`HTTP 429 (Yoğun İstek) – ${url.split('?')[0]}`);
+      }
+      if (!r.ok) throw new Error(`HTTP ${r.status} – ${url.split('?')[0]}`);
+      return await r.json();
+    } finally {
+      clearTimeout(zam);
+    }
+  }
 }
 
 // ---------------- TradingView tarayıcı ----------------
@@ -81,7 +126,7 @@ async function usdTryKuru() {
 // En yüksek hacimli ilk 80 Binance & OKX Kripto Varlığını Gerçek Zamanlı Tarar (Sentetik hisseler ve stabil coinler hariç)
 async function tumKriptoTara() {
   const kur = await usdTryKuru();
-  return onbellekli('tarama:kripto_tum', 3_000, async () => {
+  return onbellekli('tarama:kripto_tum', 7_000, async () => {
     const body = {
       markets: ['crypto'],
       filter: [
@@ -127,8 +172,8 @@ async function sembolleriTara(idler) {
   const tvIdler = idler.filter(id => !id.startsWith('YAHOO:'));
   if (!tvIdler.length) return [];
   const anahtar = 'tarama:' + [...tvIdler].sort().join(',');
-  // Önceden 45 saniye önbellekte bekliyordu (oynaklık bu yüzden kaçıyordu), şimdi 3 saniyeye çekildi!
-  return onbellekli(anahtar, 3_000, async () => {
+  // Sunucu ve ziyaretçi sayısı arttığında 429 yememek için 7 saniye önbellek + kesintisiz fallback
+  return onbellekli(anahtar, 7_000, async () => {
     const body = { symbols: { tickers: tvIdler, query: { types: [] } }, columns: TARAMA_KOLONLARI };
     const j = await getJson('https://scanner.tradingview.com/global/scan', {
       method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' },

@@ -339,7 +339,11 @@ async function tara() {
       }
     }
   } catch (e) {
-    $('#durum').textContent = '⚠️ ' + e.message;
+    if (D.satirlar && D.satirlar.length > 0) {
+      $('#durum').textContent = 'Canlı Akış (Bağlantı Bekleniyor): ' + new Date().toLocaleTimeString('tr-TR');
+    } else {
+      $('#durum').textContent = '⚠️ ' + e.message;
+    }
   }
 }
 
