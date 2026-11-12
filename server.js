@@ -371,7 +371,7 @@ const sunucu = http.createServer(async (req, res) => {
     // 👑 Kurumsal VIP / %80+ Elit Fırsatlar Taraması (Öncelik: BIST ve Altın, tam uyumlu Kripto)
     if (p === '/api/kurumsal/tara') {
       const piyasa = url.searchParams.get('piyasa') || 'hepsi';
-      // Öncelikli A+ takip havuzu
+      // Öncelikli A+ takip havuzu (BIST, Altın/Emtia ve Genişletilmiş Popüler Kripto Havuzu)
       const elitHavuz = [
         // BIST Yıldızları (G1 periyot odaklı)
         'BIST:THYAO', 'BIST:ASELS', 'BIST:TUPRS', 'BIST:KCHOL', 'BIST:BIMAS',
@@ -379,8 +379,12 @@ const sunucu = http.createServer(async (req, res) => {
         'BIST:SAHOL', 'BIST:SISE', 'BIST:FROTO', 'BIST:PETKM', 'BIST:ENKAI',
         // Altın ve Değerli Madenler
         'OANDA:XAUUSD', 'BIST:ALTIN', 'TVC:SILVER',
-        // Kripto Majörleri
-        'BINANCE:BTCUSDT', 'BINANCE:ETHUSDT', 'BINANCE:SOLUSDT', 'BINANCE:AVAXUSDT'
+        // Genişletilmiş Kripto Havuzu (20 Hacimli Popüler Varlık)
+        'BINANCE:BTCUSDT', 'BINANCE:ETHUSDT', 'BINANCE:SOLUSDT', 'BINANCE:BNBUSDT',
+        'BINANCE:XRPUSDT', 'BINANCE:DOGEUSDT', 'BINANCE:ADAUSDT', 'BINANCE:AVAXUSDT',
+        'BINANCE:SUIUSDT', 'BINANCE:LINKUSDT', 'BINANCE:NEARUSDT', 'BINANCE:APTUSDT',
+        'BINANCE:PEPEUSDT', 'BINANCE:SHIBUSDT', 'BINANCE:RENDERUSDT', 'BINANCE:INJUSDT',
+        'BINANCE:TAOUSDT', 'BINANCE:ARBUSDT', 'BINANCE:OPUSDT', 'BINANCE:TIAUSDT'
       ];
 
       const filtrelenmis = elitHavuz.filter(s => {
@@ -405,10 +409,21 @@ const sunucu = http.createServer(async (req, res) => {
         if (!b) continue;
         try {
           const set = await V.mumSetleri(b);
-          const mumlar = set ? (set.g1 || set.s4) : null;
+          if (!set) continue;
+
+          // Kripto için hem 4 saatlik (s4) hem de günlük (g1) periyot taranır, en güçlü kurumsal sinyali veren dahil edilir
+          if (b.tur === 'kripto') {
+            const analizS4 = set.s4 && set.s4.length >= 30 ? Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, set.s4, null, 's4') : null;
+            const analizG1 = set.g1 && set.g1.length >= 30 ? Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, set.g1, null, 'g1') : null;
+            const enIyi = (analizG1 && (analizG1.puan || 0) > (analizS4?.puan || 0)) ? analizG1 : (analizS4 || analizG1);
+            if (enIyi) sonuclar.push(enIyi);
+            continue;
+          }
+
+          const mumlar = set.g1 || set.s4;
           if (!mumlar || mumlar.length < 35) continue;
 
-          const analiz = Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, mumlar, bMum);
+          const analiz = Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, mumlar, bMum, set.g1 ? 'g1' : 's4');
           if (analiz) {
             sonuclar.push(analiz);
           }

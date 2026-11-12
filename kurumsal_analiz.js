@@ -175,8 +175,8 @@ function rejimTespiti(mumlar) {
     return {
       rejim: 'GUCLU_AYI_TRENDI',
       etiket: '🔻 Güçlü Ayı Trendi',
-      aciklama: 'Kurumsal satış baskısı hakim, tepki yükselişleri satışla karşılanıyor.',
-      islemYapilabilir: true,
+      aciklama: 'Kurumsal satış baskısı hakim. Düşüş trendi sürdükçe spot alım önerilmez (Sermaye koruma filtresi aktif).',
+      islemYapilabilir: false,
       tip: 'short'
     };
   }
@@ -194,8 +194,8 @@ function rejimTespiti(mumlar) {
  * Kurumsal A+ Confluence Analizi
  * Sadece tüm filtrelerden geçen %80+ adaylarını döndürür
  */
-function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null) {
-  if (!mumlar || mumlar.length < 40) return null;
+function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g1') {
+  if (!mumlar || mumlar.length < 35) return null;
 
   const rejim = rejimTespiti(mumlar);
   const fvgler = fvgHesapla(mumlar);
@@ -204,12 +204,13 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null) {
   const sonMum = son(mumlar);
   const sonFiyat = sonMum.c;
 
-  // Rejim uygun değilse (özellikle testere piyasası ise) doğrudan İŞLEME KAPALI raporu üret
+  // Rejim uygun değilse (özellikle testere piyasası veya ayı trendi ise) doğrudan İŞLEME KAPALI raporu üret
   if (!rejim.islemYapilabilir) {
     return {
       sembol: sembolId,
       ad,
       tur,
+      tf,
       fiyat: sonFiyat,
       uygunluk: 'UYGUN_DEGIL',
       puan: 30,
@@ -280,6 +281,7 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null) {
     sembol: sembolId,
     ad,
     tur,
+    tf,
     fiyat: sonFiyat,
     uygunluk: onay ? 'A_PLUS_ELITE' : 'BEKLEMEDE',
     puan,
@@ -307,3 +309,4 @@ module.exports = {
   pocHesapla,
   rejimTespiti
 };
+

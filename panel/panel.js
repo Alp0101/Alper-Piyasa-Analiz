@@ -2593,6 +2593,7 @@ async function kurumsalMasayiYukle() {
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
             <div style="display:flex; align-items:center; gap:8px;">
               <span style="font-size:16px; font-weight:800; color:#fff;">${esc(item.sembol.split(':')[1] || item.sembol)}</span>
+              <span style="font-size:11px; padding:2px 6px; background:#1e293b; color:#38bdf8; border-radius:4px; font-weight:bold;">${item.tf === 's4' ? '4 Saatlik' : 'Günlük'}</span>
               <span style="font-size:13px; color:#94a3b8;">${esc(item.ad || '')}</span>
               <span style="font-size:14px; font-weight:bold; color:#10b981; margin-left:8px;">${sayi(item.fiyat)}</span>
             </div>
