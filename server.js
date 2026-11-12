@@ -14,6 +14,7 @@ const Alarm = require('./alarm');
 const Guvenlik = require('./guvenlik');
 const Bulut = require('./bulut');
 const Kurumsal = require('./kurumsal_analiz');
+const GunlukRapor = require('./gunluk_rapor');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
@@ -274,7 +275,32 @@ const sunucu = http.createServer(async (req, res) => {
     if (p === '/api/listeler' && req.method === 'GET') return gonder(res, 200, listeleriOku());
     if (p === '/api/listeler' && req.method === 'POST') { const v = listeDogrula(await govdeOku(req)); listeleriYaz(v); return gonder(res, 200, v); }
     if (p === '/api/listeler/varsayilan' && req.method === 'POST') { const v = varsayilanListeler(); listeleriYaz(v); return gonder(res, 200, v); }
-    if (p === '/api/tarama') return gonder(res, 200, { zaman: new Date().toISOString(), satirlar: await listeTara(url.searchParams.get('liste')) });
+    if (p === '/api/tarama') {
+      const satirlar = await listeTara(url.searchParams.get('liste'));
+      try {
+        const fiyatHaritasi = {};
+        (satirlar || []).forEach(r => {
+          if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat;
+          const t = r.tv || {};
+          const isSniper = (t.s2 > 0 && t.s4 > 0 && t.g1 > 0 && (r.rsi?.s4 || 50) >= 45 && (r.rsi?.s4 || 50) <= 68);
+          const isFirsat = r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo');
+          if ((isSniper || isFirsat) && r.fiyat > 0) {
+            GunlukRapor.sinyalKaydet({
+              sembol: r.id,
+              ad: r.ad,
+              tur: r.id.startsWith('BINANCE:') ? 'kripto' : 'bist',
+              yon: 'AL',
+              sinyalTipi: isSniper ? '🎯 Sniper Long' : '🟢 Fırsat Radarı',
+              fiyat: r.fiyat,
+              hedefFiyat: +(r.fiyat * 1.035).toFixed(2),
+              stopFiyat: +(r.fiyat * 0.965).toFixed(2)
+            });
+          }
+        });
+        GunlukRapor.fiyatlariGuncelle(fiyatHaritasi);
+      } catch (_) {}
+      return gonder(res, 200, { zaman: new Date().toISOString(), satirlar });
+    }
     if (p === '/api/analiz') return gonder(res, 200, await sembolAnaliz(url.searchParams.get('sembol') || '', url.searchParams.get('tf') || 's4'));
     if (p === '/api/ara') return gonder(res, 200, await V.ara(url.searchParams.get('q') || ''));
 
@@ -416,7 +442,21 @@ const sunucu = http.createServer(async (req, res) => {
             const analizS4 = set.s4 && set.s4.length >= 30 ? Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, set.s4, null, 's4') : null;
             const analizG1 = set.g1 && set.g1.length >= 30 ? Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, set.g1, null, 'g1') : null;
             const enIyi = (analizG1 && (analizG1.puan || 0) > (analizS4?.puan || 0)) ? analizG1 : (analizS4 || analizG1);
-            if (enIyi) sonuclar.push(enIyi);
+            if (enIyi) {
+              sonuclar.push(enIyi);
+              if (enIyi.onay && enIyi.puan >= 80) {
+                GunlukRapor.sinyalKaydet({
+                  sembol: sembolId,
+                  ad: b.ad,
+                  tur: b.tur,
+                  yon: 'AL',
+                  sinyalTipi: '👑 Kurumsal VIP A+',
+                  fiyat: enIyi.seviyeler?.giris || enIyi.fiyat,
+                  hedefFiyat: enIyi.seviyeler?.tp1,
+                  stopFiyat: enIyi.seviyeler?.stop
+                });
+              }
+            }
             continue;
           }
 
@@ -426,6 +466,18 @@ const sunucu = http.createServer(async (req, res) => {
           const analiz = Kurumsal.kurumsalAnalizEt(sembolId, b.ad, b.tur, mumlar, bMum, set.g1 ? 'g1' : 's4');
           if (analiz) {
             sonuclar.push(analiz);
+            if (analiz.onay && analiz.puan >= 80) {
+              GunlukRapor.sinyalKaydet({
+                sembol: sembolId,
+                ad: b.ad,
+                tur: b.tur,
+                yon: 'AL',
+                sinyalTipi: '👑 Kurumsal VIP A+',
+                fiyat: analiz.seviyeler?.giris || analiz.fiyat,
+                hedefFiyat: analiz.seviyeler?.tp1,
+                stopFiyat: analiz.seviyeler?.stop
+              });
+            }
           }
         } catch (_) {}
       }
@@ -433,6 +485,45 @@ const sunucu = http.createServer(async (req, res) => {
       // Puana göre sırala (En yüksek A+ adayları en başta)
       sonuclar.sort((a, b) => b.puan - a.puan);
       return gonder(res, 200, { zaman: new Date().toISOString(), liste: sonuclar });
+    }
+
+    // 🔒 Günlük Sinyal ve Başarı Raporu Uç Noktaları (Şifre: sea01)
+    if (p === '/api/rapor/dogrula' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      const yetkili = GunlukRapor.sifreDogrula(g.sifre);
+      if (yetkili) {
+        return gonder(res, 200, { yetkili: true });
+      } else {
+        return gonder(res, 401, { yetkili: false, hata: 'Hatalı şifre' });
+      }
+    }
+
+    if (p === '/api/rapor/veri' && req.method === 'GET') {
+      const gelenSifre = req.headers['x-rapor-sifre'] || url.searchParams.get('sifre');
+      if (!GunlukRapor.sifreDogrula(gelenSifre)) {
+        return gonder(res, 401, { hata: 'Yetkisiz erişim. Lütfen rapor şifresini girin.', yetkili: false });
+      }
+      const tarih = url.searchParams.get('tarih');
+      return gonder(res, 200, GunlukRapor.gunlukRaporAl(tarih));
+    }
+
+    if (p === '/api/rapor/guncelle' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      const sifre = g.sifre || req.headers['x-rapor-sifre'];
+      if (!GunlukRapor.sifreDogrula(sifre)) {
+        return gonder(res, 401, { hata: 'Yetkisiz erişim.', yetkili: false });
+      }
+      const rapor = GunlukRapor.gunlukRaporAl(g.tarih);
+      const semboller = [...new Set((rapor.sinyaller || []).map(s => s.sembol))];
+      if (semboller.length > 0) {
+        try {
+          const satirlar = await V.sembolleriTara(semboller);
+          const fiyatHaritasi = {};
+          (satirlar || []).forEach(r => { if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat; });
+          GunlukRapor.fiyatlariGuncelle(fiyatHaritasi);
+        } catch (_) {}
+      }
+      return gonder(res, 200, GunlukRapor.gunlukRaporAl(g.tarih));
     }
 
     // Fiyat Alarmları Uç Noktaları

@@ -563,7 +563,7 @@ $('#perde').onclick = () => {
   }
   detayKapat();
   demoPortfoyKapat();
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
     const el = $(sel);
     if (el) el.classList.add('gizli');
   });
@@ -2815,12 +2815,175 @@ window.addEventListener('popstate', () => {
     return;
   }
   // 4. Diğer açık pencereler
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
     const el = $(sel);
     if (el && !el.classList.contains('gizli')) el.classList.add('gizli');
   });
   $('#perde').classList.add('gizli');
 });
+
+// ================= 📋 Günlük Sinyal ve Kapanış Raporu (Şifre Korumalı: sea01) =================
+const RAPOR_HAFIZA_ANAHTAR = 'alper_rapor_sifre';
+let seciliRaporTarihi = null;
+
+function raporSifreAl() {
+  return localStorage.getItem(RAPOR_HAFIZA_ANAHTAR) || '';
+}
+
+async function raporGirisYap() {
+  const input = $('#raporSifreInput');
+  const hata = $('#raporSifreHata');
+  const sifre = (input.value || '').trim();
+  hata.style.display = 'none';
+
+  if (!sifre) return;
+
+  try {
+    const res = await api('/api/rapor/dogrula', {
+      method: 'POST',
+      body: JSON.stringify({ sifre }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (res.yetkili) {
+      localStorage.setItem(RAPOR_HAFIZA_ANAHTAR, sifre);
+      input.value = '';
+      $('#raporSifreModal').classList.add('gizli');
+      gunlukRaporPenceresiAc();
+      bildirimGoster('🔓 Özel rapor erişimi sağlandı.');
+    } else {
+      hata.style.display = 'block';
+    }
+  } catch (_) {
+    hata.style.display = 'block';
+  }
+}
+
+async function gunlukRaporPenceresiAc(tarih = null) {
+  const sifre = raporSifreAl();
+  if (!sifre) {
+    $('#perde').classList.remove('gizli');
+    $('#raporSifreModal').classList.remove('gizli');
+    setTimeout(() => $('#raporSifreInput')?.focus(), 200);
+    return;
+  }
+
+  $('#perde').classList.remove('gizli');
+  $('#gunlukRaporModal').classList.remove('gizli');
+  await gunlukRaporVerisiYukle(tarih);
+}
+
+async function gunlukRaporVerisiYukle(tarih = null) {
+  const sifre = raporSifreAl();
+  const url = `/api/rapor/veri?tarih=${tarih || seciliRaporTarihi || ''}`;
+  
+  try {
+    const r = await fetch(url, {
+      headers: { 'X-Rapor-Sifre': encodeURIComponent(sifre) }
+    });
+    
+    if (r.status === 401) {
+      localStorage.removeItem(RAPOR_HAFIZA_ANAHTAR);
+      $('#gunlukRaporModal').classList.add('gizli');
+      $('#raporSifreModal').classList.remove('gizli');
+      return;
+    }
+
+    const d = await r.json();
+    seciliRaporTarihi = d.tarih;
+
+    // Rozet ve Tarih Seçici Güncelleme
+    $('#raporTarihRozet').textContent = d.tarih;
+    const secici = $('#raporTarihSecici');
+    secici.innerHTML = (d.gecmisTarihler || [d.tarih]).map(t => 
+      `<option value="${esc(t)}" ${t === d.tarih ? 'selected' : ''}>${esc(t)} ${t === d.tarih ? '(Bugün / Seçili)' : ''}</option>`
+    ).join('');
+
+    // Özet Kartları
+    $('#raporWinRate').textContent = d.winRate || '%0';
+    $('#raporWinDetay').textContent = `${d.basariliSayi || 0} Kâr / ${d.basarisizSayi || 0} Zarar`;
+    $('#raporOrtGetiri').textContent = d.ortGetiri || '%0.00';
+    $('#raporOrtGetiri').style.color = (d.ortGetiri || '').startsWith('-') ? '#ef4444' : '#10b981';
+    $('#raporToplamSinyal').textContent = d.toplamSinyal || 0;
+    $('#raporEnIyi').textContent = d.enIyi || '—';
+
+    // Sinyal Tablosu
+    const tablo = $('#raporSinyalListesi');
+    const sinyaller = d.sinyaller || [];
+
+    if (sinyaller.length === 0) {
+      tablo.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">Bu tarihte henüz kayıtlı sinyal bulunmuyor.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    sinyaller.forEach(s => {
+      const isKar = (s.degisimYuzde || 0) > 0;
+      const isZarar = (s.degisimYuzde || 0) < 0;
+      const oranRenk = isKar ? '#10b981' : isZarar ? '#ef4444' : '#94a3b8';
+      const yonRenk = s.yon === 'AL' ? '#10b981' : '#ef4444';
+      const durumRenk = s.durum.includes('HEDEF') || s.durum.includes('KÂR') ? '#10b981' : s.durum.includes('STOP') || s.durum.includes('ZARAR') ? '#ef4444' : '#38bdf8';
+
+      html += `
+        <tr style="border-bottom:1px solid #1e293b; transition:background 0.2s; cursor:pointer;" onclick="detayAc('${esc(s.sembol)}'); $('#gunlukRaporModal').classList.add('gizli');">
+          <td style="padding:10px 12px; color:#94a3b8;">${esc(s.saat || '—')}</td>
+          <td style="padding:10px 12px; font-weight:bold; color:#fff;">
+            ${esc(s.sembol.split(':')[1] || s.sembol)}
+            <div style="font-size:11px; color:#94a3b8; font-weight:normal;">${esc(s.ad || '')}</div>
+          </td>
+          <td style="padding:10px 12px;"><span style="color:${yonRenk}; font-weight:bold; padding:2px 6px; background:${yonRenk}15; border-radius:4px;">${esc(s.yon)}</span></td>
+          <td style="padding:10px 12px; color:#c7d2fe;">${esc(s.sinyalTipi)}</td>
+          <td style="padding:10px 12px; font-weight:600;">${sayi(s.girisFiyat)}</td>
+          <td style="padding:10px 12px; font-weight:700; color:#fff;">${sayi(s.anlikFiyat)}</td>
+          <td style="padding:10px 12px; color:#38bdf8; font-weight:600;">${sayi(s.gunYuksek)} (${s.maxKarYuzde >= 0 ? '+' : ''}%${s.maxKarYuzde})</td>
+          <td style="padding:10px 12px; font-weight:800; color:${oranRenk}; font-size:13px;">${s.degisimYuzde >= 0 ? '+' : ''}%${s.degisimYuzde}</td>
+          <td style="padding:10px 12px;"><span style="color:${durumRenk}; font-weight:700; font-size:11px; padding:3px 8px; background:${durumRenk}20; border-radius:8px;">${esc(s.durum)}</span></td>
+        </tr>
+      `;
+    });
+    tablo.innerHTML = html;
+  } catch (e) {
+    $('#raporSinyalListesi').innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#ef4444;">⚠️ Rapor yüklenemedi: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+// Buton Etkileşimleri
+$('#gunlukRaporBtn').onclick = () => {
+  gunlukRaporPenceresiAc();
+};
+$('#raporSifreKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#raporSifreModal').classList.add('gizli');
+};
+$('#raporKapatBtn').onclick = () => {
+  $('#perde').classList.add('gizli');
+  $('#gunlukRaporModal').classList.add('gizli');
+};
+$('#raporCikisBtn').onclick = () => {
+  localStorage.removeItem(RAPOR_HAFIZA_ANAHTAR);
+  $('#gunlukRaporModal').classList.add('gizli');
+  $('#perde').classList.add('gizli');
+  bildirimGoster('🔒 Günlük rapor oturumu kapatıldı.');
+};
+$('#raporGuncelleBtn').onclick = async () => {
+  const sifre = raporSifreAl();
+  if (!sifre) return;
+  try {
+    $('#raporGuncelleBtn').textContent = '⏳ Güncelleniyor...';
+    await fetch('/api/rapor/guncelle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Rapor-Sifre': encodeURIComponent(sifre) },
+      body: JSON.stringify({ tarih: seciliRaporTarihi })
+    });
+    await gunlukRaporVerisiYukle(seciliRaporTarihi);
+  } finally {
+    $('#raporGuncelleBtn').textContent = '⟳ Yenile';
+  }
+};
+$('#raporTarihSecici').onchange = (e) => {
+  seciliRaporTarihi = e.target.value;
+  gunlukRaporVerisiYukle(seciliRaporTarihi);
+};
 
 (async () => {
   try { 

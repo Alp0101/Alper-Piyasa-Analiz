@@ -460,6 +460,113 @@
   </div>
 </section>
 
+<!-- Sayfanın Sol Aşağısında Sabit Günlük Rapor Butonu (Özel Şifreli: sea01) -->
+<div id="solAltRaporKutusu" style="position: fixed; bottom: 22px; left: 22px; z-index: 995;">
+  <button id="gunlukRaporBtn" class="btn" style="background: linear-gradient(135deg, #1e1b4b, #3730a3); border: 1.5px solid #818cf8; color: #ffffff; font-weight: 800; font-size: 13px; padding: 10px 18px; border-radius: 30px; box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5); display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.25s ease;" title="Günlük Sinyal ve Kapanış Raporu (Korumalı)">
+    <span style="font-size: 16px;">📊</span>
+    <span>Günlük Sinyal Raporu</span>
+    <span style="font-size: 10.5px; padding: 2px 7px; background: #4f46e5; border-radius: 12px; color: #e0e7ff; font-weight: 700;">🔒 Özel</span>
+  </button>
+</div>
+
+<!-- Şifre Giriş Modalı -->
+<section id="raporSifreModal" class="detay gizli" style="max-width: 420px; border: 1.5px solid #6366f1; box-shadow: 0 0 40px rgba(99, 102, 241, 0.35);">
+  <div class="detay-ust" style="background: linear-gradient(180deg, #1e1b4b, #111827); border-bottom: 1px solid #3730a3;">
+    <div>
+      <div class="d-ad" style="color: #a5b4fc; font-size: 17px; display:flex; align-items:center; gap:6px;">
+        <span>🔒 Özel Rapor Erişimi</span>
+      </div>
+      <div class="d-alt" style="color: #cbd5e1; font-size: 12px;">Günlük sinyal ve kâr/zarar raporu şifre korumalıdır.</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="raporSifreKapatBtn" class="btn">✖</button>
+    </div>
+  </div>
+  <div class="detay-icerik" style="padding: 20px;">
+    <form id="raporSifreForm" onsubmit="event.preventDefault(); raporGirisYap();">
+      <label style="font-size: 12.5px; color: #cbd5e1; display: block; margin-bottom: 8px;">Lütfen erişim şifresini girin:</label>
+      <input type="password" id="raporSifreInput" placeholder="Şifre..." style="width: 100%; box-sizing: border-box; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 14px; margin-bottom: 15px; outline: none;" required autofocus>
+      <div id="raporSifreHata" style="color: #f87171; font-size: 12px; margin-bottom: 12px; display: none;">⚠️ Hatalı şifre! Lütfen tekrar deneyin.</div>
+      <div style="display: flex; gap: 10px;">
+        <button type="submit" class="btn tam" style="background: linear-gradient(135deg, #4f46e5, #4338ca); font-weight: bold; padding: 10px;">🔓 Raporu Aç</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- Günlük Sinyal ve Kapanış Raporu Modalı -->
+<section id="gunlukRaporModal" class="detay gizli" style="max-width: 950px; border: 1.5px solid #6366f1; box-shadow: 0 0 50px rgba(99, 102, 241, 0.25);">
+  <div class="detay-ust" style="background: linear-gradient(180deg, #1e1b4b, #0f172a); border-bottom: 1px solid #312e81;">
+    <div>
+      <div class="d-ad" style="color: #c7d2fe; font-size: 19px; display: flex; align-items: center; gap: 8px;">
+        <span>📋 Günlük Sinyal ve Kapanış Raporu</span>
+        <span id="raporTarihRozet" style="font-size: 11px; padding: 3px 8px; background: #4338ca33; border: 1px solid #6366f1; border-radius: 12px; color: #a5b4fc; font-weight: 800;">Bugün</span>
+      </div>
+      <div class="d-alt" style="color: #94a3b8; margin-top: 4px;">
+        Günün kaliteli AL/SAT sinyallerinin giriş anından gün sonu kapanışına kadar canlı sonuç dökümü.
+      </div>
+    </div>
+    <div class="detay-butonlar" style="display:flex; align-items:center; gap:8px;">
+      <select id="raporTarihSecici" style="background:#0f172a; color:#cbd5e1; border:1px solid #334155; border-radius:6px; padding:5px 8px; font-size:12px;"></select>
+      <button id="raporGuncelleBtn" class="btn" style="background: #1e1b4b; border: 1px solid #6366f166; color: #a5b4fc; font-size: 12px;">⟳ Yenile</button>
+      <button id="raporCikisBtn" class="btn tehlike" style="font-size: 12px;" title="Şifreli oturumu kapat">🔒 Çıkış</button>
+      <button id="raporKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+
+  <div class="detay-icerik" style="padding: 18px 20px; max-height: 75vh; overflow-y: auto;">
+    <!-- 4'lü Özet Karnesi -->
+    <div class="tf-ozet" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 18px;">
+      <div class="kutu" style="margin:0; border-left:3px solid #10b981;">
+        <div class="kucuk">🎯 Kazanma Oranı (Winrate)</div>
+        <div id="raporWinRate" style="font-size: 21px; font-weight: 800; color:#10b981; margin-top:4px;">%0</div>
+        <div id="raporWinDetay" class="kucuk" style="color:#94a3b8; margin-top:2px;">0 Kâr / 0 Zarar</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #38bdf8;">
+        <div class="kucuk">📈 Ortalama Günlük Getiri</div>
+        <div id="raporOrtGetiri" style="font-size: 21px; font-weight: 800; color:#38bdf8; margin-top:4px;">%0.00</div>
+        <div class="kucuk" style="color:#94a3b8; margin-top:2px;">Sinyal Başına Ort.</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #818cf8;">
+        <div class="kucuk">🔢 Toplam Sinyal</div>
+        <div id="raporToplamSinyal" style="font-size: 21px; font-weight: 800; color:#c7d2fe; margin-top:4px;">0</div>
+        <div class="kucuk" style="color:#94a3b8; margin-top:2px;">Kayıtlı Sinyal</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #f59e0b;">
+        <div class="kucuk">🏆 Günün Lideri</div>
+        <div id="raporEnIyi" style="font-size: 16px; font-weight: 800; color:#fbbf24; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</div>
+        <div class="kucuk" style="color:#94a3b8; margin-top:2px;">En Yüksek Kazanç</div>
+      </div>
+    </div>
+
+    <!-- Sinyal Listesi Tablosu -->
+    <div class="kutu" style="padding: 0; overflow-x: auto;">
+      <table class="tarama-tablo" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+        <thead>
+          <tr style="background:#090d16; border-bottom:1px solid #1e293b; color:#94a3b8; text-align:left;">
+            <th style="padding:10px 12px;">Saat</th>
+            <th style="padding:10px 12px;">Varlık</th>
+            <th style="padding:10px 12px;">Yön</th>
+            <th style="padding:10px 12px;">Sinyal Türü</th>
+            <th style="padding:10px 12px;">Giriş Fiyatı</th>
+            <th style="padding:10px 12px;">Güncel / Kapanış</th>
+            <th style="padding:10px 12px;">Gün İçi Zirve</th>
+            <th style="padding:10px 12px;">Net Sonuç (%)</th>
+            <th style="padding:10px 12px;">Durum</th>
+          </tr>
+        </thead>
+        <tbody id="raporSinyalListesi">
+          <!-- Dinamik Satırlar -->
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 15px; font-size: 11.5px; color: #94a3b8; line-height: 1.5; background: #0b0f19; padding: 10px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+      📌 <b>Rapor Açıklaması:</b> Sistem gün içinde üretilen tüm kaliteli sinyalleri başlangıç fiyatıyla kaydeder. Canlı piyasada gün sonu kapanışına kadar takip edilir; kâr/zarar oranları ve gün içi görülen maksimum yükseliş (zirve) tek tek dökülür.
+    </div>
+  </div>
+</section>
+
 <div id="bildirim" class="bildirim gizli"></div>
 <script src="panel.js"></script>
 </body>
