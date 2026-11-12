@@ -1323,6 +1323,17 @@ tbody tr:hover {
   margin-top: 10px;
 }
 
+.modal-tablo-sarma table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.modal-tablo-sarma th,
+.modal-tablo-sarma td {
+  box-sizing: border-box;
+}
+
 .modal-tablo-sarma::-webkit-scrollbar {
   height: 8px;
 }
@@ -1339,4 +1350,5 @@ tbody tr:hover {
 .modal-tablo-sarma::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
 

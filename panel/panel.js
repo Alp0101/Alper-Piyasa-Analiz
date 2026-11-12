@@ -2431,33 +2431,49 @@ function sniperAvcisiYukle() {
 
   $('#sniperRadarListesi').innerHTML = `
     <div class="modal-tablo-sarma">
-      <table class="tarama-tablo" style="width:100%; min-width:860px; border-collapse:collapse;">
+      <table class="tarama-tablo" style="width:100%; border-collapse:collapse; table-layout:fixed;">
+        <colgroup>
+          <col style="width: 22%;">
+          <col style="width: 10%;">
+          <col style="width: 10%;">
+          <col style="width: 7%;">
+          <col style="width: 7%;">
+          <col style="width: 7%;">
+          <col style="width: 8%;">
+          <col style="width: 19%;">
+          <col style="width: 10%;">
+        </colgroup>
         <thead>
           <tr style="background:#131d2e; border-bottom:1px solid #2d3748;">
-            <th style="padding:10px 12px; text-align:left;">Sembol</th>
-            <th class="sag" style="padding:10px 12px;">Fiyat</th>
-            <th class="sag" style="padding:10px 12px;">Günlük %</th>
-            <th class="orta" style="padding:10px 12px;">2 Saat</th>
-            <th class="orta" style="padding:10px 12px;">4 Saat</th>
-            <th class="orta" style="padding:10px 12px;">Günlük</th>
-            <th class="sag" style="padding:10px 12px;">RSI (4S)</th>
-            <th style="padding:10px 12px; text-align:left;">Sinyal Derecesi</th>
-            <th class="orta" style="padding:10px 12px;">Hızlı İşlem</th>
+            <th style="padding:10px 8px; text-align:left;">Sembol</th>
+            <th class="sag" style="padding:10px 8px;">Fiyat</th>
+            <th class="sag" style="padding:10px 8px;">Günlük %</th>
+            <th class="orta" style="padding:10px 4px;">2 Saat</th>
+            <th class="orta" style="padding:10px 4px;">4 Saat</th>
+            <th class="orta" style="padding:10px 4px;">Günlük</th>
+            <th class="sag" style="padding:10px 6px;">RSI (4S)</th>
+            <th style="padding:10px 8px; text-align:left;">Sinyal Derecesi</th>
+            <th class="orta" style="padding:10px 6px;">Hızlı İşlem</th>
           </tr>
         </thead>
         <tbody>
           ${birlesik.map(x => `
             <tr onclick="detayAc('${esc(x.id)}'); $('#sniperModal').classList.add('gizli');" style="cursor:pointer; border-bottom:1px solid #1a2234;">
-              <td style="padding:10px 12px; white-space:nowrap;"><b>${esc(x.kod)}</b> <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px;">${esc(x.ad)}</small></td>
-              <td class="sag" style="padding:10px 12px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
-              <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:10px 12px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
-              <td class="orta" style="padding:10px 12px; white-space:nowrap;">${rozet(x.yon?.s2)}</td>
-              <td class="orta" style="padding:10px 12px; white-space:nowrap;">${rozet(x.yon?.s4)}</td>
-              <td class="orta" style="padding:10px 12px; white-space:nowrap;">${rozet(x.yon?.g1)}</td>
-              <td class="sag" style="padding:10px 12px; white-space:nowrap; font-weight:600; color:#38bdf8;">${sayi(x.rsi?.s4, 0)}</td>
-              <td style="padding:10px 12px; white-space:nowrap;"><span style="color:${x.renk}; font-weight:bold;">${esc(x.etiket)}</span></td>
-              <td class="orta" style="padding:10px 12px; white-space:nowrap;">
-                <button class="btn" style="padding:4px 14px; font-size:11.5px; background:#10b981; font-weight:bold; cursor:pointer;" 
+              <td style="padding:10px 8px; overflow:hidden; text-overflow:ellipsis;">
+                <b style="font-size:13.5px; color:#f8fafc;">${esc(x.kod)}</b>
+                <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(x.ad)}</small>
+              </td>
+              <td class="sag" style="padding:10px 8px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
+              <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:10px 8px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
+              <td class="orta" style="padding:10px 4px; white-space:nowrap;">${rozet(x.yon?.s2)}</td>
+              <td class="orta" style="padding:10px 4px; white-space:nowrap;">${rozet(x.yon?.s4)}</td>
+              <td class="orta" style="padding:10px 4px; white-space:nowrap;">${rozet(x.yon?.g1)}</td>
+              <td class="sag" style="padding:10px 6px; white-space:nowrap; font-weight:600; color:#38bdf8;">${sayi(x.rsi?.s4, 0)}</td>
+              <td style="padding:10px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <span style="color:${x.renk}; font-weight:bold; font-size:11.5px;">${esc(x.etiket)}</span>
+              </td>
+              <td class="orta" style="padding:10px 6px; white-space:nowrap;">
+                <button class="btn" style="padding:4px 10px; font-size:11px; background:#10b981; font-weight:bold; cursor:pointer;" 
                         onclick="event.stopPropagation(); $('#sniperModal').classList.add('gizli'); detayAc('${esc(x.id)}'); setTimeout(()=>$('#dDemoAlBtn').click(), 400);">
                   🛒 Al
                 </button>
@@ -2505,29 +2521,44 @@ async function balinaRadariYukle() {
 
     $('#balinaRadarListesi').innerHTML = `
       <div class="modal-tablo-sarma">
-        <table class="tarama-tablo" style="width:100%; min-width:860px; border-collapse:collapse;">
+        <table class="tarama-tablo" style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <colgroup>
+            <col style="width: 20%;">
+            <col style="width: 10%;">
+            <col style="width: 10%;">
+            <col style="width: 14%;">
+            <col style="width: 18%;">
+            <col style="width: 28%;">
+          </colgroup>
           <thead>
             <tr style="background:#131d2e; border-bottom:1px solid #2d3748;">
-              <th style="padding:10px 12px; text-align:left;">Sembol</th>
-              <th class="sag" style="padding:10px 12px;">Fiyat</th>
-              <th class="sag" style="padding:10px 12px;">Günlük %</th>
-              <th class="sag" style="padding:10px 12px;">Hacim Katı / Tutar</th>
-              <th style="padding:10px 12px; text-align:left;">Durum / Sinyal</th>
-              <th style="padding:10px 12px; text-align:left;">Açıklama</th>
+              <th style="padding:10px 8px; text-align:left;">Sembol</th>
+              <th class="sag" style="padding:10px 8px;">Fiyat</th>
+              <th class="sag" style="padding:10px 8px;">Günlük %</th>
+              <th class="sag" style="padding:10px 8px;">Hacim Katı / Tutar</th>
+              <th style="padding:10px 8px; text-align:left;">Durum / Sinyal</th>
+              <th style="padding:10px 8px; text-align:left;">Açıklama</th>
             </tr>
           </thead>
           <tbody>
             ${liste.map(x => `
               <tr onclick="detayAc('${esc(x.id)}'); $('#balinaModal').classList.add('gizli');" style="cursor:pointer; border-bottom:1px solid #1a2234;">
-                <td style="padding:10px 12px; white-space:nowrap;"><b>${esc(x.kod)}</b> <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px;">${esc(x.ad)}</small></td>
-                <td class="sag" style="padding:10px 12px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
-                <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:10px 12px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
-                <td class="sag" style="padding:10px 12px; white-space:nowrap;">
+                <td style="padding:10px 8px; overflow:hidden; text-overflow:ellipsis;">
+                  <b style="font-size:13.5px; color:#f8fafc;">${esc(x.kod)}</b>
+                  <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(x.ad)}</small>
+                </td>
+                <td class="sag" style="padding:10px 8px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
+                <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:10px 8px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
+                <td class="sag" style="padding:10px 8px; white-space:nowrap;">
                   <div style="color:#fbbf24; font-weight:bold; font-size:13px;">${sayi(x.gh, 1)}x</div>
                   ${hacimFormat(x) ? `<div class="kucuk" style="color:#94a3b8; font-size:11px;">${hacimFormat(x)}</div>` : ''}
                 </td>
-                <td style="padding:10px 12px; white-space:nowrap;"><span style="color:${x.renk}; font-weight:bold;">${x.ikon} ${esc(x.seviye)}</span></td>
-                <td class="kucuk" style="padding:10px 12px; color:#cbd5e1; min-width:240px; line-height:1.4;">${esc(x.aciklama)}</td>
+                <td style="padding:10px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  <span style="color:${x.renk}; font-weight:bold; font-size:11.5px;">${x.ikon} ${esc(x.seviye)}</span>
+                </td>
+                <td class="kucuk" style="padding:10px 8px; color:#cbd5e1; font-size:11.5px; line-height:1.35; white-space:normal; word-break:break-word;">
+                  ${esc(x.aciklama)}
+                </td>
               </tr>
             `).join('')}
           </tbody>
