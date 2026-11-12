@@ -2825,6 +2825,8 @@ window.addEventListener('popstate', () => {
 // ================= 📋 Günlük Sinyal ve Kapanış Raporu (Şifre Korumalı: sea01) =================
 const RAPOR_HAFIZA_ANAHTAR = 'alper_rapor_sifre';
 let seciliRaporTarihi = null;
+let seciliRaporKategori = 'hepsi';
+let sonRaporVerisi = null;
 
 function raporSifreAl() {
   return localStorage.getItem(RAPOR_HAFIZA_ANAHTAR) || '';
@@ -2889,47 +2891,119 @@ async function gunlukRaporVerisiYukle(tarih = null) {
       return;
     }
 
-    const d = await r.json();
-    seciliRaporTarihi = d.tarih;
+    sonRaporVerisi = await r.json();
+    seciliRaporTarihi = sonRaporVerisi.tarih;
 
     // Rozet ve Tarih Seçici Güncelleme
-    $('#raporTarihRozet').textContent = d.tarih;
+    $('#raporTarihRozet').textContent = sonRaporVerisi.tarih;
     const secici = $('#raporTarihSecici');
-    secici.innerHTML = (d.gecmisTarihler || [d.tarih]).map(t => 
-      `<option value="${esc(t)}" ${t === d.tarih ? 'selected' : ''}>${esc(t)} ${t === d.tarih ? '(Bugün / Seçili)' : ''}</option>`
+    secici.innerHTML = (sonRaporVerisi.gecmisTarihler || [sonRaporVerisi.tarih]).map(t => 
+      `<option value="${esc(t)}" ${t === sonRaporVerisi.tarih ? 'selected' : ''}>${esc(t)} ${t === sonRaporVerisi.tarih ? '(Seçili Gün)' : ''}</option>`
     ).join('');
 
-    // Özet Kartları
-    $('#raporWinRate').textContent = d.winRate || '%0';
-    $('#raporWinDetay').textContent = `${d.basariliSayi || 0} Kâr / ${d.basarisizSayi || 0} Zarar`;
-    $('#raporOrtGetiri').textContent = d.ortGetiri || '%0.00';
-    $('#raporOrtGetiri').style.color = (d.ortGetiri || '').startsWith('-') ? '#ef4444' : '#10b981';
-    $('#raporToplamSinyal').textContent = d.toplamSinyal || 0;
-    $('#raporEnIyi').textContent = d.enIyi || '—';
+    raporArayuzunuCiz();
+  } catch (e) {
+    $('#raporSinyalListesi').innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#ef4444;">⚠️ Rapor yüklenemedi: ${esc(e.message)}</td></tr>`;
+  }
+}
 
-    // Sinyal Tablosu
-    const tablo = $('#raporSinyalListesi');
-    const sinyaller = d.sinyaller || [];
+function raporArayuzunuCiz() {
+  if (!sonRaporVerisi) return;
+  const d = sonRaporVerisi;
+  const tumSinyaller = d.sinyaller || [];
+  const kats = d.kategoriler || {};
 
-    if (sinyaller.length === 0) {
-      tablo.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">Bu tarihte henüz kayıtlı sinyal bulunmuyor.</td></tr>`;
-      return;
-    }
+  // Kategori Butonlarındaki Sayıları Güncelle
+  const rHepsi = $('#rSayiHepsi'); if (rHepsi) rHepsi.textContent = tumSinyaller.length;
+  const rBist = $('#rSayiBist'); if (rBist) rBist.textContent = kats.bist?.toplam || 0;
+  const rForex = $('#rSayiForex'); if (rForex) rForex.textContent = kats.forex?.toplam || 0;
+  const rKripto = $('#rSayiKripto'); if (rKripto) rKripto.textContent = kats.kripto?.toplam || 0;
 
-    let html = '';
-    sinyaller.forEach(s => {
+  // Seçili Kategoriye Göre 4'lü Özet Kartlarını Güncelle
+  let aktifOzet = {
+    winRate: d.winRate,
+    basariliSayi: d.basariliSayi,
+    basarisizSayi: d.basarisizSayi,
+    ortGetiri: d.ortGetiri,
+    toplamSinyal: d.toplamSinyal
+  };
+
+  if (seciliRaporKategori !== 'hepsi' && kats[seciliRaporKategori]) {
+    const k = kats[seciliRaporKategori];
+    aktifOzet = {
+      winRate: k.winRate,
+      basariliSayi: k.basariliSayi,
+      basarisizSayi: k.basarisizSayi,
+      ortGetiri: k.ortGetiri,
+      toplamSinyal: k.toplam
+    };
+  }
+
+  $('#raporWinRate').textContent = aktifOzet.winRate || '%0';
+  $('#raporWinDetay').textContent = `${aktifOzet.basariliSayi || 0} Kâr / ${aktifOzet.basarisizSayi || 0} Zarar`;
+  $('#raporOrtGetiri').textContent = aktifOzet.ortGetiri || '%0.00';
+  $('#raporOrtGetiri').style.color = (aktifOzet.ortGetiri || '').startsWith('-') ? '#ef4444' : '#10b981';
+  $('#raporToplamSinyal').textContent = aktifOzet.toplamSinyal || 0;
+  $('#raporEnIyi').textContent = d.enIyi || '—';
+
+  // Gruplar halinde filtreleme (BIST, Forex/Altın, Kripto)
+  const gruplar = [
+    { id: 'bist', baslik: '🇹🇷 BIST HİSSELERİ', liste: tumSinyaller.filter(s => (s.kategori || 'bist') === 'bist'), ozet: kats.bist },
+    { id: 'forex', baslik: '🌍 FOREX & ALTIN / EMTİA', liste: tumSinyaller.filter(s => s.kategori === 'forex'), ozet: kats.forex },
+    { id: 'kripto', baslik: '🪙 KRİPTO VARLIKLAR', liste: tumSinyaller.filter(s => s.kategori === 'kripto'), ozet: kats.kripto }
+  ];
+
+  const gosterilecekGruplar = seciliRaporKategori === 'hepsi'
+    ? gruplar
+    : gruplar.filter(g => g.id === seciliRaporKategori);
+
+  const tablo = $('#raporSinyalListesi');
+  const mobilKutu = $('#raporMobilKartKutusu');
+
+  let tabloHtml = '';
+  let mobilHtml = '';
+  let toplamGosterilen = 0;
+
+  gosterilecekGruplar.forEach(g => {
+    if (g.liste.length === 0) return;
+    toplamGosterilen += g.liste.length;
+
+    // Kategori Bölüm Başlığı (Masaüstü Tablo Ayracı)
+    const gOzet = g.ozet || {};
+    const baslikMetni = `${g.baslik} (${g.liste.length} Sinyal | Kazanma: ${gOzet.winRate || '%0'} | Ort. Getiri: ${gOzet.ortGetiri || '%0.00'})`;
+
+    tabloHtml += `
+      <tr class="rapor-kat-ayrac">
+        <td colspan="9">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>${baslikMetni}</span>
+            <span style="font-size:11px; opacity:0.8; font-weight:normal;">Detay için tıkla</span>
+          </div>
+        </td>
+      </tr>
+    `;
+
+    mobilHtml += `
+      <div class="rapor-mobil-kat-baslik">
+        <span>${g.baslik}</span>
+        <span style="font-size:11px; opacity:0.85;">${gOzet.winRate || '%0'} Win</span>
+      </div>
+    `;
+
+    g.liste.forEach(s => {
       const isKar = (s.degisimYuzde || 0) > 0;
       const isZarar = (s.degisimYuzde || 0) < 0;
       const oranRenk = isKar ? '#10b981' : isZarar ? '#ef4444' : '#94a3b8';
       const yonRenk = s.yon === 'AL' ? '#10b981' : '#ef4444';
       const durumRenk = s.durum.includes('HEDEF') || s.durum.includes('KÂR') ? '#10b981' : s.durum.includes('STOP') || s.durum.includes('ZARAR') ? '#ef4444' : '#38bdf8';
 
-      html += `
+      // 1. Masaüstü Tablo Satırı
+      tabloHtml += `
         <tr style="border-bottom:1px solid #1e293b; transition:background 0.2s; cursor:pointer;" onclick="detayAc('${esc(s.sembol)}'); $('#gunlukRaporModal').classList.add('gizli');">
           <td style="padding:10px 12px; color:#94a3b8;">${esc(s.saat || '—')}</td>
           <td style="padding:10px 12px; font-weight:bold; color:#fff;">
             ${esc(s.sembol.split(':')[1] || s.sembol)}
-            <div style="font-size:11px; color:#94a3b8; font-weight:normal;">${esc(s.ad || '')}</div>
+            <div style="font-size:11px; color:#94a3b8; font-weight:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px;">${esc(s.ad || '')}</div>
           </td>
           <td style="padding:10px 12px;"><span style="color:${yonRenk}; font-weight:bold; padding:2px 6px; background:${yonRenk}15; border-radius:4px;">${esc(s.yon)}</span></td>
           <td style="padding:10px 12px; color:#c7d2fe;">${esc(s.sinyalTipi)}</td>
@@ -2940,10 +3014,42 @@ async function gunlukRaporVerisiYukle(tarih = null) {
           <td style="padding:10px 12px;"><span style="color:${durumRenk}; font-weight:700; font-size:11px; padding:3px 8px; background:${durumRenk}20; border-radius:8px;">${esc(s.durum)}</span></td>
         </tr>
       `;
+
+      // 2. Mobil Dokunmatik Akıllı Kart (Telefon ekranlarında kusursuz görünüm)
+      mobilHtml += `
+        <div class="rapor-mobil-kart" onclick="detayAc('${esc(s.sembol)}'); $('#gunlukRaporModal').classList.add('gizli');">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-weight:800; font-size:15px; color:#fff;">${esc(s.sembol.split(':')[1] || s.sembol)}</span>
+              <span style="font-size:11px; color:#94a3b8;">${esc(s.saat || '')}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:${yonRenk}; font-weight:800; padding:2px 7px; background:${yonRenk}20; border-radius:4px; font-size:11px;">${esc(s.yon)}</span>
+              <span style="color:${oranRenk}; font-weight:900; font-size:15px;">${s.degisimYuzde >= 0 ? '+' : ''}%${s.degisimYuzde}</span>
+            </div>
+          </div>
+          <div style="font-size:11.5px; color:#94a3b8;">${esc(s.ad || '')}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#090d16; padding:6px 10px; border-radius:6px; margin-top:4px; font-size:11.5px;">
+            <div><span style="color:#64748b;">Giriş:</span> <b style="color:#e2e8f0;">${sayi(s.girisFiyat)}</b></div>
+            <div><span style="color:#64748b;">Son:</span> <b style="color:#fff;">${sayi(s.anlikFiyat)}</b></div>
+            <div><span style="color:#64748b;">Zirve:</span> <b style="color:#38bdf8;">${sayi(s.gunYuksek)}</b></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:11px;">
+            <span style="color:#a5b4fc;">${esc(s.sinyalTipi)}</span>
+            <span style="color:${durumRenk}; font-weight:700; padding:2px 6px; background:${durumRenk}15; border-radius:6px;">${esc(s.durum)}</span>
+          </div>
+        </div>
+      `;
     });
-    tablo.innerHTML = html;
-  } catch (e) {
-    $('#raporSinyalListesi').innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#ef4444;">⚠️ Rapor yüklenemedi: ${esc(e.message)}</td></tr>`;
+  });
+
+  if (toplamGosterilen === 0) {
+    const bosHtml = `<div class="bos" style="padding:30px; text-align:center;">Seçili kategoride bu tarihe ait sinyal bulunmuyor.</div>`;
+    tablo.innerHTML = `<tr><td colspan="9">${bosHtml}</td></tr>`;
+    if (mobilKutu) mobilKutu.innerHTML = bosHtml;
+  } else {
+    tablo.innerHTML = tabloHtml;
+    if (mobilKutu) mobilKutu.innerHTML = mobilHtml;
   }
 }
 
@@ -2984,6 +3090,15 @@ $('#raporTarihSecici').onchange = (e) => {
   seciliRaporTarihi = e.target.value;
   gunlukRaporVerisiYukle(seciliRaporTarihi);
 };
+
+document.querySelectorAll('#gunlukRaporModal .cip[data-rkat]').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#gunlukRaporModal .cip[data-rkat]').forEach(b => b.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    seciliRaporKategori = btn.dataset.rkat;
+    raporArayuzunuCiz();
+  };
+});
 
 (async () => {
   try { 

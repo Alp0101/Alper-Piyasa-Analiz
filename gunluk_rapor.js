@@ -27,6 +27,18 @@ function suAnSaat() {
   return tr.toISOString().slice(11, 16);
 }
 
+function kategoriAl(sembol, tur) {
+  if (!sembol) return 'bist';
+  const s = String(sembol).toUpperCase();
+  if (s === 'BIST:ALTIN' || s.includes('XAU') || s.includes('SILVER') || s.startsWith('FX:') || s.startsWith('OANDA:') || s.startsWith('TVC:') || s.includes('OIL') || s.includes('DXY') || s.includes('EURUSD') || s.includes('USDTRY') || s.includes('EURTRY') || tur === 'emtia' || tur === 'forex') {
+    return 'forex'; // Forex & Altın / Emtia
+  }
+  if (s.startsWith('BINANCE:') || s.startsWith('OKX:') || s.startsWith('GATE:') || s.startsWith('BYBIT:') || s.includes('USDT') || s.includes('BTC') || s.includes('ETH') || tur === 'kripto') {
+    return 'kripto'; // Kripto Varlıklar
+  }
+  return 'bist'; // BIST Hisseleri
+}
+
 function raporlariOku() {
   if (onbellekRapor) return onbellekRapor;
   try {
@@ -118,6 +130,7 @@ function sinyalKaydet(sinyal) {
     sembol,
     ad: ad || sembol.split(':')[1] || sembol,
     tur,
+    kategori: sinyal.kategori || kategoriAl(sembol, tur),
     yon: String(yon).toUpperCase() === 'SAT' ? 'SAT' : 'AL',
     sinyalTipi,
     girisFiyat: +fiyat,
@@ -215,6 +228,31 @@ function gunlukRaporAl(seciliTarih = null) {
 
   const tumTarihler = Object.keys(veri.gunler).sort().reverse();
 
+  // Her sinyale kategori ata
+  sinyaller.forEach(s => {
+    if (!s.kategori) s.kategori = kategoriAl(s.sembol, s.tur);
+  });
+
+  const bistSinyaller = sinyaller.filter(s => s.kategori === 'bist');
+  const forexSinyaller = sinyaller.filter(s => s.kategori === 'forex');
+  const kriptoSinyaller = sinyaller.filter(s => s.kategori === 'kripto');
+
+  const katOzet = (list) => {
+    const top = list.length;
+    const win = list.filter(s => s.degisimYuzde > 0 || s.durum.includes('HEDEF') || s.durum.includes('KÂR')).length;
+    const loss = list.filter(s => s.degisimYuzde < 0 || s.durum.includes('STOP')).length;
+    const wr = top > 0 ? +((win / top) * 100).toFixed(1) : 0;
+    const topGetiri = list.reduce((a, b) => a + (b.degisimYuzde || 0), 0);
+    const ort = top > 0 ? +(topGetiri / top).toFixed(2) : 0;
+    return {
+      toplam: top,
+      basariliSayi: win,
+      basarisizSayi: loss,
+      winRate: `%${wr}`,
+      ortGetiri: `${ort >= 0 ? '+' : ''}%${ort}`
+    };
+  };
+
   return {
     tarih,
     toplamSinyal: toplam,
@@ -224,6 +262,11 @@ function gunlukRaporAl(seciliTarih = null) {
     ortGetiri: `${ortGetiri >= 0 ? '+' : ''}%${ortGetiri}`,
     toplamNetGetiri: `${toplamGetiri >= 0 ? '+' : ''}%${toplamGetiri.toFixed(2)}`,
     enIyi: enIyi ? `${enIyi.sembol.split(':')[1] || enIyi.sembol} (%+${enIyi.degisimYuzde})` : '—',
+    kategoriler: {
+      bist: katOzet(bistSinyaller),
+      forex: katOzet(forexSinyaller),
+      kripto: katOzet(kriptoSinyaller)
+    },
     sinyaller: [...sinyaller].reverse(),
     gecmisTarihler: tumTarihler
   };
@@ -236,3 +279,4 @@ module.exports = {
   gunlukRaporAl,
   bugunTarih
 };
+

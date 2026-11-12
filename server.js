@@ -282,15 +282,17 @@ const sunucu = http.createServer(async (req, res) => {
         (satirlar || []).forEach(r => {
           if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat;
           const t = r.tv || {};
-          const isSniper = (t.s2 > 0 && t.s4 > 0 && t.g1 > 0 && (r.rsi?.s4 || 50) >= 45 && (r.rsi?.s4 || 50) <= 68);
-          const isFirsat = r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo');
-          if ((isSniper || isFirsat) && r.fiyat > 0) {
+          const isSniper = (t.s2 > 0 && t.s4 > 0 && t.g1 > 0 && (r.rsi?.s4 || 50) >= 48 && (r.rsi?.s4 || 50) <= 65 && (r.hizliPuan || 0) >= 70);
+          const isKombo = r.isaretler?.some(i => i.tip === 'kombo');
+          const isAlfa = r.isaretler?.some(i => i.tip === 'ozel_alfa');
+          const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:'));
+          if ((isSniper || isKombo || isAlfa) && uygunFiyat) {
             GunlukRapor.sinyalKaydet({
               sembol: r.id,
               ad: r.ad,
-              tur: r.id.startsWith('BINANCE:') ? 'kripto' : 'bist',
+              tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') || r.id === 'BIST:ALTIN' ? 'emtia' : 'bist'),
               yon: 'AL',
-              sinyalTipi: isSniper ? '🎯 Sniper Long' : '🟢 Fırsat Radarı',
+              sinyalTipi: isKombo ? '⭐ Özel Kombo' : (isSniper ? '🎯 Sniper Long' : '🛡️ Alfa Gücü'),
               fiyat: r.fiyat,
               hedefFiyat: +(r.fiyat * 1.035).toFixed(2),
               stopFiyat: +(r.fiyat * 0.965).toFixed(2)
