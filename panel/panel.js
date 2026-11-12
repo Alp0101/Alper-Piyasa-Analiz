@@ -331,6 +331,7 @@ async function tara() {
 
     // 1. Yeni Radar ve Sniper Girişlerini Denetle (Bildirim fırlat)
     radarVeSniperDegisimKontrol(D.satirlar);
+    bildirimleriYukle();
 
     // 2. Demo Portföy Açıksa veya Açık Pozisyon Varsa Fiyatları ve Kâr/Zararı Anlık Güncelle!
     demoPortfoyYukle();
@@ -2094,9 +2095,11 @@ $('#ziyaretKapatBtn').onclick = () => {
   $('#ziyaretModal').classList.add('gizli');
 };
 
-// ================= Bildirim Merkezi (Radar & Sniper Takipçisi) =================
-const bildirimIlkBastirilanListeler = new Set();
+// ================= Bildirim Merkezi (Radar, Balina, Kurumsal & Sniper Takipçisi) =================
 D.bildirimFiltre = 'aktif'; // 'aktif' | 'hepsi' | 'bist' | 'kripto' | 'diger'
+let yerelBildirimler = [];
+const oturumGorulenBildirimler = new Set();
+let sonBildirimZamani = 0;
 
 function sembolPiyasasi(id) {
   if (!id) return 'diger';
@@ -2114,80 +2117,46 @@ function aktifPiyasa() {
   return 'hepsi'; // Favoriler veya özel karma listeler
 }
 
-function bildirimleriOku() {
+async function bildirimleriYukle(sessiz = false) {
   try {
-    const raw = localStorage.getItem('alper_bildirimler');
-    if (raw) return JSON.parse(raw);
-  } catch (_) {}
-  return [];
-}
+    const res = await api('/api/bildirimler');
+    const sunucuListesi = res.bildirimler || [];
+    const curPiyasa = aktifPiyasa();
 
-function bildirimleriKaydet(arr) {
-  try {
-    localStorage.setItem('alper_bildirimler', JSON.stringify(arr.slice(0, 100)));
-  } catch (_) {}
-}
+    // Yeni gelen bildirimleri tespit et ve sesli bildir
+    if (!sessiz && yerelBildirimler.length > 0 && sunucuListesi.length > 0) {
+      const enSonZaman = sonBildirimZamani || (yerelBildirimler[0] ? new Date(yerelBildirimler[0].tarih).getTime() : 0);
+      const yeniGelenler = sunucuListesi.filter(b => new Date(b.tarih).getTime() > enSonZaman);
 
-function gorulenBildirimleriOku() {
-  try {
-    const raw = localStorage.getItem('alper_gorulen_bildirimler');
-    if (raw) return new Set(JSON.parse(raw));
-  } catch (_) {}
-  return new Set();
-}
+      if (yeniGelenler.length > 0) {
+        const enSon = yeniGelenler[0];
+        const p = enSon.piyasa || sembolPiyasasi(enSon.sembolId);
+        if (curPiyasa === 'hepsi' || curPiyasa === p) {
+          sesCal('kar');
+          bildir(`🔔 ${enSon.baslik}: ${enSon.mesaj}`, 7000);
+        }
+      }
+    }
 
-function gorulenBildirimiKaydet(anahtar) {
-  try {
-    const set = gorulenBildirimleriOku();
-    set.add(anahtar);
-    const arr = Array.from(set);
-    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-5000)));
-  } catch (_) {}
-}
+    yerelBildirimler = sunucuListesi;
+    if (sunucuListesi.length > 0) {
+      sonBildirimZamani = Math.max(...sunucuListesi.map(b => new Date(b.tarih).getTime()));
+    }
 
-function gorulenBildirimleriTopluKaydet(anahtarlar) {
-  try {
-    const set = gorulenBildirimleriOku();
-    anahtarlar.forEach(k => set.add(k));
-    const arr = Array.from(set);
-    localStorage.setItem('alper_gorulen_bildirimler', JSON.stringify(arr.slice(-5000)));
-  } catch (_) {}
-}
-
-function yeniBildirimEkle(baslik, mesaj, tur, sembolId) {
-  const piyasa = sembolPiyasasi(sembolId);
-  const curPiyasa = aktifPiyasa();
-
-  const liste = bildirimleriOku();
-  const yeni = {
-    id: 'bld-' + Date.now() + Math.random().toString(36).substring(2, 5),
-    baslik,
-    mesaj,
-    tur, // 'sniper' | 'balina' | 'firsat'
-    sembolId,
-    piyasa, // 'bist' | 'kripto' | 'diger'
-    tarih: new Date().toISOString(),
-    okundu: false
-  };
-  liste.unshift(yeni);
-  bildirimleriKaydet(liste);
-
-  // Yalnızca kullanıcı şu anda o piyasayı izliyorsa ekrana ses çal ve popup fırlat!
-  // (Örn: BIST'teyken Kripto bildirim sesi çalmaz veya popup ile rahatsız etmez)
-  if (curPiyasa === 'hepsi' || curPiyasa === piyasa) {
-    sesCal('kar');
-    bildir(`🔔 ${baslik}: ${mesaj}`, 7000);
+    bildirimSayisiGuncelle();
+    if (!$('#bildirimModal').classList.contains('gizli')) {
+      bildirimMerkeziCiz();
+    }
+  } catch (_) {
+    bildirimSayisiGuncelle();
   }
-  bildirimSayisiGuncelle();
 }
 
 function bildirimSayisiGuncelle() {
-  const liste = bildirimleriOku();
   const curPiyasa = aktifPiyasa();
-  // Kullanıcı BIST tarafındaysa sadece BIST, Kripto tarafındaysa sadece Kripto okunmamış sayısı
   const filtrelenmis = curPiyasa === 'hepsi' 
-    ? liste 
-    : liste.filter(x => (x.piyasa || sembolPiyasasi(x.sembolId)) === curPiyasa);
+    ? yerelBildirimler 
+    : yerelBildirimler.filter(x => (x.piyasa || sembolPiyasasi(x.sembolId)) === curPiyasa);
   const okunmamis = filtrelenmis.filter(x => !x.okundu).length;
   $('#ustBildirimSayisi').textContent = okunmamis;
   if (okunmamis > 0) {
@@ -2197,26 +2166,41 @@ function bildirimSayisiGuncelle() {
   }
 }
 
+async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0) {
+  const piyasa = sembolPiyasasi(sembolId);
+  const curPiyasa = aktifPiyasa();
+  const kod = sembolId.includes(':') ? sembolId.split(':')[1] : sembolId;
+
+  try {
+    const res = await api('/api/bildirimler/ekle', {
+      method: 'POST',
+      body: JSON.stringify({
+        baslik,
+        mesaj,
+        tur,
+        sembolId,
+        kod,
+        fiyat,
+        piyasa
+      })
+    });
+    if (res && res.id) {
+      yerelBildirimler.unshift(res);
+      sonBildirimZamani = Date.now();
+      if (curPiyasa === 'hepsi' || curPiyasa === piyasa) {
+        sesCal('kar');
+        bildir(`🔔 ${baslik}: ${mesaj}`, 7000);
+      }
+      bildirimSayisiGuncelle();
+    }
+  } catch (_) {}
+}
+
 function radarVeSniperDegisimKontrol(satirlar) {
   if (!satirlar || !satirlar.length) return;
 
-  const gorulenler = gorulenBildirimleriOku();
-  const listeId = D.aktifId || 'varsayilan';
-
-  // Bir liste (BIST, Kripto, Forex vb.) oturumda İLK kez tarandığında:
-  // Mevcut tüm hisseleri 'görüldü' olarak hafızaya al ve sessiz kal!
-  // Böylece borsa veya liste değiştirildiğinde eski hisseler için tekrar BİLDİRİM PATLAMASI ASLA OLMAZ!
-  if (!bildirimIlkBastirilanListeler.has(listeId)) {
-    bildirimIlkBastirilanListeler.add(listeId);
-    const baslangicEklenenler = [];
-    satirlar.forEach(r => {
-      if (r && r.id) {
-        baslangicEklenenler.push(`${r.id}_sniper`, `${r.id}_firsat`);
-      }
-    });
-    gorulenBildirimleriTopluKaydet(baslangicEklenenler);
-    return;
-  }
+  // Eski hatalı kalıcı engeli temizle
+  try { localStorage.removeItem('alper_gorulen_bildirimler'); } catch (_) {}
 
   satirlar.forEach(r => {
     if (!r.fiyat) return;
@@ -2231,45 +2215,49 @@ function radarVeSniperDegisimKontrol(satirlar) {
 
     // Sniper Kriteri: 2s, 4s, 1g yeşil ve RSI dengeli
     if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
-      if (!gorulenler.has(sniperKey)) {
-        gorulenler.add(sniperKey);
-        gorulenBildirimiKaydet(sniperKey);
+      if (!oturumGorulenBildirimler.has(sniperKey)) {
+        oturumGorulenBildirimler.add(sniperKey);
         yeniBildirimEkle(
           `🎯 YENİ SNIPER FIRSATI`,
-          `${r.kod} (${r.ad || ''}) tüm periyotlarda AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)}`,
+          `${r.kod} (${r.ad || ''}) tüm periyotlarda AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)} ₺`,
           'sniper',
-          r.id
+          r.id,
+          r.fiyat
         );
       }
     }
 
     // Fırsat Radarı Kriteri
-    if (r.isaretler?.some(i => i.tip === 'firsat')) {
-      if (!gorulenler.has(firsatKey)) {
-        gorulenler.add(firsatKey);
-        gorulenBildirimiKaydet(firsatKey);
+    if (r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo')) {
+      if (!oturumGorulenBildirimler.has(firsatKey)) {
+        oturumGorulenBildirimler.add(firsatKey);
         yeniBildirimEkle(
           `🟢 RADARA YENİ GİRİŞ`,
-          `${r.kod} hacim ve periyot onayı alarak Fırsat Radarına girdi! Fiyat: ${sayi(r.fiyat)}`,
+          `${r.kod} (${r.ad || ''}) hacim ve indikatör onayı alarak Fırsat Radarına girdi! Fiyat: ${sayi(r.fiyat)} ₺`,
           'firsat',
-          r.id
+          r.id,
+          r.fiyat
         );
       }
     }
   });
 }
 
-window.tekBildirimSil = function(id, e) {
+window.tekBildirimSil = async function(id, e) {
   if (e) e.stopPropagation();
-  let liste = bildirimleriOku();
-  liste = liste.filter(x => x.id !== id);
-  bildirimleriKaydet(liste);
+  yerelBildirimler = yerelBildirimler.filter(x => x.id !== id);
   bildirimSayisiGuncelle();
   bildirimMerkeziCiz();
+  try {
+    await api('/api/bildirimler/sil', {
+      method: 'POST',
+      body: JSON.stringify({ id })
+    });
+  } catch (_) {}
 };
 
 function bildirimMerkeziCiz() {
-  const hamListe = bildirimleriOku();
+  const hamListe = yerelBildirimler;
   const curPiyasa = aktifPiyasa();
 
   let liste = hamListe;
@@ -2299,9 +2287,17 @@ function bildirimMerkeziCiz() {
   $('#bildirimKutusuListesi').innerHTML = `
     <div style="display:flex; flex-direction:column; gap:10px;">
       ${liste.map(b => {
-        const renk = b.tur === 'sniper' ? '#38bdf8' : '#10b981';
+        let renk = '#10b981';
+        if (b.tur === 'sniper') renk = '#38bdf8';
+        else if (b.tur === 'kurumsal') renk = '#fbbf24';
+        else if (b.tur === 'balina') renk = '#a855f7';
+        else if (b.tur === 'alfa') renk = '#f43f5e';
+
         const p = b.piyasa || sembolPiyasasi(b.sembolId);
         const pEtiket = p === 'bist' ? '🇹🇷 BIST' : (p === 'kripto' ? '🪙 Kripto' : '🌍 Emtia/Fx');
+        const bTarih = b.tarih ? new Date(b.tarih) : new Date();
+        const tarihStr = isNaN(bTarih.getTime()) ? '' : `${bTarih.toLocaleDateString('tr-TR')} ${bTarih.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}`;
+
         return `
         <div class="kutu" style="margin:0; border-left:3px solid ${renk}; cursor:pointer;" 
              onclick="detayAc('${esc(b.sembolId)}'); $('#bildirimModal').classList.add('gizli');">
@@ -2311,7 +2307,7 @@ function bildirimMerkeziCiz() {
               <span class="kucuk" style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; margin-left:6px; font-size:11px;">${pEtiket}</span>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
-              <span class="kucuk">${new Date(b.tarih).toLocaleDateString('tr-TR')} ${new Date(b.tarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
+              <span class="kucuk" style="color:#94a3b8; font-size:11.5px;">${tarihStr}</span>
               <button class="sil-bildirim" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:14px; padding:2px;" 
                       title="Bildirimi sil" onclick="tekBildirimSil('${esc(b.id)}', event)">✖</button>
             </div>
@@ -2322,22 +2318,26 @@ function bildirimMerkeziCiz() {
     </div>`;
 }
 
-$('#bildirimMerkeziBtn').onclick = () => {
+$('#bildirimMerkeziBtn').onclick = async () => {
   D.bildirimFiltre = 'aktif';
-  const liste = bildirimleriOku();
   const curPiyasa = aktifPiyasa();
-  // O anki piyasanın bildirimlerini okundu olarak işaretle
-  liste.forEach(x => {
+  yerelBildirimler.forEach(x => {
     if (curPiyasa === 'hepsi' || (x.piyasa || sembolPiyasasi(x.sembolId)) === curPiyasa) {
       x.okundu = true;
     }
   });
-  bildirimleriKaydet(liste);
   bildirimSayisiGuncelle();
 
   $('#perde').classList.remove('gizli');
   $('#bildirimModal').classList.remove('gizli');
   bildirimMerkeziCiz();
+
+  try {
+    await api('/api/bildirimler/okundu', {
+      method: 'POST',
+      body: JSON.stringify({ piyasa: curPiyasa })
+    });
+  } catch (_) {}
 };
 
 const bCipler = $('#bildirimFiltreCipler');
@@ -2355,23 +2355,15 @@ $('#bildirimKapatBtn').onclick = () => {
   $('#bildirimModal').classList.add('gizli');
 };
 
-$('#bildirimTemizleBtn').onclick = () => {
+$('#bildirimTemizleBtn').onclick = async () => {
   if (!confirm('Tüm bildirim geçmişi temizlensin mi?')) return;
-  // Temizlerken mevcut tüm taranan sembolleri de görüldü olarak işaretle ki hemen tekrar dolmasın!
-  const eklenecekler = [];
-  (D.satirlar || []).forEach(r => {
-    if (r && r.id) {
-      eklenecekler.push(`${r.id}_sniper`, `${r.id}_firsat`);
-    }
-  });
-  gorulenBildirimleriTopluKaydet(eklenecekler);
-
-  // Başlangıç listeleri setini sıfırla ki kullanıcı başka listeye geçtiğinde oradaki eski hisseler de yeniden dolmasın
-  bildirimIlkBastirilanListeler.clear();
-
-  bildirimleriKaydet([]);
+  yerelBildirimler = [];
+  oturumGorulenBildirimler.clear();
   bildirimSayisiGuncelle();
   bildirimMerkeziCiz();
+  try {
+    await api('/api/bildirimler/temizle', { method: 'POST' });
+  } catch (_) {}
   bildir('Tüm bildirimler temizlendi.');
 };
 
@@ -3142,7 +3134,7 @@ document.querySelectorAll('#gunlukRaporModal .cip[data-rkat]').forEach(btn => {
     await demoPortfoyYukle(); 
     await ziyaretciYukle(); 
     alarmlariListele();
-    bildirimSayisiGuncelle();
+    await bildirimleriYukle(true);
     setInterval(alarmlariKontrolEt, 15000); // 15 saniyede bir fiyatları ve alarmları denetle
 
     // Sayfa yenilendiğinde demo ekranı açıktıysa doğrudan açık olarak geri getir

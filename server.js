@@ -15,6 +15,7 @@ const Guvenlik = require('./guvenlik');
 const Bulut = require('./bulut');
 const Kurumsal = require('./kurumsal_analiz');
 const GunlukRapor = require('./gunluk_rapor');
+const BildirimServisi = require('./bildirim_servisi');
 
 const PORT = process.env.PORT || 3737;
 const KOK = __dirname;
@@ -287,15 +288,25 @@ const sunucu = http.createServer(async (req, res) => {
           const isAlfa = r.isaretler?.some(i => i.tip === 'ozel_alfa');
           const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:'));
           if ((isSniper || isKombo || isAlfa) && uygunFiyat) {
+            const sTipi = isKombo ? '⭐ Özel Kombo' : (isSniper ? '🎯 Sniper Long' : '🛡️ Alfa Gücü');
             GunlukRapor.sinyalKaydet({
               sembol: r.id,
               ad: r.ad,
               tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') || r.id === 'BIST:ALTIN' ? 'emtia' : 'bist'),
               yon: 'AL',
-              sinyalTipi: isKombo ? '⭐ Özel Kombo' : (isSniper ? '🎯 Sniper Long' : '🛡️ Alfa Gücü'),
+              sinyalTipi: sTipi,
               fiyat: r.fiyat,
               hedefFiyat: +(r.fiyat * 1.035).toFixed(2),
               stopFiyat: +(r.fiyat * 0.965).toFixed(2)
+            });
+            BildirimServisi.bildirimEkle({
+              baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : (isKombo ? '⭐ ÖZEL KOMBO SİNYALİ' : '🛡️ ALFA GÜCÜ ONAYI'),
+              mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda AL yakarak Sniper Avcısına girdi!' : (isKombo ? 'hacim ve indikatör kombo onayı aldı!' : 'yüksek güç momentumu yakaladı!')} Fiyat: ${r.fiyat} ₺`,
+              tur: isSniper ? 'sniper' : (isKombo ? 'firsat' : 'alfa'),
+              sembolId: r.id,
+              kod: r.kod,
+              ad: r.ad,
+              fiyat: r.fiyat
             });
           }
         });
@@ -393,6 +404,20 @@ const sunucu = http.createServer(async (req, res) => {
           });
         }
       });
+      // En güçlü balina hareketlerini bildirim servisine ilet
+      bulunanlar.slice(0, 3).forEach(b => {
+        if (b.tur === 'toplama' || b.tur === 'patlama') {
+          BildirimServisi.bildirimEkle({
+            baslik: b.tur === 'toplama' ? '🧲 SESSİZ BALİNA TOPLAMASI' : '🚀 AGRESİF BALİNA GİRİŞİ',
+            mesaj: `${b.kod} (${b.ad || ''}) ${b.seviye}: Hacim ${b.gh.toFixed(1)} katı! Fiyat: ${b.fiyat} ₺`,
+            tur: 'balina',
+            sembolId: b.id,
+            kod: b.kod,
+            ad: b.ad,
+            fiyat: b.fiyat
+          });
+        }
+      });
       return gonder(res, 200, { zaman: new Date().toISOString(), liste: bulunanlar });
     }
 
@@ -457,6 +482,15 @@ const sunucu = http.createServer(async (req, res) => {
                   hedefFiyat: enIyi.seviyeler?.tp1,
                   stopFiyat: enIyi.seviyeler?.stop
                 });
+                BildirimServisi.bildirimEkle({
+                  baslik: '👑 KURUMSAL VIP SİNYALİ (%80+)',
+                  mesaj: `${b.kod || sembolId} (${b.ad || ''}) A+ Elit FVG & POC onayı aldı! Giriş: ${enIyi.seviyeler?.giris || enIyi.fiyat} ₺ | TP1: ${enIyi.seviyeler?.tp1 || '—'}`,
+                  tur: 'kurumsal',
+                  sembolId,
+                  kod: b.kod || sembolId.split(':')[1],
+                  ad: b.ad,
+                  fiyat: enIyi.seviyeler?.giris || enIyi.fiyat
+                });
               }
             }
             continue;
@@ -478,6 +512,15 @@ const sunucu = http.createServer(async (req, res) => {
                 fiyat: analiz.seviyeler?.giris || analiz.fiyat,
                 hedefFiyat: analiz.seviyeler?.tp1,
                 stopFiyat: analiz.seviyeler?.stop
+              });
+              BildirimServisi.bildirimEkle({
+                baslik: '👑 KURUMSAL VIP SİNYALİ (%80+)',
+                mesaj: `${b.kod || sembolId} (${b.ad || ''}) A+ Elit FVG & POC onayı aldı! Giriş: ${analiz.seviyeler?.giris || analiz.fiyat} ₺ | TP1: ${analiz.seviyeler?.tp1 || '—'}`,
+                tur: 'kurumsal',
+                sembolId,
+                kod: b.kod || sembolId.split(':')[1],
+                ad: b.ad,
+                fiyat: analiz.seviyeler?.giris || analiz.fiyat
               });
             }
           }
@@ -543,6 +586,27 @@ const sunucu = http.createServer(async (req, res) => {
     if (p === '/api/alarm/kontrol' && req.method === 'POST') {
       const g = await govdeOku(req);
       return gonder(res, 200, Alarm.kontrolEt(g.fiyatHaritasi || {}));
+    }
+
+    // 📬 Bildirim Merkezi Uç Noktaları (Tüm Cihazlarla Canlı Senkronize)
+    if (p === '/api/bildirimler' && req.method === 'GET') {
+      const piyasa = url.searchParams.get('piyasa') || 'hepsi';
+      return gonder(res, 200, { bildirimler: BildirimServisi.bildirimleriGetir(piyasa) });
+    }
+    if (p === '/api/bildirimler/ekle' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      return gonder(res, 200, BildirimServisi.bildirimEkle(g));
+    }
+    if (p === '/api/bildirimler/sil' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      return gonder(res, 200, BildirimServisi.tekBildirimSil(g.id));
+    }
+    if (p === '/api/bildirimler/temizle' && req.method === 'POST') {
+      return gonder(res, 200, BildirimServisi.tumunuTemizle());
+    }
+    if (p === '/api/bildirimler/okundu' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      return gonder(res, 200, BildirimServisi.okunduYap(g?.piyasa || 'hepsi'));
     }
 
     if (p.startsWith('/api/')) return gonder(res, 404, { hata: 'Bilinmeyen istek' });
