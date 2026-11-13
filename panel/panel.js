@@ -2493,7 +2493,8 @@ $('#ziyaretKapatBtn').onclick = () => {
 D.bildirimFiltre = 'aktif'; // 'aktif' | 'hepsi' | 'bist' | 'kripto' | 'diger'
 let yerelBildirimler = [];
 const oturumGorulenBildirimler = new Set();
-let sonBildirimZamani = 0;
+const tarananListelerBaslangic = new Set();
+let sonBildirimZamani = Date.now(); // Sadece sayfa açıldıktan SONRA gelen yeni bildirimleri sesli uyar
 
 function sembolPiyasasi(id) {
   if (!id) return 'diger';
@@ -2517,9 +2518,9 @@ async function bildirimleriYukle(sessiz = false) {
     const sunucuListesi = res.bildirimler || [];
     const curPiyasa = aktifPiyasa();
 
-    // Yeni gelen bildirimleri tespit et ve sesli bildir
+    // Yeni gelen bildirimleri tespit et ve sesli bildir (Sadece sayfa açıkken sonradan gelenler için!)
     if (!sessiz && yerelBildirimler.length > 0 && sunucuListesi.length > 0) {
-      const enSonZaman = sonBildirimZamani || (yerelBildirimler[0] ? new Date(yerelBildirimler[0].tarih).getTime() : 0);
+      const enSonZaman = sonBildirimZamani || Date.now();
       const yeniGelenler = sunucuListesi.filter(b => new Date(b.tarih).getTime() > enSonZaman);
 
       if (yeniGelenler.length > 0) {
@@ -2534,7 +2535,8 @@ async function bildirimleriYukle(sessiz = false) {
 
     yerelBildirimler = sunucuListesi;
     if (sunucuListesi.length > 0) {
-      sonBildirimZamani = Math.max(...sunucuListesi.map(b => new Date(b.tarih).getTime()));
+      const maxZaman = Math.max(...sunucuListesi.map(b => new Date(b.tarih).getTime()));
+      sonBildirimZamani = Math.max(sonBildirimZamani, maxZaman);
     }
 
     bildirimSayisiGuncelle();
@@ -2578,7 +2580,8 @@ async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0) {
         piyasa
       })
     });
-    if (res && res.id) {
+    // Yalnızca sunucu bu bildirimin YENİ olduğunu teyit ederse (daha önce atılmamışsa) ses çal ve popup fırlat!
+    if (res && res.id && res.yeni === true) {
       yerelBildirimler.unshift(res);
       sonBildirimZamani = Date.now();
       if (curPiyasa === 'hepsi' || curPiyasa === piyasa) {
@@ -2593,8 +2596,8 @@ async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0) {
 function radarVeSniperDegisimKontrol(satirlar) {
   if (!satirlar || !satirlar.length) return;
 
-  // Eski hatalı kalıcı engeli temizle
-  try { localStorage.removeItem('alper_gorulen_bildirimler'); } catch (_) {}
+  const listeId = D.aktifId || 'varsayilan';
+  const ilkKezTaranıyor = !tarananListelerBaslangic.has(listeId);
 
   satirlar.forEach(r => {
     if (!r.fiyat) return;
@@ -2607,7 +2610,20 @@ function radarVeSniperDegisimKontrol(satirlar) {
     const sniperKey = `${r.id}_sniper`;
     const firsatKey = `${r.id}_firsat`;
 
-    // Sniper Kriteri: 2s, 4s, 1g yeşil ve RSI dengeli
+    // 1. İLK TARAMA (Sayfa yeni açıldıysa veya başka listeye/kriptoya ilk geçildiyse):
+    // Bu varlıklar zaten listede mevcut olan durumlardır. Sessizce kaydet, ASLA ses/popup çalma!
+    if (ilkKezTaranıyor) {
+      if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
+        oturumGorulenBildirimler.add(sniperKey);
+      }
+      if (r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo')) {
+        oturumGorulenBildirimler.add(firsatKey);
+      }
+      return;
+    }
+
+    // 2. İLK TARAMADAN SONRAKİ CANLI DÖNGÜLER:
+    // Yalnızca ekranda izlenirken GERÇEKTEN yeni giren bir varlık olursa bildir!
     if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
       if (!oturumGorulenBildirimler.has(sniperKey)) {
         oturumGorulenBildirimler.add(sniperKey);
@@ -2621,7 +2637,6 @@ function radarVeSniperDegisimKontrol(satirlar) {
       }
     }
 
-    // Fırsat Radarı Kriteri
     if (r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo')) {
       if (!oturumGorulenBildirimler.has(firsatKey)) {
         oturumGorulenBildirimler.add(firsatKey);
@@ -2635,6 +2650,8 @@ function radarVeSniperDegisimKontrol(satirlar) {
       }
     }
   });
+
+  tarananListelerBaslangic.add(listeId);
 }
 
 window.tekBildirimSil = async function(id, e) {

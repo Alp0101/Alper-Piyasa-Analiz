@@ -145,13 +145,13 @@ function bildirimEkle(veri) {
   const liste = bildirimleriOku();
   const son45Dakika = Date.now() - 45 * 60 * 1000;
 
-  // Aynı sembol ve tür için son 45 dakikada bildirim atılmışsa atlama
+  // Aynı sembol ve tür için son 45 dakikada bildirim atılmışsa atlama (Tekilleştirme)
   const sonAyni = liste.find(b => 
     b.sembolId === sembolId && 
     b.tur === tur && 
     new Date(b.tarih).getTime() > son45Dakika
   );
-  if (sonAyni) return sonAyni;
+  if (sonAyni) return { ...sonAyni, yeni: false };
 
   const netPiyasa = piyasa || piyasaBelirle(sembolId, tur);
   const netKod = kod || (sembolId.includes(':') ? sembolId.split(':')[1] : sembolId);
@@ -173,7 +173,7 @@ function bildirimEkle(veri) {
 
   liste.unshift(yeni);
   bildirimleriKaydet(liste.slice(0, 150));
-  return yeni;
+  return { ...yeni, yeni: true };
 }
 
 /**
