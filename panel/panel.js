@@ -602,26 +602,51 @@ function detayCanliFiyatGuncelle(id, fiyat, degisim) {
 
   kutu.classList.remove('gizli');
   const birim = paraBirimiAl(id);
-  fEl.textContent = `${sayi(fiyat)} ${birim}`;
+  const fiyatMetni = `${sayi(fiyat)} ${birim}`;
+  fEl.textContent = fiyatMetni;
+
+  const emirKutu = $('#emirCanliFiyatKutu');
+  const emirFEl = $('#emirCanliFiyat');
+  const emirDEl = $('#emirCanliDegisim');
+  if (emirKutu && emirFEl) {
+    emirKutu.dataset.fiyat = fiyat;
+    emirFEl.textContent = fiyatMetni;
+  }
 
   // Fiyat yukarı/aşağı oynadığında anlık renk vurgusu
   if (sonDetayFiyat != null && fiyat !== sonDetayFiyat) {
-    kutu.style.borderColor = fiyat > sonDetayFiyat ? '#10b981' : '#ef4444';
-    fEl.style.color = fiyat > sonDetayFiyat ? '#34d399' : '#f87171';
+    const yukari = fiyat > sonDetayFiyat;
+    kutu.style.borderColor = yukari ? '#10b981' : '#ef4444';
+    fEl.style.color = yukari ? '#34d399' : '#f87171';
+    if (emirKutu && emirFEl) {
+      emirKutu.style.borderColor = yukari ? '#10b981' : '#ef4444';
+      emirFEl.style.color = yukari ? '#34d399' : '#f87171';
+    }
     setTimeout(() => {
       if (kutu) kutu.style.borderColor = '#334155';
       if (fEl) fEl.style.color = '#f8fafc';
+      if (emirKutu) emirKutu.style.borderColor = '#334155';
+      if (emirFEl) emirFEl.style.color = '#f8fafc';
     }, 650);
   }
   sonDetayFiyat = fiyat;
 
   if (degisim != null && isFinite(degisim)) {
     const pos = degisim >= 0;
-    dEl.textContent = `${pos ? '+' : ''}%${sayi(degisim, 2)}`;
-    dEl.style.color = pos ? '#10b981' : '#ef4444';
-    dEl.style.background = pos ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+    const degMetni = `${pos ? '+' : ''}%${sayi(degisim, 2)}`;
+    const degRenk = pos ? '#10b981' : '#ef4444';
+    const degBg = pos ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+    dEl.textContent = degMetni;
+    dEl.style.color = degRenk;
+    dEl.style.background = degBg;
+    if (emirDEl) {
+      emirDEl.textContent = degMetni;
+      emirDEl.style.color = degRenk;
+      emirDEl.style.background = degBg;
+    }
   } else {
     dEl.textContent = '—';
+    if (emirDEl) emirDEl.textContent = '—';
   }
 
   // En güncel anlık fiyatı demo emirler için de senkron tut
@@ -2411,6 +2436,7 @@ function emirModaliAc(yon = 'LONG') {
   }
 
   emirYonAyarla(yon);
+  detayCanliFiyatGuncelle(v.sembol, f, v.canliDegisim ?? anaSatir?.degisim);
 
   $('#perde').classList.remove('gizli');
   $('#demoEmirModal').classList.remove('gizli');
@@ -2613,6 +2639,15 @@ function fiyatHassasiyetiAl(f) {
 }
 
 $('#emirAlisFiyat').oninput = emirHesapla;
+if ($('#emirCanliFiyatKutu')) {
+  $('#emirCanliFiyatKutu').onclick = () => {
+    const canliFiyat = parseFloat($('#emirCanliFiyatKutu').dataset.fiyat) || sonDetayFiyat || D.satirlar.find(x => x.id === D.detaySembol)?.fiyat;
+    if (canliFiyat && isFinite(canliFiyat) && canliFiyat > 0) {
+      $('#emirAlisFiyat').value = canliFiyat;
+      emirHesapla();
+    }
+  };
+}
 $('#emirAdet').oninput = emirHesapla;
 $('#emirStopFiyat').oninput = emirHesapla;
 $('#emirHedefFiyat').oninput = emirHesapla;
