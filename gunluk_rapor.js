@@ -117,8 +117,8 @@ function sinyalKaydet(sinyal) {
 
   const gunluk = veri.gunler[tarih];
 
-  // Aynı sembol için aynı gün içinde son 2 saatte mükerrer aynı sinyali açma
-  const sonAyni = gunluk.sinyaller.find(s => s.sembol === sembol && s.yon === yon && s.sinyalTipi === sinyalTipi);
+  // Aynı sembol ve yön için aynı gün içinde mükerrer sinyal açma
+  const sonAyni = gunluk.sinyaller.find(s => s.sembol === sembol && s.yon === yon);
   if (sonAyni) {
     return sonAyni; // Zaten kayıtlı
   }
@@ -178,17 +178,21 @@ function fiyatlariGuncelle(fiyatHaritasi = {}) {
         s.maxKarYuzde = +(((s.girisFiyat - s.gunDusuk) / s.girisFiyat) * 100).toFixed(2);
       }
 
-      // Durum Etiketi
-      if (s.hedefFiyat && ((s.yon === 'AL' && s.gunYuksek >= s.hedefFiyat) || (s.yon === 'SAT' && s.gunDusuk <= s.hedefFiyat))) {
-        s.durum = '🎯 HEDEFE ULAŞTI';
-      } else if (s.stopFiyat && ((s.yon === 'AL' && s.gunDusuk <= s.stopFiyat) || (s.yon === 'SAT' && s.gunYuksek >= s.stopFiyat))) {
-        s.durum = '🛑 STOP OLDU';
-      } else if (s.degisimYuzde >= 1.5) {
-        s.durum = '🎯 KÂRDA';
-      } else if (s.degisimYuzde <= -1.5) {
-        s.durum = '🛑 ZARARDA';
-      } else {
-        s.durum = '⏳ BAŞABAŞ / NÖTR';
+      // Durum Etiketi (Hedef veya Stop görülünce sonucu kilitle)
+      if (!s.kapanisSonucu) {
+        if (s.hedefFiyat && ((s.yon === 'AL' && s.gunYuksek >= s.hedefFiyat) || (s.yon === 'SAT' && s.gunDusuk <= s.hedefFiyat))) {
+          s.kapanisSonucu = 'HEDEF';
+          s.durum = '🎯 HEDEFE ULAŞTI';
+        } else if (s.stopFiyat && ((s.yon === 'AL' && s.gunDusuk <= s.stopFiyat) || (s.yon === 'SAT' && s.gunYuksek >= s.stopFiyat))) {
+          s.kapanisSonucu = 'STOP';
+          s.durum = '🛑 STOP OLDU';
+        } else if (s.degisimYuzde >= 1.5) {
+          s.durum = '🎯 KÂRDA';
+        } else if (s.degisimYuzde <= -1.5) {
+          s.durum = '🛑 ZARARDA';
+        } else {
+          s.durum = '⏳ BAŞABAŞ / NÖTR';
+        }
       }
 
       degisti = true;
@@ -211,8 +215,11 @@ function gunlukRaporAl(seciliTarih = null) {
   const sinyaller = gunVerisi.sinyaller || [];
   const toplam = sinyaller.length;
 
-  const basarili = sinyaller.filter(s => s.degisimYuzde > 0 || s.durum.includes('HEDEF') || s.durum.includes('KÂR'));
-  const basarisiz = sinyaller.filter(s => s.degisimYuzde < 0 || s.durum.includes('STOP'));
+  const isWin = s => s.kapanisSonucu === 'HEDEF' || (s.kapanisSonucu !== 'STOP' && (s.degisimYuzde > 0 || s.durum.includes('HEDEF') || s.durum.includes('KÂR')));
+  const isLoss = s => s.kapanisSonucu === 'STOP' || (s.kapanisSonucu !== 'HEDEF' && !isWin(s) && (s.degisimYuzde < 0 || s.durum.includes('STOP')));
+
+  const basarili = sinyaller.filter(isWin);
+  const basarisiz = sinyaller.filter(isLoss);
 
   const winRate = toplam > 0 ? +((basarili.length / toplam) * 100).toFixed(1) : 0;
   const toplamGetiri = sinyaller.reduce((a, b) => a + (b.degisimYuzde || 0), 0);
@@ -239,8 +246,8 @@ function gunlukRaporAl(seciliTarih = null) {
 
   const katOzet = (list) => {
     const top = list.length;
-    const win = list.filter(s => s.degisimYuzde > 0 || s.durum.includes('HEDEF') || s.durum.includes('KÂR')).length;
-    const loss = list.filter(s => s.degisimYuzde < 0 || s.durum.includes('STOP')).length;
+    const win = list.filter(isWin).length;
+    const loss = list.filter(isLoss).length;
     const wr = top > 0 ? +((win / top) * 100).toFixed(1) : 0;
     const topGetiri = list.reduce((a, b) => a + (b.degisimYuzde || 0), 0);
     const ort = top > 0 ? +(topGetiri / top).toFixed(2) : 0;

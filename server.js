@@ -122,8 +122,11 @@ function hizliDegerlendir(r, benchmarkDegisim = 0) {
 
   const ayKonum = r.ayYuksek > r.ayDusuk ? Math.round(((r.fiyat - r.ayDusuk) / (r.ayYuksek - r.ayDusuk)) * 100) : null;
 
-  // 1. Taktik: 🛡️ Endekse Direnç / Alfa Gücü
-  if ((benchmarkDegisim <= -0.2 && (deg >= 0.2 || (deg - benchmarkDegisim) >= 1.8)) || (benchmarkDegisim > -0.2 && deg >= 3.0 && gh >= 1.4 && t.s4 > 0.2)) {
+  // 1. Taktik: 🛡️ Endekse Direnç / Alfa Gücü (Hacim ve 4S pozitif trend şartlı)
+  if (gh >= 1.3 && t.s4 > 0.1 && (
+    (benchmarkDegisim <= -0.2 && (deg >= 0.5 || (deg - benchmarkDegisim) >= 2.0)) ||
+    (benchmarkDegisim > -0.2 && deg >= 3.0 && gh >= 1.4 && t.s4 > 0.2)
+  )) {
     ozelTaktikler.push('alfa');
     isaretler.push({ tip: 'ozel_alfa', metin: '🛡️ Alfa' });
   }
@@ -284,15 +287,25 @@ const sunucu = http.createServer(async (req, res) => {
         (satirlar || []).forEach(r => {
           if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat;
           const t = r.tv || {};
+          const gh = r.goreceliHacim || 0;
+          const tuzakVar = r.isaretler?.some(i => i.tip === 'tuzak');
           const isBist = r.id?.startsWith('BIST:');
           const birim = isBist ? '₺' : '$';
-          const isSniper = (t.s2 > 0 && t.s4 > 0 && t.g1 > 0 && (r.rsi?.s4 || 50) >= 48 && (r.rsi?.s4 || 50) <= 65 && (r.hizliPuan || 0) >= 70);
-          const isSniperShort = !isBist && (t.s2 < 0 && t.s4 < 0 && t.g1 < 0 && (r.rsi?.s4 || 50) <= 52 && (r.rsi?.s4 || 50) >= 32 && (r.hizliPuan || 0) <= -70);
-          const isKombo = r.isaretler?.some(i => i.tip === 'kombo');
-          const isAlfa = r.isaretler?.some(i => i.tip === 'ozel_alfa');
+          const yuvarlaFiyat = (f) => {
+            const p = f >= 100 ? 2 : f >= 1 ? 3 : 5;
+            return +Number(f).toFixed(p);
+          };
+          const isSniper = !tuzakVar && t.s2 > 0.15 && t.s4 > 0.15 && t.g1 > 0.1 &&
+            (r.rsi?.s4 || 50) >= 48 && (r.rsi?.s4 || 50) <= 65 &&
+            (r.hizliPuan || 0) >= 70 && gh >= 1.2;
+          const isSniperShort = !isBist && !tuzakVar && t.s2 < -0.15 && t.s4 < -0.15 && t.g1 < -0.1 &&
+            (r.rsi?.s4 || 50) <= 52 && (r.rsi?.s4 || 50) >= 32 &&
+            (r.hizliPuan || 0) <= -70 && gh >= 1.2;
+          const isKombo = !tuzakVar && r.isaretler?.some(i => i.tip === 'kombo') &&
+            t.s4 > 0.1 && t.g1 > 0 && gh >= 1.1 && (r.rsi?.s4 || 50) <= 68;
           const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:'));
-          if ((isSniper || isKombo || isAlfa) && uygunFiyat) {
-            const sTipi = isKombo ? '⭐ Özel Kombo' : (isSniper ? '🎯 Sniper Long' : '🛡️ Alfa Gücü');
+          if ((isSniper || isKombo) && uygunFiyat) {
+            const sTipi = isSniper ? '🎯 Sniper Long' : '⭐ Özel Kombo';
             GunlukRapor.sinyalKaydet({
               sembol: r.id,
               ad: r.ad,
@@ -300,13 +313,13 @@ const sunucu = http.createServer(async (req, res) => {
               yon: 'AL',
               sinyalTipi: sTipi,
               fiyat: r.fiyat,
-              hedefFiyat: +(r.fiyat * 1.035).toFixed(2),
-              stopFiyat: +(r.fiyat * 0.965).toFixed(2)
+              hedefFiyat: yuvarlaFiyat(r.fiyat * 1.035),
+              stopFiyat: yuvarlaFiyat(r.fiyat * 0.965)
             });
             BildirimServisi.bildirimEkle({
-              baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : (isKombo ? '⭐ ÖZEL KOMBO SİNYALİ' : '🛡️ ALFA GÜCÜ ONAYI'),
-              mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda AL yakarak Sniper Avcısına girdi!' : (isKombo ? 'hacim ve indikatör kombo onayı aldı!' : 'yüksek güç momentumu yakaladı!')} Fiyat: ${r.fiyat} ${birim}`,
-              tur: isSniper ? 'sniper' : (isKombo ? 'firsat' : 'alfa'),
+              baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : '⭐ ÖZEL KOMBO SİNYALİ',
+              mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda hacimli AL yakarak Sniper Avcısına girdi!' : 'trend ve hacim destekli kombo onayı aldı!'} Fiyat: ${r.fiyat} ${birim}`,
+              tur: isSniper ? 'sniper' : 'firsat',
               yon: 'LONG',
               sembolId: r.id,
               kod: r.kod,
@@ -321,8 +334,8 @@ const sunucu = http.createServer(async (req, res) => {
               yon: 'SAT',
               sinyalTipi: '🎯 Sniper Short',
               fiyat: r.fiyat,
-              hedefFiyat: +(r.fiyat * 0.965).toFixed(4),
-              stopFiyat: +(r.fiyat * 1.035).toFixed(4)
+              hedefFiyat: yuvarlaFiyat(r.fiyat * 0.965),
+              stopFiyat: yuvarlaFiyat(r.fiyat * 1.035)
             });
             BildirimServisi.bildirimEkle({
               baslik: '🎯 ⬇️ YENİ SNIPER SHORT FIRSATI',
