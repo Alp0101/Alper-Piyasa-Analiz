@@ -129,13 +129,24 @@
 <div id="perde" class="perde gizli"></div>
 <section id="detay" class="detay gizli">
   <div class="detay-ust">
-    <div style="display:flex; align-items:center; gap:10px;">
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button id="dGeriBtn" class="btn ikincil" style="font-weight:bold; padding:6px 12px; font-size:13px; display:inline-flex; align-items:center; gap:4px; border-color:#38bdf888; color:#38bdf8;" title="Ana listeye geri dön">
         ← Geri
       </button>
       <div>
         <div id="dAd" class="d-ad"></div>
         <div id="dAlt" class="d-alt"></div>
+      </div>
+      <!-- Canlı Anlık Fiyat Göstergesi (Her zaman en üstte sabit ve seri güncellenir) -->
+      <div id="dCanliFiyatKutu" class="gizli" style="display:flex; align-items:center; gap:8px; background:rgba(15, 23, 42, 0.9); border:1px solid #334155; padding:5px 12px; border-radius:10px; margin-left:4px; transition: border-color 0.25s;">
+        <div>
+          <div style="font-size:10px; color:#94a3b8; font-weight:bold; letter-spacing:0.4px; display:flex; align-items:center; gap:4px;">
+            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+            CANLI FİYAT
+          </div>
+          <div id="dCanliFiyat" style="font-size:17px; font-weight:800; color:#f8fafc; line-height:1.2;">—</div>
+        </div>
+        <div id="dCanliDegisim" style="font-size:12px; font-weight:bold; padding:3px 8px; border-radius:6px; background:rgba(255,255,255,0.06);">—</div>
       </div>
     </div>
     <div class="detay-butonlar">
@@ -642,7 +653,7 @@
 </section>
 
 <div id="bildirim" class="bildirim gizli"></div>
-<script src="panel.js?v=2.8"></script>
+<script src="panel.js?v=2.9"></script>
 </body>
 </html>
 

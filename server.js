@@ -227,6 +227,7 @@ async function sembolAnaliz(id, tf = 's4') {
   ]);
 
   const canliSonFiyat = canliTarama?.[0]?.fiyat;
+  const canliDegisim = canliTarama?.[0]?.degisim;
 
   // Mumların en son fiyatını canlı scanner fiyatıyla %100 senkronize et
   if (canliSonFiyat && canliSonFiyat > 0) {
@@ -247,7 +248,7 @@ async function sembolAnaliz(id, tf = 's4') {
   const hedefMumlar = setler[tf] || setler.s4 || setler.g1;
   const backtestSonucu = geriyeTest(hedefMumlar, tf, null);
 
-  return { ...analizSonucu, backtest: backtestSonucu, canliFiyat: canliSonFiyat };
+  return { ...analizSonucu, backtest: backtestSonucu, canliFiyat: canliSonFiyat, canliDegisim };
 }
 
 // ---------------- HTTP ----------------
@@ -340,6 +341,11 @@ const sunucu = http.createServer(async (req, res) => {
       return gonder(res, 200, { zaman: new Date().toISOString(), satirlar });
     }
     if (p === '/api/analiz') return gonder(res, 200, await sembolAnaliz(url.searchParams.get('sembol') || '', url.searchParams.get('tf') || 's4'));
+    if (p === '/api/fiyat') {
+      const sem = url.searchParams.get('sembol') || '';
+      const veri = await V.canliTekFiyat(sem).catch(() => null);
+      return gonder(res, 200, veri || { sembol: sem, fiyat: null, degisim: null });
+    }
     if (p === '/api/ara') return gonder(res, 200, await V.ara(url.searchParams.get('q') || ''));
 
     // Demo Al-Sat Uç Noktaları (Canlı Piyasa Fiyat Beslemesi)

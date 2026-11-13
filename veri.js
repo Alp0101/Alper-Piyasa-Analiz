@@ -182,6 +182,20 @@ async function sembolleriTara(idler) {
   });
 }
 
+// Tek bir sembolün anlık canlı fiyat ve % değişimini ultra hafif şekilde getirir (2.5 sn önbellek)
+async function canliTekFiyat(id) {
+  if (!id || id.startsWith('YAHOO:')) return null;
+  return onbellekli('fiyat:' + id, 2_500, async () => {
+    const body = { symbols: { tickers: [id], query: { types: [] } }, columns: ['close', 'change'] };
+    const j = await getJson('https://scanner.tradingview.com/global/scan', {
+      method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' },
+    });
+    const item = j?.data?.[0];
+    if (!item || !item.d) return null;
+    return { sembol: id, fiyat: item.d[0], degisim: item.d[1], zaman: Date.now() };
+  });
+}
+
 async function bistAdlari() {
   const liste = await tumBistTara();
   const m = {};
@@ -495,4 +509,4 @@ async function ara(q) {
   return sonuc.slice(0, 45);
 }
 
-module.exports = { tumBistTara, tumKriptoTara, sembolleriTara, bistAdlari, mumSetleri, benchSetleri, ara };
+module.exports = { tumBistTara, tumKriptoTara, sembolleriTara, canliTekFiyat, bistAdlari, mumSetleri, benchSetleri, ara };

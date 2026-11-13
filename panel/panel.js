@@ -585,8 +585,61 @@ setInterval(() => {
 }, 5000);
 
 // ================= Ayrıntılı analiz =================
+let detayFiyatTimer = null;
+let sonDetayFiyat = null;
+
+function detayCanliFiyatGuncelle(id, fiyat, degisim) {
+  if (!id || id !== D.detaySembol) return;
+  const kutu = $('#dCanliFiyatKutu');
+  const fEl = $('#dCanliFiyat');
+  const dEl = $('#dCanliDegisim');
+  if (!kutu || !fEl || !dEl) return;
+
+  if (fiyat == null || !isFinite(fiyat)) {
+    kutu.classList.add('gizli');
+    return;
+  }
+
+  kutu.classList.remove('gizli');
+  const birim = paraBirimiAl(id);
+  fEl.textContent = `${sayi(fiyat)} ${birim}`;
+
+  // Fiyat yukarı/aşağı oynadığında anlık renk vurgusu
+  if (sonDetayFiyat != null && fiyat !== sonDetayFiyat) {
+    kutu.style.borderColor = fiyat > sonDetayFiyat ? '#10b981' : '#ef4444';
+    fEl.style.color = fiyat > sonDetayFiyat ? '#34d399' : '#f87171';
+    setTimeout(() => {
+      if (kutu) kutu.style.borderColor = '#334155';
+      if (fEl) fEl.style.color = '#f8fafc';
+    }, 650);
+  }
+  sonDetayFiyat = fiyat;
+
+  if (degisim != null && isFinite(degisim)) {
+    const pos = degisim >= 0;
+    dEl.textContent = `${pos ? '+' : ''}%${sayi(degisim, 2)}`;
+    dEl.style.color = pos ? '#10b981' : '#ef4444';
+    dEl.style.background = pos ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+  } else {
+    dEl.textContent = '—';
+  }
+
+  // En güncel anlık fiyatı demo emirler için de senkron tut
+  const satir = D.satirlar.find(x => x.id === id);
+  if (satir) {
+    satir.fiyat = fiyat;
+    if (degisim != null) satir.degisim = degisim;
+  }
+  if (D.detayVeri && D.detayVeri.sembol === id && D.detayVeri.zamanDilimleri) {
+    Object.values(D.detayVeri.zamanDilimleri).forEach(z => {
+      if (z && z.seviyeler) z.seviyeler.fiyat = fiyat;
+    });
+  }
+}
+
 function detayAc(id, pushHistory = true) {
   D.detaySembol = id;
+  sonDetayFiyat = null;
   $('#perde').classList.remove('gizli'); $('#detay').classList.remove('gizli');
   if (pushHistory) {
     try {
@@ -597,12 +650,28 @@ function detayAc(id, pushHistory = true) {
   $('#dAd').textContent = (r ? r.kod + ' · ' + (r.ad || '') : id);
   $('#dAlt').textContent = 'Analiz ediliyor...';
   $('#dTv').href = 'https://tr.tradingview.com/chart/?symbol=' + encodeURIComponent(id.startsWith('YAHOO:') ? id.split(':')[1] : id);
+  detayCanliFiyatGuncelle(id, r?.fiyat, r?.degisim);
+
+  // Sadece detay açıkken her 3 saniyede bir ultra hafif canlı fiyat güncellemesi (sistem yükü yaratmaz)
+  if (detayFiyatTimer) clearInterval(detayFiyatTimer);
+  detayFiyatTimer = setInterval(async () => {
+    if (!D.detaySembol || D.detaySembol !== id) return;
+    try {
+      const fVeri = await api(`/api/fiyat?sembol=${encodeURIComponent(id)}`);
+      if (fVeri && fVeri.fiyat > 0 && D.detaySembol === id) {
+        detayCanliFiyatGuncelle(id, fVeri.fiyat, fVeri.degisim);
+      }
+    } catch (_) {}
+  }, 3000);
+
   if (!demoPortfoyVerisi) demoPortfoyYukle();
   detayYukle();
 }
 
 function detayKapat(popHistory = true) {
   D.detaySembol = null;
+  sonDetayFiyat = null;
+  if (detayFiyatTimer) { clearInterval(detayFiyatTimer); detayFiyatTimer = null; }
   $('#perde').classList.add('gizli');
   $('#detay').classList.add('gizli');
   if (popHistory && window.location.hash.startsWith('#analiz-')) {
@@ -637,9 +706,10 @@ async function detayYukle(zorla = false) {
     const v = await api(`/api/analiz?sembol=${encodeURIComponent(id)}&tf=${encodeURIComponent(D.detayTf)}&t=${Date.now()}`);
     if (id !== D.detaySembol) return;
     
-    // Ana tablodan gelen en son canlı taze fiyatı al
+    // En güncel taze canlı fiyatı al (önce sunucudan anlık gelen canlı fiyat)
     const anaSatir = D.satirlar.find(x => x.id === id);
-    const tazeFiyat = anaSatir?.fiyat || v.canliFiyat;
+    const tazeFiyat = (v.canliFiyat && v.canliFiyat > 0) ? v.canliFiyat : anaSatir?.fiyat;
+    const tazeDegisim = v.canliDegisim ?? anaSatir?.degisim;
 
     // Tüm zaman dilimlerindeki fiyat seviyesini bu anlık canlı fiyatla zorla eşitle
     if (tazeFiyat && tazeFiyat > 0) {
@@ -654,6 +724,7 @@ async function detayYukle(zorla = false) {
     D.detayVeri = v;
     $('#dAd').textContent = `${id.split(':')[1]} · ${v.ad}`;
     $('#dAlt').textContent = `Analiz zamanı: ${new Date().toLocaleTimeString('tr-TR')}` + (v.not ? ' · ' + v.not : '');
+    detayCanliFiyatGuncelle(id, tazeFiyat, tazeDegisim);
     detayCiz();
   } catch (e) {
     $('#dIcerik').innerHTML = `<div class="yukleniyor">⚠️ ${esc(e.message)}</div>`;
