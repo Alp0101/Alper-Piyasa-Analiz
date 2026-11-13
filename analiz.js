@@ -427,6 +427,24 @@ function analizEt(setler, benchSet, bilgi) {
   const ham = {};
   for (const tf of tumTfler) if (hazir[tf]) ham[tf] = hizliYon(hazir[tf]);
 
+  // BIST Günlük Tavan ve Taban (±%10) Sınırları
+  let bistLimit = null;
+  const isBist = (bilgi.tur === 'bist' || (bilgi.id && bilgi.id.startsWith('BIST:')));
+  if (isBist) {
+    let bazFiyat = null;
+    const g1Set = hazir.g1;
+    if (g1Set && g1Set.c && g1Set.c.length >= 2) {
+      bazFiyat = g1Set.c[g1Set.c.length - 2];
+    } else if (g1Set && g1Set.o && g1Set.o.length >= 1) {
+      bazFiyat = g1Set.o[g1Set.o.length - 1];
+    }
+    if (bazFiyat && bazFiyat > 0) {
+      const tavan = Math.round(bazFiyat * 1.10 * 100) / 100;
+      const taban = Math.round(bazFiyat * 0.90 * 100) / 100;
+      bistLimit = { bazFiyat: yuvarla(bazFiyat, 2), tavan, taban };
+    }
+  }
+
   const zamanDilimleri = {};
   for (const tf of tumTfler) {
     const d = hazir[tf];
@@ -483,6 +501,16 @@ function analizEt(setler, benchSet, bilgi) {
     let satisHedef2 = sv.destek2 && sv.destek2 < satisHedef ? sv.destek2 : c - 3 * satisRisk;
     if (satisHedef2 <= 0) satisHedef2 = c * 0.3;
 
+    // BIST hissesi ise gün içi plan seviyelerini tavan ve taban sınırına kilitle (+-%10)
+    if (bistLimit) {
+      if (hedef > bistLimit.tavan) hedef = bistLimit.tavan;
+      if (hedef2 > bistLimit.tavan) hedef2 = bistLimit.tavan;
+      if (stop < bistLimit.taban) stop = bistLimit.taban;
+      if (satisHedef < bistLimit.taban) satisHedef = bistLimit.taban;
+      if (satisHedef2 < bistLimit.taban) satisHedef2 = bistLimit.taban;
+      if (satisStop > bistLimit.tavan) satisStop = bistLimit.tavan;
+    }
+
     // Fibonacci Seviyelerini Hassasiyete Göre Yuvarla
     const fibSeviyeleri = sv.fib ? {
       dip: yuvarla(sv.fib.dip, hs),
@@ -508,6 +536,11 @@ function analizEt(setler, benchSet, bilgi) {
         riskOdul: yuvarla((hedef - c) / risk, 2),
         satisStop: yuvarla(satisStop, hs), satisHedef: yuvarla(satisHedef, hs), satisHedef2: yuvarla(satisHedef2, hs),
         satisRiskOdul: yuvarla((c - satisHedef) / satisRisk, 2),
+        bistLimitler: bistLimit ? {
+          bazFiyat: yuvarla(bistLimit.bazFiyat, 2),
+          tavan: yuvarla(bistLimit.tavan, 2),
+          taban: yuvarla(bistLimit.taban, 2)
+        } : null
       },
       fibonacci: fibSeviyeleri,
       rsi: yuvarla(son(d.rsi), 1),
@@ -517,7 +550,7 @@ function analizEt(setler, benchSet, bilgi) {
     };
   }
   const ozelTaktikler = ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi);
-  return { sembol: bilgi.id, ad: bilgi.ad, tur: bilgi.tur, zamanDilimleri, ozelTaktikler, not: setler.not, zaman: new Date().toISOString() };
+  return { sembol: bilgi.id, ad: bilgi.ad, tur: bilgi.tur, zamanDilimleri, ozelTaktikler, bistLimitler: bistLimit, not: setler.not, zaman: new Date().toISOString() };
 }
 
 function ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi) {

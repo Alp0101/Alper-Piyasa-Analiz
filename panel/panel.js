@@ -98,6 +98,61 @@ function hacimFormat(r) {
   return Math.round(tutar) + ' ' + birim;
 }
 
+// ================= BIST Kurallarına Göre Taban/Tavan (±%10) ve Baz Fiyat Hesaplayıcı =================
+function bistTabanTavanHesapla(sembol, anlikFiyat, degisim, g1ZamanDilimi) {
+  const isBist = (sembol && (sembol.startsWith('BIST:') || sembol.includes('BIST'))) || (D.detayVeri?.tur === 'bist');
+  if (!isBist) return null;
+
+  let bazFiyat = null;
+  // 1. Günlük mumlardan önceki günün kapanış fiyatı (BIST baz fiyatı)
+  if (g1ZamanDilimi && g1ZamanDilimi.mumlar && g1ZamanDilimi.mumlar.length >= 2) {
+    bazFiyat = g1ZamanDilimi.mumlar[g1ZamanDilimi.mumlar.length - 2].c;
+  }
+  // 2. Canlı yüzde değişimden türetme (fiyat / (1 + %degisim/100))
+  if ((!bazFiyat || isNaN(bazFiyat)) && anlikFiyat && degisim != null) {
+    bazFiyat = anlikFiyat / (1 + (degisim / 100));
+  }
+  // 3. Günlük mum açılışından türetme
+  if ((!bazFiyat || isNaN(bazFiyat)) && g1ZamanDilimi?.mumlar?.length) {
+    bazFiyat = g1ZamanDilimi.mumlar[g1ZamanDilimi.mumlar.length - 1].o;
+  }
+  // 4. Son çare anlık fiyat
+  if (!bazFiyat || isNaN(bazFiyat) || bazFiyat <= 0) {
+    bazFiyat = anlikFiyat;
+  }
+
+  // Borsa İstanbul kuralı: Gün içi +- %10 tavan ve taban marjı
+  const tavan = +(bazFiyat * 1.10).toFixed(2);
+  const taban = +(bazFiyat * 0.90).toFixed(2);
+  const acilis = g1ZamanDilimi?.mumlar?.length ? g1ZamanDilimi.mumlar[g1ZamanDilimi.mumlar.length - 1].o : null;
+
+  return {
+    bazFiyat: +bazFiyat.toFixed(2),
+    tavan,
+    taban,
+    acilis: acilis ? +acilis.toFixed(2) : null
+  };
+}
+
+// ================= Kâr / Zarar Formatlayıcı (+X ₺ (+%Y) / -X ₺ (-%Y)) =================
+function formatKarZarar(tutar, yuzde, birim = '₺') {
+  const t = (tutar == null || !isFinite(tutar)) ? 0 : tutar;
+  const y = (yuzde == null || !isFinite(yuzde)) ? 0 : yuzde;
+  const isPos = t >= 0;
+  const isZero = t === 0;
+  const sign = isPos ? '+' : '';
+  const ySign = y >= 0 ? '+' : '';
+  const renkSinifi = isZero ? '' : (isPos ? 'art' : 'eks');
+  const renkKodu = isZero ? '#94a3b8' : (isPos ? '#10b981' : '#ef4444');
+  return {
+    metin: `${sign}${sayi(t, 2)} ${birim} (${ySign}%${sayi(y, 2)})`,
+    fiyatMetin: `${sign}${sayi(t, 2)} ${birim}`,
+    yuzdeMetin: `(${ySign}%${sayi(y, 2)})`,
+    renkSinifi,
+    renkKodu
+  };
+}
+
 // ================= Listeler =================
 async function listeleriYukle() {
   D.listeler = await api('/api/listeler');
@@ -844,7 +899,7 @@ function pozisyonRiskKarti(poz, z, v) {
       </div>
       <div style="background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:8px; border:1px solid ${karRenk}55;">
         <div class="kucuk">Net Kâr / Zarar</div>
-        <div style="font-size:15px; font-weight:bold; color:${karRenk}; margin-top:2px;">${karZarar >= 0 ? '+' : ''}${sayi(karZarar, 2)} ${birim} (%${sayi(karZararYuzde, 2)})</div>
+        <div style="font-size:15px; font-weight:bold; color:${karRenk}; margin-top:2px;">${formatKarZarar(karZarar, karZararYuzde, birim).metin}</div>
       </div>
     </div>
 
@@ -902,6 +957,9 @@ function detayCiz() {
   const bt = v.backtest;
   const sniperHtml = sniperMatrisiHesapla(v.zamanDilimleri);
   const s = z?.seviyeler;
+  const birim = paraBirimiAl(v.sembol);
+  const anaSatir = D.satirlar.find(x => x.id === v.sembol);
+  const bist = s ? bistTabanTavanHesapla(v.sembol, s.fiyat, anaSatir?.degisim, v.zamanDilimleri?.g1) : null;
   let alt = '';
   if (z && !z.hata && s) {
     const yontemler = z.yontemler.map(m => {
@@ -990,13 +1048,24 @@ function detayCiz() {
         </div>
         ${ozelTaktiklerHtml}
         <div class="kutu">
-          <h4>📏 Önemli Seviyeler</h4>
-          <div class="seviye-satir"><span>Şu anki fiyat</span><b>${sayi(s.fiyat)}</b></div>
-          <div class="seviye-satir"><span>1. Direnç (tavan)</span><b class="eks">${sayi(s.direnc)}</b></div>
-          <div class="seviye-satir"><span>2. Direnç</span><b class="eks">${sayi(s.direnc2)}</b></div>
-          <div class="seviye-satir"><span>1. Destek (taban)</span><b class="art">${sayi(s.destek)}</b></div>
-          <div class="seviye-satir"><span>2. Destek</span><b class="art">${sayi(s.destek2)}</b></div>
-          <div class="seviye-satir"><span>Ortalama mum oynaklığı (ATR)</span><b>${sayi(s.atr)}</b></div>
+          <h4>📏 Önemli Seviyeler ${bist ? '<span style="font-size:11px; background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.3); padding:2px 7px; border-radius:10px; float:right;">🏛️ BIST Seansı</span>' : ''}</h4>
+          <div class="seviye-satir"><span>Şu anki fiyat</span><b>${sayi(s.fiyat)} ${birim}</b></div>
+          ${bist ? `
+          <div class="seviye-satir" style="background:rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; padding:5px 8px; border-radius:4px;">
+            <span style="font-weight:bold; color:#10b981;">🏛️ Günlük Tavan Fiyatı (+%10)</span><b style="color:#10b981; font-size:13.5px;">${sayi(bist.tavan)} ₺</b>
+          </div>
+          <div class="seviye-satir" style="background:rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding:5px 8px; border-radius:4px;">
+            <span style="font-weight:bold; color:#ef4444;">🏛️ Günlük Taban Fiyatı (-%10)</span><b style="color:#ef4444; font-size:13.5px;">${sayi(bist.taban)} ₺</b>
+          </div>
+          <div class="seviye-satir" style="font-size:12px; color:#94a3b8; padding:3px 8px;">
+            <span>Önceki Gün Kapanış (Baz Fiyat)</span><b>${sayi(bist.bazFiyat)} ₺</b>
+          </div>
+          ` : ''}
+          <div class="seviye-satir"><span>1. Teknik Direnç</span><b class="eks">${sayi(s.direnc)} ${birim}</b></div>
+          <div class="seviye-satir"><span>2. Teknik Direnç</span><b class="eks">${sayi(s.direnc2)} ${birim}</b></div>
+          <div class="seviye-satir"><span>1. Teknik Destek</span><b class="art">${sayi(s.destek)} ${birim}</b></div>
+          <div class="seviye-satir"><span>2. Teknik Destek</span><b class="art">${sayi(s.destek2)} ${birim}</b></div>
+          <div class="seviye-satir"><span>Ortalama mum oynaklığı (ATR)</span><b>${sayi(s.atr)} ${birim}</b></div>
         </div>
         <div class="kutu" style="border: 2px solid rgba(56, 189, 248, 0.4); background: linear-gradient(180deg, #131824 0%, #0d121f 100%);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
@@ -1798,11 +1867,11 @@ async function demoPortfoyYukle() {
     if ($('#demoNakitUSD')) $('#demoNakitUSD').textContent = sayi(bakiyeUSD, 0) + ' $';
     if ($('#demoVarlikUSD')) $('#demoVarlikUSD').textContent = 'Varlık: ' + sayi(toplamVarlikUSD, 0) + ' $';
 
-    const netRenkTL = netKarTL >= 0 ? '#10b981' : '#ef4444';
-    const netRenkUSD = netKarUSD >= 0 ? '#10b981' : '#ef4444';
+    const kzTL = formatKarZarar(netKarTL, netKarYuzdeTL, '₺');
+    const kzUSD = formatKarZarar(netKarUSD, netKarYuzdeUSD, '$');
     $('#demoNetKar').innerHTML = `
-      <div style="font-size:13.5px;"><span style="color:${netRenkTL}">${netKarTL >= 0 ? '+' : ''}${sayi(netKarTL, 0)} ₺ (%${sayi(netKarYuzdeTL, 1)})</span></div>
-      <div style="font-size:13.5px;"><span style="color:${netRenkUSD}">${netKarUSD >= 0 ? '+' : ''}${sayi(netKarUSD, 0)} $ (%${sayi(netKarYuzdeUSD, 1)})</span></div>
+      <div style="font-size:13.5px;"><span style="color:${kzTL.renkKodu}; font-weight:bold;">${kzTL.metin}</span></div>
+      <div style="font-size:13.5px;"><span style="color:${kzUSD.renkKodu}; font-weight:bold;">${kzUSD.metin}</span></div>
     `;
     $('#demoBasariOrani').textContent = `%${basariOrani} (${basarili}K / ${basarisiz}Z)`;
 
@@ -1836,7 +1905,7 @@ function demoPortfoyCiz() {
           <tbody>
             ${aciklar.map(poz => {
               const birim = poz.paraBirimi || '₺';
-              const karRenk = poz.karZarar >= 0 ? 'art' : 'eks';
+              const kz = formatKarZarar(poz.karZarar, poz.karZararYuzde, birim);
               const isShort = poz.yon === 'SHORT';
               const kStr = poz.kaldirac > 1 ? ` ${poz.kaldirac}x` : '';
               const yonRozet = isShort 
@@ -1861,7 +1930,7 @@ function demoPortfoyCiz() {
                     ${poz.hedefFiyat ? sayi(poz.hedefFiyat) + ' ' + birim : '—'} ✏️
                   </span>
                 </td>
-                <td class="sag ${karRenk}"><b>${poz.karZarar >= 0 ? '+' : ''}${sayi(poz.karZarar, 2)} ${birim}</b> (%${sayi(poz.karZararYuzde, 2)})</td>
+                <td class="sag ${kz.renkSinifi}"><b>${kz.fiyatMetin}</b> <small style="font-weight:bold; margin-left:2px;">${kz.yuzdeMetin}</small></td>
                 <td class="orta" style="white-space:nowrap;">
                   <button class="btn ikincil" style="padding:3px 7px; font-size:11px; margin-right:4px;" title="Pozisyonun risk durumunu ve analizini gör" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">🔍 Analiz</button>
                   <button class="btn tehlike" style="padding:3px 7px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat</button>
@@ -1877,15 +1946,14 @@ function demoPortfoyCiz() {
       <div class="demo-mobil-kartlar">
         ${aciklar.map(poz => {
           const birim = poz.paraBirimi || '₺';
-          const karPozitif = poz.karZarar >= 0;
-          const karRenkKod = karPozitif ? '#10b981' : '#ef4444';
+          const kz = formatKarZarar(poz.karZarar, poz.karZararYuzde, birim);
           const isShort = poz.yon === 'SHORT';
           const kStr = poz.kaldirac > 1 ? ` ${poz.kaldirac}x` : '';
           const yonRozet = isShort 
             ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;">🔴 SHORT${kStr}</span>` 
             : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;">🟢 LONG${kStr}</span>`;
           return `
-          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${karRenkKod}; border-radius:10px; padding:12px; margin-bottom:8px;">
+          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${kz.renkKodu}; border-radius:10px; padding:12px; margin-bottom:8px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div>
                 <div style="display:flex; align-items:center; gap:6px;">
@@ -1895,11 +1963,11 @@ function demoPortfoyCiz() {
                 <div class="kucuk" style="color:#94a3b8; margin-top:2px;">${esc(poz.ad)}</div>
               </div>
               <div style="text-align:right;">
-                <div style="font-size:16px; font-weight:800; color:${karRenkKod};">
-                  ${karPozitif ? '+' : ''}${sayi(poz.karZarar, 2)} ${birim}
+                <div style="font-size:15px; font-weight:800; color:${kz.renkKodu};">
+                  ${kz.fiyatMetin}
                 </div>
-                <div style="font-size:12px; font-weight:bold; color:${karRenkKod}; margin-top:1px;">
-                  (%${sayi(poz.karZararYuzde, 2)})
+                <div style="font-size:12px; font-weight:bold; color:${kz.renkKodu}; margin-top:2px;">
+                  ${kz.yuzdeMetin}
                 </div>
               </div>
             </div>
@@ -1966,7 +2034,7 @@ function demoPortfoyCiz() {
             ${kapali.map(k => {
               const birim = k.paraBirimi || '₺';
               const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
-              const karRenk = netSonuc >= 0 ? 'art' : 'eks';
+              const kz = formatKarZarar(netSonuc, k.karZararYuzde, birim);
               const isShort = k.yon === 'SHORT';
               const kStr = k.kaldirac > 1 ? ` ${k.kaldirac}x` : '';
               const yonRozet = isShort 
@@ -1977,7 +2045,7 @@ function demoPortfoyCiz() {
                 <td><b>${esc(k.sembol.split(':')[1])}</b>${yonRozet}</td>
                 <td class="sag">${k.adet}</td>
                 <td class="sag">${sayi(k.alisFiyat)} ${birim} ➔ ${sayi(k.satisFiyat)} ${birim}</td>
-                <td class="sag ${karRenk}"><b>${netSonuc >= 0 ? '+' : ''}${sayi(netSonuc, 2)} ${birim}</b> (%${sayi(k.karZararYuzde, 2)})</td>
+                <td class="sag ${kz.renkSinifi}"><b>${kz.fiyatMetin}</b> <small style="font-weight:bold; margin-left:2px;">${kz.yuzdeMetin}</small></td>
                 <td class="sag kucuk">${new Date(k.satisTarih).toLocaleDateString('tr-TR')} ${new Date(k.satisTarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</td>
               </tr>`;
             }).join('')}
@@ -1990,15 +2058,14 @@ function demoPortfoyCiz() {
         ${kapali.map(k => {
           const birim = k.paraBirimi || '₺';
           const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
-          const karPozitif = netSonuc >= 0;
-          const netRenkKod = karPozitif ? '#10b981' : '#ef4444';
+          const kz = formatKarZarar(netSonuc, k.karZararYuzde, birim);
           const isShort = k.yon === 'SHORT';
           const kStr = k.kaldirac > 1 ? ` ${k.kaldirac}x` : '';
           const yonRozet = isShort 
             ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
             : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
           return `
-          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${netRenkKod}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${kz.renkKodu}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <div>
                 <b style="font-size:14px; color:#fff;">${esc(k.sembol.split(':')[1])}</b> ${yonRozet}
@@ -2007,8 +2074,8 @@ function demoPortfoyCiz() {
                 </div>
               </div>
               <div style="text-align:right;">
-                <b style="font-size:15px; color:${netRenkKod};">${karPozitif ? '+' : ''}${sayi(netSonuc, 2)} ${birim}</b>
-                <div class="kucuk" style="color:${netRenkKod}; font-weight:bold;">(%${sayi(k.karZararYuzde, 2)})</div>
+                <b style="font-size:15px; color:${kz.renkKodu};">${kz.fiyatMetin}</b>
+                <div class="kucuk" style="color:${kz.renkKodu}; font-weight:bold; margin-top:2px;">${kz.yuzdeMetin}</div>
               </div>
             </div>
             <div class="kucuk" style="color:#475569; margin-top:4px; text-align:right;">
@@ -2235,6 +2302,18 @@ function emirModaliAc(yon = 'LONG') {
   $('#emirAdet').value = varsayilanAdet;
   if ($('#emirKaldirac')) $('#emirKaldirac').value = '1';
 
+  // BIST Günlük Tavan / Taban Kutusu
+  const bist = bistTabanTavanHesapla(v.sembol, f, anaSatir?.degisim, v.zamanDilimleri?.g1);
+  const bistKutu = $('#emirBistLimitKutusu');
+  if (bist && bistKutu) {
+    bistKutu.classList.remove('gizli');
+    $('#emirBistBazFiyat').textContent = `Baz: ${sayi(bist.bazFiyat)} ₺`;
+    $('#emirBistTaban').textContent = `${sayi(bist.taban)} ₺`;
+    $('#emirBistTavan').textContent = `${sayi(bist.tavan)} ₺`;
+  } else if (bistKutu) {
+    bistKutu.classList.add('gizli');
+  }
+
   emirYonAyarla(yon);
 
   $('#perde').classList.remove('gizli');
@@ -2258,8 +2337,23 @@ window.otomatikPlanUygula = async function(yon = 'LONG') {
   if (!f || f <= 0) return bildir('⚠️ Güncel canlı fiyat verisi alınamadı.');
 
   const isShort = (yon === 'SHORT');
-  const stop = isShort ? (s.satisStop || null) : (s.alimStop || null);
-  const hedef = isShort ? (s.satisHedef || null) : (s.alimHedef || null);
+  let stop = isShort ? (s.satisStop || null) : (s.alimStop || null);
+  let hedef = isShort ? (s.satisHedef || null) : (s.alimHedef || null);
+
+  // BIST Günlük Tavan/Taban (±%10) Sınırlarını Uygula
+  const bist = bistTabanTavanHesapla(v.sembol, f, anaSatir?.degisim, v.zamanDilimleri?.g1);
+  if (bist) {
+    if (f > bist.tavan) return bildir(`⚠️ BIST Kuralı: Güncel fiyat (${sayi(f)} ₺) tavan fiyatın (${sayi(bist.tavan)} ₺) üstünde! İşlem açılamaz.`, 4000);
+    if (f < bist.taban) return bildir(`⚠️ BIST Kuralı: Güncel fiyat (${sayi(f)} ₺) taban fiyatın (${sayi(bist.taban)} ₺) altında! İşlem açılamaz.`, 4000);
+
+    if (!isShort) {
+      if (hedef && hedef > bist.tavan) hedef = bist.tavan;
+      if (stop && stop < bist.taban) stop = bist.taban;
+    } else {
+      if (hedef && hedef < bist.taban) hedef = bist.taban;
+      if (stop && stop > bist.tavan) stop = bist.tavan;
+    }
+  }
 
   if (!stop || !hedef) {
     return bildir(`⚠️ Bu varlık için otomatik ${yon} seviyeleri türetilemedi. Lütfen "Özelleştir" ile manuel deneyin.`);
@@ -2399,6 +2493,30 @@ $('#emirOnaylaBtn').onclick = async () => {
   const yon = aktifEmirYonu;
 
   if (!f || f <= 0 || !adet || adet <= 0) return bildir('Lütfen geçerli bir fiyat ve adet girin.');
+
+  // BIST Günlük Fiyat Marjı Doğrulaması (±%10)
+  const anaSatir = D.satirlar.find(x => x.id === v.sembol);
+  const bist = bistTabanTavanHesapla(v.sembol, f, anaSatir?.degisim, v.zamanDilimleri?.g1);
+  if (bist) {
+    if (f < bist.taban || f > bist.tavan) {
+      return bildir(`⚠️ BIST Kuralı: Alış fiyatı (${sayi(f)} ₺) günlük taban (${sayi(bist.taban)} ₺) ve tavan (${sayi(bist.tavan)} ₺) aralığında olmalıdır!`, 4000);
+    }
+    if (yon === 'LONG') {
+      if (hedef && hedef > bist.tavan) {
+        return bildir(`⚠️ BIST Kuralı: Kâr al hedefi günlük tavan fiyatından (${sayi(bist.tavan)} ₺) yüksek olamaz!`, 4000);
+      }
+      if (stop && stop < bist.taban) {
+        return bildir(`⚠️ BIST Kuralı: Zarar-kes (stop) seviyesi günlük taban fiyatından (${sayi(bist.taban)} ₺) düşük olamaz!`, 4000);
+      }
+    } else {
+      if (hedef && hedef < bist.taban) {
+        return bildir(`⚠️ BIST Kuralı: Short kâr al hedefi günlük taban fiyatından (${sayi(bist.taban)} ₺) düşük olamaz!`, 4000);
+      }
+      if (stop && stop > bist.tavan) {
+        return bildir(`⚠️ BIST Kuralı: Short stop seviyesi günlük tavan fiyatından (${sayi(bist.tavan)} ₺) yüksek olamaz!`, 4000);
+      }
+    }
+  }
 
   const birim = paraBirimiAl(v.sembol);
   const tutar = +(f * adet).toFixed(2);
@@ -2562,10 +2680,13 @@ function bildirimSayisiGuncelle() {
   }
 }
 
-async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0) {
+async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0, yon = 'LONG') {
   const piyasa = sembolPiyasasi(sembolId);
   const curPiyasa = aktifPiyasa();
   const kod = sembolId.includes(':') ? sembolId.split(':')[1] : sembolId;
+  const isShort = (yon === 'SHORT' || yon === 'SAT' || (mesaj && (mesaj.includes('SHORT') || mesaj.includes('Düşüş') || mesaj.includes('Açığa'))));
+  const netYon = isShort ? 'SHORT' : 'LONG';
+  const yonOk = isShort ? '⬇️' : '⬆️';
 
   try {
     const res = await api('/api/bildirimler/ekle', {
@@ -2574,6 +2695,7 @@ async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0) {
         baslik,
         mesaj,
         tur,
+        yon: netYon,
         sembolId,
         kod,
         fiyat,
@@ -2586,7 +2708,7 @@ async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0) {
       sonBildirimZamani = Date.now();
       if (curPiyasa === 'hepsi' || curPiyasa === piyasa) {
         sesCal('kar');
-        bildir(`🔔 ${baslik}: ${mesaj}`, 7000);
+        bildir(`🔔 ${yonOk} [${netYon}] ${res.baslik || baslik}: ${res.mesaj || mesaj}`, 7000);
       }
       bildirimSayisiGuncelle();
     }
@@ -2709,13 +2831,20 @@ function bildirimMerkeziCiz() {
         const bTarih = b.tarih ? new Date(b.tarih) : new Date();
         const tarihStr = isNaN(bTarih.getTime()) ? '' : `${bTarih.toLocaleDateString('tr-TR')} ${bTarih.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}`;
 
+        const isShort = (b.yon === 'SHORT' || b.yon === 'SAT') || 
+                        (b.mesaj && (b.mesaj.includes('SHORT') || b.mesaj.includes('Düşüş') || b.mesaj.includes('Açığa Satış') || b.mesaj.includes('SAT')));
+        const yonRozet = isShort 
+          ? `<span style="background:rgba(239, 68, 68, 0.2); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.4); padding:2px 7px; border-radius:10px; font-size:11px; font-weight:bold; margin-left:6px; display:inline-flex; align-items:center; gap:2px;">⬇️ SHORT</span>` 
+          : `<span style="background:rgba(16, 185, 129, 0.2); color:#10b981; border:1px solid rgba(16, 185, 129, 0.4); padding:2px 7px; border-radius:10px; font-size:11px; font-weight:bold; margin-left:6px; display:inline-flex; align-items:center; gap:2px;">⬆️ LONG</span>`;
+
         return `
         <div class="kutu" style="margin:0; border-left:3px solid ${renk}; cursor:pointer;" 
              onclick="detayAc('${esc(b.sembolId)}'); $('#bildirimModal').classList.add('gizli');">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
+            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
               <b style="color:${renk}; font-size:13px;">${esc(b.baslik)}</b>
-              <span class="kucuk" style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; margin-left:6px; font-size:11px;">${pEtiket}</span>
+              ${yonRozet}
+              <span class="kucuk" style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-size:11px;">${pEtiket}</span>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="kucuk" style="color:#94a3b8; font-size:11.5px;">${tarihStr}</span>

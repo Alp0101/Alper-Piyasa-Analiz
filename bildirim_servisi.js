@@ -80,20 +80,25 @@ function baslangicSenkronizasyonu() {
       const kod = sembol.split(':')[1] || sembol;
       const piyasa = piyasaBelirle(sembol, s.tur);
 
-      let baslik = '🎯 YENİ SİNYAL';
+      const isShort = (s.yon === 'SAT' || s.yon === 'SHORT');
+      const yon = isShort ? 'SHORT' : 'LONG';
+      const yonOk = isShort ? '⬇️' : '⬆️';
+      const yonEtiket = isShort ? 'SHORT (Düşüş)' : 'LONG (Yükseliş)';
+
+      let baslik = isShort ? '🎯 ⬇️ YENİ SHORT SİNYALİ' : '🎯 ⬆️ YENİ LONG SİNYALİ';
       let tur = 'firsat';
 
       if (s.sinyalTipi && s.sinyalTipi.includes('Sniper')) {
-        baslik = '🎯 YENİ SNIPER FIRSATI';
+        baslik = `${yonOk} YENİ SNIPER ${isShort ? 'SHORT' : 'LONG'} FIRSATI`;
         tur = 'sniper';
       } else if (s.sinyalTipi && s.sinyalTipi.includes('Kurumsal VIP')) {
-        baslik = '👑 KURUMSAL VIP SİNYALİ (%80+)';
+        baslik = `👑 ${yonOk} KURUMSAL VIP ${isShort ? 'SHORT' : 'LONG'} (%80+)`;
         tur = 'kurumsal';
       } else if (s.sinyalTipi && s.sinyalTipi.includes('Alfa')) {
-        baslik = '🛡️ ALFA GÜCÜ ONAYI';
+        baslik = `🛡️ ${yonOk} ALFA GÜCÜ ONAYI (${yon})`;
         tur = 'alfa';
       } else if (s.sinyalTipi && s.sinyalTipi.includes('Kombo')) {
-        baslik = '⭐ ÖZEL KOMBO SİNYALİ';
+        baslik = `⭐ ${yonOk} ÖZEL KOMBO ${isShort ? 'SHORT' : 'LONG'}`;
         tur = 'firsat';
       }
 
@@ -103,8 +108,9 @@ function baslangicSenkronizasyonu() {
         id: 'bld-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         kaynakId,
         baslik,
-        mesaj: `${kod} (${s.ad || ''}) ${s.sinyalTipi || 'Sinyali'} onaylandı! Giriş: ${s.girisFiyat} ₺ | Hedef: ${s.hedefFiyat || '—'}`,
+        mesaj: `${kod} (${s.ad || ''}) ${s.sinyalTipi || 'Sinyali'} [${yonEtiket}] onaylandı! Giriş: ${s.girisFiyat} ₺ | Hedef: ${s.hedefFiyat || '—'}`,
         tur,
+        yon,
         sembolId: sembol,
         kod,
         ad: s.ad || '',
@@ -137,7 +143,8 @@ function bildirimEkle(veri) {
     ad = '',
     fiyat = 0,
     piyasa = null,
-    kaynakId = null
+    kaynakId = null,
+    yon = 'LONG'
   } = veri;
 
   if (!baslik || !mesaj) return null;
@@ -155,13 +162,23 @@ function bildirimEkle(veri) {
 
   const netPiyasa = piyasa || piyasaBelirle(sembolId, tur);
   const netKod = kod || (sembolId.includes(':') ? sembolId.split(':')[1] : sembolId);
+  const isShort = (yon === 'SHORT' || yon === 'SAT' || (mesaj && (mesaj.includes('SHORT') || mesaj.includes('Açığa') || mesaj.includes('Düşüş'))));
+  const netYon = isShort ? 'SHORT' : 'LONG';
+  const yonOk = isShort ? '⬇️' : '⬆️';
+
+  // Başlıkta ok yoksa yön okunu otomatik yerleştir
+  let netBaslik = baslik;
+  if (!netBaslik.includes('⬆️') && !netBaslik.includes('⬇️')) {
+    netBaslik = `${yonOk} ${netBaslik}`;
+  }
 
   const yeni = {
     id: 'bld-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
     kaynakId,
-    baslik,
+    baslik: netBaslik,
     mesaj,
     tur,
+    yon: netYon,
     sembolId,
     kod: netKod,
     ad,
