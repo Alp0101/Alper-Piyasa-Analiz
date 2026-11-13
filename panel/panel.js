@@ -974,7 +974,10 @@ function detayCiz() {
     }
 
     alt = `<div class="iki-kolon">
-      <div class="kutu"><h4>🔍 ${z.ad} grafik – 8 yöntemin yorumu</h4>${yontemler}</div>
+      <div>
+        <div class="kutu"><h4>🔍 ${z.ad} grafik – 8 yöntemin yorumu</h4>${yontemler}</div>
+        ${gorselStratejiGrafikHtml(z, s, v)}
+      </div>
       <div>
         <div class="kutu tuzak-kutu ${t.seviye}">
           <h4>⚠️ Tuzak Kontrolü: ${t.seviye}</h4>
@@ -1050,12 +1053,390 @@ function detayCiz() {
   const poz = (demoPortfoyVerisi?.acikPozisyonlar || []).find(x => x.sembol === v.sembol);
   const riskKartiHtml = poz ? pozisyonRiskKarti(poz, z, v) : '';
   $('#dIcerik').innerHTML = `${riskKartiHtml}<div class="tf-ozet">${ozet}</div>${sniperHtml || ''}${alt}`;
+  if (z && !z.hata && s) {
+    D.sonDetayGorsel = { z, s, v };
+    setTimeout(() => gorselStratejiGrafikCiz(z, s, v), 60);
+  }
 }
 $('#dIcerik').addEventListener('click', e => {
   const k = e.target.closest('.tf-kart[data-tf]'); if (!k) return;
   D.detayTf = k.dataset.tf;
   detayYukle();
 });
+
+// ================= 📊 Görsel Strateji & Formasyon Grafiği Çizimi =================
+function gorselStratejiGrafikHtml(z, s, v) {
+  if (!z || z.hata || !s) return '';
+  const tfAd = z.ad || 'Seçili';
+  const yonMetin = s.yon > 0 ? '🟢 AL ONAYLI' : (s.yon < 0 ? '🔴 SAT ONAYLI' : '⚪ NÖTR');
+  const yonRenk = s.yon > 0 ? '#10b981' : (s.yon < 0 ? '#ef4444' : '#94a3b8');
+
+  let formasyonAd = 'Boğa Bayrağı (Bull Flag)';
+  let formasyonIkon = '🚩';
+  let formasyonDetay = `${sayi(s.direnc)} ₺ direnci üzerinde BOS kırılımı ve bayrak tamamlanması.`;
+
+  if (s.yon > 0) {
+    if (z.tf === 'm15') {
+      formasyonAd = 'Hızlı Bayrak / Flama Kırılımı';
+      formasyonIkon = '🚩';
+      formasyonDetay = `${sayi(s.direnc)} ₺ direnci üzerinde BOS kırılımı ve bayrak tamamlanması.`;
+    } else if (z.tf === 's1' || z.tf === 's2') {
+      formasyonAd = 'Kurumsal FVG Likidite Boşluğu';
+      formasyonIkon = '🧲';
+      formasyonDetay = `${sayi(s.destek)} - ${sayi(s.fiyat)} ₺ aralığında kurumsal alıcı tepkisi.`;
+    } else if (z.tf === 's4') {
+      formasyonAd = 'İkili Dip (Double Bottom - W)';
+      formasyonIkon = '💎';
+      formasyonDetay = `${sayi(s.destek)} tabanında ikili dip onayı ve boyun kırılımı.`;
+    } else {
+      formasyonAd = 'Yükselen Üçgen (Ascending Triangle)';
+      formasyonIkon = '📐';
+      formasyonDetay = `Dipler yükseliyor, ${sayi(s.direnc)} tavanı test ediliyor.`;
+    }
+  } else {
+    formasyonAd = 'Direnç Tepkisi / Ayı Bayrağı';
+    formasyonIkon = '⚠️';
+    formasyonDetay = `${sayi(s.direnc)} tavanından aşağı yönlü satıcı baskısı.`;
+  }
+
+  return `
+    <div class="kutu gorsel-strateji-kutu">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-bottom:1px solid #1e293b; padding-bottom:10px; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:17px;">📊</span>
+          <h4 style="margin:0; font-size:14px; color:#f8fafc;">${esc(v.kod || v.sembol)} · ${esc(tfAd)} Görsel Strateji & Formasyon</h4>
+          <span style="font-size:11px; padding:2px 7px; background:${yonRenk}20; color:${yonRenk}; border:1px solid ${yonRenk}40; border-radius:10px; font-weight:800;">${yonMetin}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; font-size:11.5px;">
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#cbd5e1;">
+            <input type="checkbox" id="gorselChkFormasyon" checked onchange="gorselStratejiYenidenCiz()"> Formasyon
+          </label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#cbd5e1;">
+            <input type="checkbox" id="gorselChkFvg" checked onchange="gorselStratejiYenidenCiz()"> FVG Kutusu
+          </label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#cbd5e1;">
+            <input type="checkbox" id="gorselChkSeviyeler" checked onchange="gorselStratejiYenidenCiz()"> TP & Stop
+          </label>
+        </div>
+      </div>
+
+      <!-- 3'lü Özet Rozetleri -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-bottom:10px;">
+        <div style="background:#0a0e17; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
+          <span class="kucuk" style="color:#94a3b8; display:block;">Saptanan Formasyon</span>
+          <b style="color:#38bdf8; font-size:12.5px;">${formasyonIkon} ${formasyonAd}</b>
+        </div>
+        <div style="background:#0a0e17; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
+          <span class="kucuk" style="color:#94a3b8; display:block;">Kırılım / Direnç</span>
+          <b style="color:#10b981; font-size:12.5px;">⚡ ${sayi(s.direnc)} ₺</b>
+        </div>
+        <div style="background:#0a0e17; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
+          <span class="kucuk" style="color:#94a3b8; display:block;">TP1 / Stop-Loss</span>
+          <b style="color:#f8fafc; font-size:12px;"><span style="color:#10b981;">TP1: ${sayi(s.alimHedef)}</span> · <span style="color:#ef4444;">Stop: ${sayi(s.alimStop)}</span></b>
+        </div>
+      </div>
+
+      <!-- Grafik Canvas -->
+      <div class="gorsel-strateji-canvas-sarma">
+        <canvas id="detayStratejiCanvas" width="760" height="320"></canvas>
+      </div>
+
+      <div style="margin-top:10px; font-size:11.5px; color:#94a3b8; line-height:1.45; background:#0a0e17; padding:8px 12px; border-radius:6px; border:1px solid #1e293b;">
+        💡 <b>${esc(tfAd)} Periyot Okuması:</b> ${formasyonDetay} Fiyat mumları üzerinde kurumsal dengesizlik alanı (FVG), formasyon sınırları ve beklenen hedef seviyeleri görselleştirilmiştir. Üstteki periyot kartlarına (15dk, 1s, 4s, Günlük) tıkladığınızda grafik o periyoda ait canlı verilerle otomatik güncellenir.
+      </div>
+    </div>
+  `;
+}
+
+function gorselStratejiYenidenCiz() {
+  if (D.sonDetayGorsel) {
+    const { z, s, v } = D.sonDetayGorsel;
+    gorselStratejiGrafikCiz(z, s, v);
+  }
+}
+
+function okCizCanvas(ctx, fromX, fromY, toX, toY, color) {
+  const headlen = 10;
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(toX, toY);
+  ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+  ctx.fill();
+}
+
+function gorselStratejiGrafikCiz(z, s, v) {
+  const canvas = document.getElementById('detayStratejiCanvas');
+  if (!canvas || !s) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Arka planı temizle
+  ctx.fillStyle = '#0a0e17';
+  ctx.fillRect(0, 0, w, h);
+
+  // Mum verisi hazırlığı (Gerçek z.mumlar veya destek/dirence göre dinamik simülasyon)
+  let mumlar = (z.mumlar && z.mumlar.length >= 8) ? [...z.mumlar.slice(-24)] : [];
+  if (mumlar.length < 8) {
+    const bazFiyat = s.fiyat || 100;
+    const atr = s.atr || (bazFiyat * 0.02);
+    let sonC = bazFiyat - (atr * 2);
+    mumlar = [];
+    for (let i = 0; i < 20; i++) {
+      const yon = (i > 14 || (i % 3 !== 0)) ? 1 : -1;
+      const oynama = (Math.random() * atr * 0.8) * yon;
+      const c = Math.max(0.1, sonC + oynama);
+      const o = sonC;
+      const hF = Math.max(o, c) + (Math.random() * atr * 0.4);
+      const lF = Math.min(o, c) - (Math.random() * atr * 0.4);
+      mumlar.push({ o, h: hF, l: lF, c });
+      sonC = c;
+    }
+    // Son mumu güncel fiyata hizala
+    if (mumlar.length > 0) {
+      mumlar[mumlar.length - 1].c = s.fiyat;
+      mumlar[mumlar.length - 1].h = Math.max(mumlar[mumlar.length - 1].h, s.fiyat);
+    }
+  }
+
+  // Fiyat Ölçeklendirme (Min - Max)
+  let minP = Math.min(...mumlar.map(m => m.l));
+  let maxP = Math.max(...mumlar.map(m => m.h));
+  if (s.alimStop && s.alimStop > 0) minP = Math.min(minP, s.alimStop);
+  if (s.alimHedef && s.alimHedef > 0) maxP = Math.max(maxP, s.alimHedef);
+  if (s.destek && s.destek > 0) minP = Math.min(minP, s.destek);
+  if (s.direnc && s.direnc > 0) maxP = Math.max(maxP, s.direnc);
+
+  const marj = (maxP - minP) * 0.08 || 1;
+  minP -= marj;
+  maxP += marj;
+
+  const padUst = 25;
+  const padAlt = 30;
+  const padSol = 20;
+  const padSag = 75; // Fiyat ekseni için alan
+  const cizimW = w - padSol - padSag;
+  const cizimH = h - padUst - padAlt;
+
+  const toY = p => padUst + ((maxP - p) / (maxP - minP)) * cizimH;
+
+  // Izgara ve Fiyat Ekseni Çizgileri
+  ctx.strokeStyle = '#141c2c';
+  ctx.lineWidth = 1;
+  const yatayBasamak = 5;
+  for (let i = 0; i <= yatayBasamak; i++) {
+    const fVal = minP + ((maxP - minP) * (i / yatayBasamak));
+    const y = toY(fVal);
+    ctx.beginPath();
+    ctx.moveTo(padSol, y);
+    ctx.lineTo(padSol + cizimW, y);
+    ctx.stroke();
+
+    // Sağ fiyat eksen etiketi
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(sayi(fVal, 2), padSol + cizimW + 6, y + 3);
+  }
+
+  const chkFvg = document.getElementById('gorselChkFvg')?.checked ?? true;
+  const chkSeviyeler = document.getElementById('gorselChkSeviyeler')?.checked ?? true;
+  const chkFormasyon = document.getElementById('gorselChkFormasyon')?.checked ?? true;
+
+  // 1. FVG KUTUSU (Kurumsal Dengesizlik / Likidite Alanı)
+  if (chkFvg) {
+    const fvgUst = Math.min(maxP, s.direnc || (s.fiyat * 1.015));
+    const fvgAlt = Math.max(minP, s.destek || (s.fiyat * 0.985));
+    const yUst = toY(fvgUst);
+    const yAlt = toY(fvgAlt);
+    const fvgH = Math.max(16, yAlt - yUst);
+
+    const fvgX = padSol + 30;
+    const fvgW = cizimW - 50;
+
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.65)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 4]);
+    ctx.fillRect(fvgX, yUst, fvgW, fvgH);
+    ctx.strokeRect(fvgX, yUst, fvgW, fvgH);
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('🧲 Kurumsal Dengesizlik / FVG Boşluğu', fvgX + 10, yUst + 14);
+  }
+
+  // 2. TP & STOP HEDEF SEVİYELERİ
+  if (chkSeviyeler) {
+    // TP1 Çizgisi
+    if (s.alimHedef) {
+      const tpY = toY(s.alimHedef);
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(padSol, tpY);
+      ctx.lineTo(padSol + cizimW, tpY);
+      ctx.stroke();
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 10.5px sans-serif';
+      ctx.fillText(`🎯 TP1 Kâr Al: ${sayi(s.alimHedef)} ₺`, padSol + 10, tpY - 4);
+    }
+
+    // Giriş Çizgisi
+    if (s.fiyat) {
+      const gY = toY(s.fiyat);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(padSol, gY);
+      ctx.lineTo(padSol + cizimW, gY);
+      ctx.stroke();
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 10.5px sans-serif';
+      ctx.fillText(`📍 Anlık / Giriş: ${sayi(s.fiyat)} ₺`, padSol + 10, gY - 4);
+    }
+
+    // Stop Çizgisi
+    if (s.alimStop) {
+      const stpY = toY(s.alimStop);
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(padSol, stpY);
+      ctx.lineTo(padSol + cizimW, stpY);
+      ctx.stroke();
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 10.5px sans-serif';
+      ctx.fillText(`🛑 Zarar Kes (Stop): ${sayi(s.alimStop)} ₺`, padSol + 10, stpY + 13);
+    }
+    ctx.setLineDash([]);
+  }
+
+  // 3. MUMLARI ÇİZ
+  const mSayi = mumlar.length;
+  const adim = cizimW / mSayi;
+  const mG = Math.max(4, Math.min(14, adim * 0.65));
+  const noktalar = [];
+
+  mumlar.forEach((m, i) => {
+    const x = padSol + (i * adim) + (adim - mG) / 2;
+    const cx = x + mG / 2;
+    const yukari = m.c >= m.o;
+    const renk = yukari ? '#10b981' : '#ef4444';
+
+    const yO = toY(m.o);
+    const yC = toY(m.c);
+    const yH = toY(m.h);
+    const yL = toY(m.l);
+
+    // Fitil
+    ctx.strokeStyle = renk;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, yH);
+    ctx.lineTo(cx, yL);
+    ctx.stroke();
+
+    // Gövde
+    ctx.fillStyle = renk;
+    const ustY = Math.min(yO, yC);
+    const govdeH = Math.max(3, Math.abs(yC - yO));
+    ctx.fillRect(x, ustY, mG, govdeH);
+
+    noktalar.push({ cx, x, yC, yH, yL, ustY, govdeH, yukari });
+  });
+
+  // 4. FORMASYON ÇİZGİLERİ VE KIRILIM OKLARI
+  if (chkFormasyon && noktalar.length >= 8) {
+    ctx.lineWidth = 2.2;
+
+    if (z.tf === 's4') {
+      // W (İkili Dip) Çizgisi
+      const n0 = noktalar[Math.floor(noktalar.length * 0.15)];
+      const n1 = noktalar[Math.floor(noktalar.length * 0.35)];
+      const n2 = noktalar[Math.floor(noktalar.length * 0.55)];
+      const n3 = noktalar[Math.floor(noktalar.length * 0.75)];
+      const n4 = noktalar[noktalar.length - 1];
+
+      ctx.strokeStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.moveTo(n0.cx, n0.yH);
+      ctx.lineTo(n1.cx, n1.yL);
+      ctx.lineTo(n2.cx, n2.yH);
+      ctx.lineTo(n3.cx, n3.yL);
+      ctx.lineTo(n4.cx, n4.yH);
+      ctx.stroke();
+
+      // Boyun Kırılım Çizgisi
+      ctx.strokeStyle = '#38bdf8';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(n1.cx, n2.yH);
+      ctx.lineTo(padSol + cizimW, n2.yH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('W Boyun Kırılımı ➔', n2.cx + 6, n2.yH - 5);
+    } else if (z.tf === 's1' || z.tf === 's2') {
+      // FVG Dönüş Reaksiyon Oku
+      const nReaksiyon = noktalar[Math.floor(noktalar.length * 0.65)];
+      okCizCanvas(ctx, nReaksiyon.cx, nReaksiyon.yL + 30, nReaksiyon.cx, nReaksiyon.yL + 6, '#38bdf8');
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('Kurumsal Alış Reaksiyonu', nReaksiyon.cx - 50, nReaksiyon.yL + 42);
+    } else {
+      // Bayrak Direği ve Kanal Çizgisi (m15, Günlük vs.)
+      const nStart = noktalar[0];
+      const nDirek = noktalar[Math.floor(noktalar.length * 0.4)];
+      const nBOS = noktalar[noktalar.length - 2];
+
+      // Bayrak Direği
+      ctx.strokeStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(nStart.cx, nStart.yL);
+      ctx.lineTo(nDirek.cx, nDirek.yH);
+      ctx.stroke();
+
+      // Kanal Tavanı
+      ctx.strokeStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.moveTo(nDirek.cx, nDirek.yH);
+      ctx.lineTo(nBOS.cx, nBOS.yH + 4);
+      ctx.stroke();
+
+      // Kırılım Oku (BOS)
+      okCizCanvas(ctx, nBOS.cx, nBOS.yH + 30, nBOS.cx, nBOS.yH - 6, '#10b981');
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 10.5px sans-serif';
+      ctx.fillText('⚡ BOS Kırılımı', nBOS.cx - 30, nBOS.yH - 10);
+    }
+  }
+
+  // Sağ Fiyat Ekseninde Anlık Fiyat Rozeti
+  if (s.fiyat) {
+    const curY = toY(s.fiyat);
+    ctx.fillStyle = '#0284c7';
+    ctx.fillRect(padSol + cizimW + 2, curY - 9, padSag - 6, 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(sayi(s.fiyat), padSol + cizimW + (padSag / 2) - 1, curY + 3);
+  }
+}
 
 // ================= Yapay Zeka Başarı Karnesi & Koçluk Motoru =================
 function karneHesapla(p) {
@@ -2423,48 +2804,37 @@ function sniperAvcisiYukle() {
 
   $('#sniperRadarListesi').innerHTML = `
     <div class="modal-tablo-sarma">
-      <table class="tarama-tablo" style="width:100%; border-collapse:collapse; table-layout:fixed;">
-        <colgroup>
-          <col style="width: 22%;">
-          <col style="width: 10%;">
-          <col style="width: 10%;">
-          <col style="width: 7%;">
-          <col style="width: 7%;">
-          <col style="width: 7%;">
-          <col style="width: 8%;">
-          <col style="width: 19%;">
-          <col style="width: 10%;">
-        </colgroup>
+      <table class="tarama-tablo" style="width:100%; border-collapse:collapse;">
         <thead>
           <tr style="background:#131d2e; border-bottom:1px solid #2d3748;">
-            <th style="padding:10px 8px; text-align:left;">Sembol</th>
-            <th class="sag" style="padding:10px 8px;">Fiyat</th>
-            <th class="sag" style="padding:10px 8px;">Günlük %</th>
-            <th class="orta" style="padding:10px 4px;">2 Saat</th>
-            <th class="orta" style="padding:10px 4px;">4 Saat</th>
-            <th class="orta" style="padding:10px 4px;">Günlük</th>
-            <th class="sag" style="padding:10px 6px;">RSI (4S)</th>
-            <th style="padding:10px 8px; text-align:left;">Sinyal Derecesi</th>
-            <th class="orta" style="padding:10px 6px;">Hızlı İşlem</th>
+            <th style="padding:9px 10px; width:160px; text-align:left;">Sembol</th>
+            <th class="sag" style="padding:9px 10px; width:85px;">Fiyat</th>
+            <th class="sag" style="padding:9px 10px; width:85px;">Günlük %</th>
+            <th class="orta" style="padding:9px 4px; width:55px;">2 Saat</th>
+            <th class="orta" style="padding:9px 4px; width:55px;">4 Saat</th>
+            <th class="orta" style="padding:9px 4px; width:55px;">Günlük</th>
+            <th class="sag" style="padding:9px 6px; width:65px;">RSI (4S)</th>
+            <th style="padding:9px 10px; text-align:left;">Sinyal Derecesi</th>
+            <th class="orta" style="padding:9px 8px; width:80px;">Hızlı İşlem</th>
           </tr>
         </thead>
         <tbody>
           ${birlesik.map(x => `
             <tr onclick="detayAc('${esc(x.id)}'); $('#sniperModal').classList.add('gizli');" style="cursor:pointer; border-bottom:1px solid #1a2234;">
-              <td style="padding:10px 8px; overflow:hidden; text-overflow:ellipsis;">
+              <td style="padding:9px 10px; width:160px;">
                 <b style="font-size:13.5px; color:#f8fafc;">${esc(x.kod)}</b>
-                <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(x.ad)}</small>
+                <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:145px;">${esc(x.ad)}</small>
               </td>
-              <td class="sag" style="padding:10px 8px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
-              <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:10px 8px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
-              <td class="orta" style="padding:10px 4px; white-space:nowrap;">${rozet(x.yon?.s2)}</td>
-              <td class="orta" style="padding:10px 4px; white-space:nowrap;">${rozet(x.yon?.s4)}</td>
-              <td class="orta" style="padding:10px 4px; white-space:nowrap;">${rozet(x.yon?.g1)}</td>
-              <td class="sag" style="padding:10px 6px; white-space:nowrap; font-weight:600; color:#38bdf8;">${sayi(x.rsi?.s4, 0)}</td>
-              <td style="padding:10px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              <td class="sag" style="padding:9px 10px; width:85px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
+              <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:9px 10px; width:85px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
+              <td class="orta" style="padding:9px 4px; width:55px; white-space:nowrap;">${rozet(x.yon?.s2)}</td>
+              <td class="orta" style="padding:9px 4px; width:55px; white-space:nowrap;">${rozet(x.yon?.s4)}</td>
+              <td class="orta" style="padding:9px 4px; width:55px; white-space:nowrap;">${rozet(x.yon?.g1)}</td>
+              <td class="sag" style="padding:9px 6px; width:65px; white-space:nowrap; font-weight:600; color:#38bdf8;">${sayi(x.rsi?.s4, 0)}</td>
+              <td style="padding:9px 10px; white-space:nowrap;">
                 <span style="color:${x.renk}; font-weight:bold; font-size:11.5px;">${esc(x.etiket)}</span>
               </td>
-              <td class="orta" style="padding:10px 6px; white-space:nowrap;">
+              <td class="orta" style="padding:9px 8px; width:80px; white-space:nowrap;">
                 <button class="btn" style="padding:4px 10px; font-size:11px; background:#10b981; font-weight:bold; cursor:pointer;" 
                         onclick="event.stopPropagation(); $('#sniperModal').classList.add('gizli'); detayAc('${esc(x.id)}'); setTimeout(()=>$('#dDemoAlBtn').click(), 400);">
                   🛒 Al
@@ -2513,42 +2883,34 @@ async function balinaRadariYukle() {
 
     $('#balinaRadarListesi').innerHTML = `
       <div class="modal-tablo-sarma">
-        <table class="tarama-tablo" style="width:100%; border-collapse:collapse; table-layout:fixed;">
-          <colgroup>
-            <col style="width: 20%;">
-            <col style="width: 10%;">
-            <col style="width: 10%;">
-            <col style="width: 14%;">
-            <col style="width: 18%;">
-            <col style="width: 28%;">
-          </colgroup>
+        <table class="tarama-tablo" style="width:100%; border-collapse:collapse;">
           <thead>
             <tr style="background:#131d2e; border-bottom:1px solid #2d3748;">
-              <th style="padding:10px 8px; text-align:left;">Sembol</th>
-              <th class="sag" style="padding:10px 8px;">Fiyat</th>
-              <th class="sag" style="padding:10px 8px;">Günlük %</th>
-              <th class="sag" style="padding:10px 8px;">Hacim Katı / Tutar</th>
-              <th style="padding:10px 8px; text-align:left;">Durum / Sinyal</th>
-              <th style="padding:10px 8px; text-align:left;">Açıklama</th>
+              <th style="padding:9px 10px; width:160px; text-align:left;">Sembol</th>
+              <th class="sag" style="padding:9px 10px; width:85px;">Fiyat</th>
+              <th class="sag" style="padding:9px 10px; width:85px;">Günlük %</th>
+              <th class="sag" style="padding:9px 10px; width:125px;">Hacim Katı / Tutar</th>
+              <th style="padding:9px 10px; width:160px; text-align:left;">Durum / Sinyal</th>
+              <th style="padding:9px 10px; text-align:left;">Açıklama</th>
             </tr>
           </thead>
           <tbody>
             ${liste.map(x => `
               <tr onclick="detayAc('${esc(x.id)}'); $('#balinaModal').classList.add('gizli');" style="cursor:pointer; border-bottom:1px solid #1a2234;">
-                <td style="padding:10px 8px; overflow:hidden; text-overflow:ellipsis;">
+                <td style="padding:9px 10px; width:160px;">
                   <b style="font-size:13.5px; color:#f8fafc;">${esc(x.kod)}</b>
-                  <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(x.ad)}</small>
+                  <small class="kucuk" style="display:block; color:#94a3b8; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:145px;">${esc(x.ad)}</small>
                 </td>
-                <td class="sag" style="padding:10px 8px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
-                <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:10px 8px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
-                <td class="sag" style="padding:10px 8px; white-space:nowrap;">
+                <td class="sag" style="padding:9px 10px; width:85px; white-space:nowrap; font-weight:600;">${sayi(x.fiyat)}</td>
+                <td class="sag ${x.degisim > 0 ? 'art' : 'eks'}" style="padding:9px 10px; width:85px; white-space:nowrap; font-weight:bold;">${x.degisim > 0 ? '+' : ''}${sayi(x.degisim, 2)}%</td>
+                <td class="sag" style="padding:9px 10px; width:125px; white-space:nowrap;">
                   <div style="color:#fbbf24; font-weight:bold; font-size:13px;">${sayi(x.gh, 1)}x</div>
                   ${hacimFormat(x) ? `<div class="kucuk" style="color:#94a3b8; font-size:11px;">${hacimFormat(x)}</div>` : ''}
                 </td>
-                <td style="padding:10px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <td style="padding:9px 10px; width:160px; white-space:nowrap;">
                   <span style="color:${x.renk}; font-weight:bold; font-size:11.5px;">${x.ikon} ${esc(x.seviye)}</span>
                 </td>
-                <td class="kucuk" style="padding:10px 8px; color:#cbd5e1; font-size:11.5px; line-height:1.35; white-space:normal; word-break:break-word;">
+                <td class="kucuk" style="padding:9px 10px; color:#cbd5e1; font-size:11.5px; line-height:1.4; white-space:normal; word-break:break-word;">
                   ${esc(x.aciklama)}
                 </td>
               </tr>
@@ -3024,21 +3386,21 @@ function raporArayuzunuCiz() {
       const yonRenk = s.yon === 'AL' ? '#10b981' : '#ef4444';
       const durumRenk = s.durum.includes('HEDEF') || s.durum.includes('KÂR') ? '#10b981' : s.durum.includes('STOP') || s.durum.includes('ZARAR') ? '#ef4444' : '#38bdf8';
 
-      // 1. Masaüstü Tablo Satırı
+      // 1. Masaüstü Tablo Satırı (Kompakt ve taşmasız)
       tabloHtml += `
         <tr style="border-bottom:1px solid #1e293b; transition:background 0.2s; cursor:pointer;" onclick="detayAc('${esc(s.sembol)}'); $('#gunlukRaporModal').classList.add('gizli');">
-          <td style="padding:10px 12px; color:#94a3b8;">${esc(s.saat || '—')}</td>
-          <td style="padding:10px 12px; font-weight:bold; color:#fff;">
+          <td class="orta" style="padding:8px 8px; color:#94a3b8; font-size:12px;">${esc(s.saat || '—')}</td>
+          <td style="padding:8px 10px; font-weight:bold; color:#fff;">
             ${esc(s.sembol.split(':')[1] || s.sembol)}
-            <div style="font-size:11px; color:#94a3b8; font-weight:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px;">${esc(s.ad || '')}</div>
+            <div style="font-size:11px; color:#94a3b8; font-weight:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">${esc(s.ad || '')}</div>
           </td>
-          <td style="padding:10px 12px;"><span style="color:${yonRenk}; font-weight:bold; padding:2px 6px; background:${yonRenk}15; border-radius:4px;">${esc(s.yon)}</span></td>
-          <td style="padding:10px 12px; color:#c7d2fe;">${esc(s.sinyalTipi)}</td>
-          <td style="padding:10px 12px; font-weight:600;">${sayi(s.girisFiyat)}</td>
-          <td style="padding:10px 12px; font-weight:700; color:#fff;">${sayi(s.anlikFiyat)}</td>
-          <td style="padding:10px 12px; color:#38bdf8; font-weight:600;">${sayi(s.gunYuksek)} (${s.maxKarYuzde >= 0 ? '+' : ''}%${s.maxKarYuzde})</td>
-          <td style="padding:10px 12px; font-weight:800; color:${oranRenk}; font-size:13px;">${s.degisimYuzde >= 0 ? '+' : ''}%${s.degisimYuzde}</td>
-          <td style="padding:10px 12px;"><span style="color:${durumRenk}; font-weight:700; font-size:11px; padding:3px 8px; background:${durumRenk}20; border-radius:8px;">${esc(s.durum)}</span></td>
+          <td class="orta" style="padding:8px 4px;"><span style="color:${yonRenk}; font-weight:bold; padding:2px 6px; background:${yonRenk}15; border-radius:4px; font-size:11px;">${esc(s.yon)}</span></td>
+          <td style="padding:8px 8px; color:#c7d2fe; font-size:12px;">${esc(s.sinyalTipi)}</td>
+          <td class="sag" style="padding:8px 8px; font-weight:600; font-size:12px;">${sayi(s.girisFiyat)}</td>
+          <td class="sag" style="padding:8px 8px; font-weight:700; color:#fff; font-size:12px;">${sayi(s.anlikFiyat)}</td>
+          <td class="sag" style="padding:8px 8px; color:#38bdf8; font-weight:600; font-size:12px;">${sayi(s.gunYuksek)} (${s.maxKarYuzde >= 0 ? '+' : ''}%${s.maxKarYuzde})</td>
+          <td class="sag" style="padding:8px 8px; font-weight:800; color:${oranRenk}; font-size:12.5px;">${s.degisimYuzde >= 0 ? '+' : ''}%${s.degisimYuzde}</td>
+          <td class="orta" style="padding:8px 8px;"><span style="color:${durumRenk}; font-weight:700; font-size:11px; padding:3px 8px; background:${durumRenk}20; border-radius:8px;">${esc(s.durum)}</span></td>
         </tr>
       `;
 

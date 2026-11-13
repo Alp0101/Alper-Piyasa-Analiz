@@ -513,6 +513,7 @@ function analizEt(setler, benchSet, bilgi) {
       rsi: yuvarla(son(d.rsi), 1),
       sonMum: new Date(son(d.mumlar).t * 1000).toISOString(),
       mumSayisi: d.c.length,
+      mumlar: d.mumlar.slice(-35),
     };
   }
   const ozelTaktikler = ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi);

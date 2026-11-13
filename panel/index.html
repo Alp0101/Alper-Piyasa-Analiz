@@ -495,7 +495,7 @@
 </section>
 
 <!-- Günlük Sinyal ve Kapanış Raporu Modalı -->
-<section id="gunlukRaporModal" class="detay gizli" style="max-width: 950px; border: 1.5px solid #6366f1; box-shadow: 0 0 50px rgba(99, 102, 241, 0.25);">
+<section id="gunlukRaporModal" class="detay gizli" style="max-width: 1200px; width: min(1200px, 96vw); border: 1.5px solid #6366f1; box-shadow: 0 0 50px rgba(99, 102, 241, 0.25);">
   <div class="detay-ust" style="background: linear-gradient(180deg, #1e1b4b, #0f172a); border-bottom: 1px solid #312e81;">
     <div>
       <div class="d-ad" style="color: #c7d2fe; font-size: 19px; display: flex; align-items: center; gap: 8px;">
@@ -547,20 +547,20 @@
       </div>
     </div>
 
-    <!-- Masaüstü & Tablet Tablo Görünümü (Yatay Kaydırılabilir, Kolonlar Kesilmez) -->
+    <!-- Masaüstü & Tablet Tablo Görünümü (Tüm kolonlar ekrana tam sığar) -->
     <div class="rapor-tablo-sarma">
-      <table class="tarama-tablo" style="min-width: 820px; width:100%; border-collapse:collapse; font-size:12.5px;">
+      <table class="tarama-tablo" style="width:100%; border-collapse:collapse; font-size:12.5px;">
         <thead>
           <tr style="background:#090d16; border-bottom:1px solid #1e293b; color:#94a3b8; text-align:left;">
-            <th style="padding:10px 12px; width:65px;">Saat</th>
-            <th style="padding:10px 12px; width:170px;">Varlık</th>
-            <th style="padding:10px 12px; width:65px;">Yön</th>
-            <th style="padding:10px 12px; width:135px;">Sinyal Türü</th>
-            <th style="padding:10px 12px; width:95px;">Giriş</th>
-            <th style="padding:10px 12px; width:100px;">Güncel / Kapanış</th>
-            <th style="padding:10px 12px; width:115px;">Gün İçi Zirve</th>
-            <th style="padding:10px 12px; width:100px;">Net Sonuç</th>
-            <th style="padding:10px 12px; width:125px;">Durum</th>
+            <th style="padding:9px 8px; width:60px; text-align:center;">Saat</th>
+            <th style="padding:9px 10px; width:155px;">Varlık</th>
+            <th style="padding:9px 4px; width:55px; text-align:center;">Yön</th>
+            <th style="padding:9px 8px; width:115px;">Sinyal Türü</th>
+            <th class="sag" style="padding:9px 8px; width:80px;">Giriş</th>
+            <th class="sag" style="padding:9px 8px; width:85px;">Son Fiyat</th>
+            <th class="sag" style="padding:9px 8px; width:110px;">Gün İçi Zirve</th>
+            <th class="sag" style="padding:9px 8px; width:85px;">Net Sonuç</th>
+            <th class="orta" style="padding:9px 8px; width:110px;">Durum</th>
           </tr>
         </thead>
         <tbody id="raporSinyalListesi">

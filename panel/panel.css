@@ -1174,8 +1174,8 @@ tbody tr:hover {
 
 /* Günlük Rapor Modalı ve Mobil / Masaüstü Düzeni */
 #gunlukRaporModal {
-  max-width: 1040px !important;
-  width: 95vw !important;
+  max-width: 1200px !important;
+  width: min(1200px, 96vw) !important;
 }
 
 .rapor-tablo-sarma {
@@ -1188,7 +1188,6 @@ tbody tr:hover {
 }
 
 .rapor-tablo-sarma table {
-  min-width: 820px;
   width: 100%;
   border-collapse: collapse;
 }
@@ -1326,12 +1325,36 @@ tbody tr:hover {
 .modal-tablo-sarma table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
 }
 
 .modal-tablo-sarma th,
 .modal-tablo-sarma td {
   box-sizing: border-box;
+}
+
+/* 📊 Görsel Strateji & Formasyon Grafiği (Detay Penceresi) */
+.gorsel-strateji-kutu {
+  background: #111723;
+  border: 1px solid #243048;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+.gorsel-strateji-canvas-sarma {
+  position: relative;
+  background: #0a0e17;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+#detayStratejiCanvas {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .modal-tablo-sarma::-webkit-scrollbar {
