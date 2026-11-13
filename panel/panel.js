@@ -901,8 +901,9 @@ function detayCiz() {
   const z = v.zamanDilimleri[D.detayTf];
   const bt = v.backtest;
   const sniperHtml = sniperMatrisiHesapla(v.zamanDilimleri);
+  const s = z?.seviyeler;
   let alt = '';
-  if (z && !z.hata) {
+  if (z && !z.hata && s) {
     const yontemler = z.yontemler.map(m => {
       const p = m.puan || 0, gen = Math.abs(p) / 2 * 50;
       const renk = p > 0 ? '#10b981' : p < 0 ? '#ef4444' : '#64748b';
@@ -913,7 +914,6 @@ function detayCiz() {
         <div class="yorum">${esc(m.yorum)}</div>
       </div>`;
     }).join('');
-    const s = z.seviyeler;
     const t = z.tuzak;
     const b = z.balina || { seviye: 'Doğal Akış', renk: '#94a3b8', ikon: '🌊', mesaj: 'Normal piyasa hareketi.' };
     const fib = z.fibonacci;
@@ -1174,14 +1174,24 @@ function okCizCanvas(ctx, fromX, fromY, toX, toY, color) {
 
 function gorselStratejiGrafikCiz(z, s, v) {
   const canvas = document.getElementById('detayStratejiCanvas');
-  if (!canvas || !s) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
+  if (!canvas || !s) {
+    if (!canvas && document.getElementById('dIcerik')) {
+      setTimeout(() => {
+        const c2 = document.getElementById('detayStratejiCanvas');
+        if (c2) gorselStratejiGrafikCiz(z, s, v);
+      }, 100);
+    }
+    return;
+  }
 
-  // Arka planı temizle
-  ctx.fillStyle = '#0a0e17';
-  ctx.fillRect(0, 0, w, h);
+  try {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Arka planı temizle
+    ctx.fillStyle = '#0a0e17';
+    ctx.fillRect(0, 0, w, h);
 
   // Mum verisi hazırlığı (Gerçek z.mumlar veya destek/dirence göre dinamik simülasyon)
   let mumlar = (z.mumlar && z.mumlar.length >= 8) ? [...z.mumlar.slice(-24)] : [];
@@ -1435,6 +1445,9 @@ function gorselStratejiGrafikCiz(z, s, v) {
     ctx.font = 'bold 10px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(sayi(s.fiyat), padSol + cizimW + (padSag / 2) - 1, curY + 3);
+  }
+  } catch (err) {
+    console.error('Grafik çizim hatası:', err);
   }
 }
 
