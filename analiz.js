@@ -490,7 +490,7 @@ function analizEt(setler, benchSet, bilgi) {
     stop = Math.max(stop, c - 3 * a);
     const risk = c - stop;
     let hedef = sv.direnc && sv.direnc - c > risk * 1.2 ? sv.direnc : c + 2 * risk;
-    const hedef2 = sv.direnc2 && sv.direnc2 > hedef ? sv.direnc2 : c + 3 * risk;
+    let hedef2 = sv.direnc2 && sv.direnc2 > hedef ? sv.direnc2 : c + 3 * risk;
 
     // Short (Satış / Açığa / Düşüş) Seviyeleri (Kripto, Emtia ve Forex için)
     let satisStop = Math.max(c + 1.5 * a, (sv.direnc ?? c) + 0.3 * a);

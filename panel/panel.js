@@ -1697,6 +1697,31 @@ function demoYerelOku() {
         if (!k.kaldirac) k.kaldirac = 1;
         if (k.karZarar == null) k.karZarar = k.karZararTL || 0;
       });
+      // Eski tek kasadan çift kasaya geçişte oluşan bakiye kaymasını tek seferlik düzelt (açık/kapalı işlemler korunur)
+      if (!p.kasaMutabakatV1) {
+        const basTL = p.baslangicTL ?? VARSAYILAN_TL_KASA;
+        const basUSD = p.baslangicUSD ?? VARSAYILAN_USD_KASA;
+        let kapaliKarTL = 0, kapaliKarUSD = 0;
+        (p.kapananIslemler || []).forEach(k => {
+          const b = k.paraBirimi || paraBirimiAl(k.sembol);
+          const kz = Number(k.karZarar ?? k.karZararTL ?? 0);
+          if (b === '$') kapaliKarUSD += kz;
+          else kapaliKarTL += kz;
+        });
+        let acikTeminatTL = 0, acikTeminatUSD = 0;
+        (p.acikPozisyonlar || []).forEach(poz => {
+          const b = poz.paraBirimi || paraBirimiAl(poz.sembol);
+          const tem = Number(poz.teminat || +(poz.adet * poz.alisFiyat / (poz.kaldirac || 1)).toFixed(2));
+          if (b === '$') acikTeminatUSD += tem;
+          else acikTeminatTL += tem;
+        });
+        p.baslangicTL = basTL;
+        p.baslangicUSD = basUSD;
+        p.bakiyeTL = +(basTL + kapaliKarTL - acikTeminatTL).toFixed(2);
+        p.bakiyeUSD = +(basUSD + kapaliKarUSD - acikTeminatUSD).toFixed(2);
+        p.kasaMutabakatV1 = true;
+        demoYerelKaydet(p);
+      }
       return p;
     }
   } catch (_) {}
