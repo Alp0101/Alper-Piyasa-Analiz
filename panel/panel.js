@@ -2448,6 +2448,36 @@ function emirHesapla() {
   const isShort = aktifEmirYonu === 'SHORT';
   let risk = 0, kazanc = 0, rr = 0, gecerli = false;
 
+  // Yüzdesel Mesafeleri Hesapla ve Göstergelere / Giriş Alanlarına Yansıt
+  let stopYuzde = 0;
+  let hedefYuzde = 0;
+
+  if (f > 0 && stop > 0) {
+    stopYuzde = isShort ? ((stop - f) / f) * 100 : ((f - stop) / f) * 100;
+  }
+  if (f > 0 && hedef > 0) {
+    hedefYuzde = isShort ? ((f - hedef) / f) * 100 : ((hedef - f) / f) * 100;
+  }
+
+  const stopRozet = $('#emirStopYuzdeRozet');
+  if (stopRozet) {
+    stopRozet.textContent = stopYuzde !== 0 ? `-%${Math.abs(stopYuzde).toFixed(2)}` : '—';
+  }
+  const hedefRozet = $('#emirHedefYuzdeRozet');
+  if (hedefRozet) {
+    hedefRozet.textContent = hedefYuzde !== 0 ? `+%${Math.abs(hedefYuzde).toFixed(2)}` : '—';
+  }
+
+  // Kullanıcı yüzde alanında yazmıyorsa otomatik senkronize et
+  const stopYuzdeInput = $('#emirStopYuzde');
+  if (stopYuzdeInput && document.activeElement !== stopYuzdeInput) {
+    stopYuzdeInput.value = stopYuzde > 0 ? stopYuzde.toFixed(2) : '';
+  }
+  const hedefYuzdeInput = $('#emirHedefYuzde');
+  if (hedefYuzdeInput && document.activeElement !== hedefYuzdeInput) {
+    hedefYuzdeInput.value = hedefYuzde > 0 ? hedefYuzde.toFixed(2) : '';
+  }
+
   if (isShort) {
     if (f > 0 && stop > 0 && hedef > 0 && stop > f && f > hedef) {
       risk = +( (stop - f) * adet ).toFixed(2);
@@ -2465,18 +2495,81 @@ function emirHesapla() {
   }
 
   if (gecerli) {
+    const kazancYuzde = teminat > 0 ? +((kazanc / teminat) * 100).toFixed(2) : 0;
+    const riskYuzde = teminat > 0 ? +((risk / teminat) * 100).toFixed(2) : 0;
+
     $('#emirRiskOdul').textContent = `1 : ${sayi(rr, 2)}`;
-    $('#emirOlasiKarZarar').innerHTML = `<span class="art">+${sayi(kazanc, 2)} ${birim}</span> / <span class="eks">-${sayi(risk, 2)} ${birim}</span>`;
+    $('#emirOlasiKarZarar').innerHTML = `<span class="art">+${sayi(kazanc, 2)} ${birim} (+%${sayi(kazancYuzde, 2)})</span> / <span class="eks">-${sayi(risk, 2)} ${birim} (-%${sayi(riskYuzde, 2)})</span>`;
   } else {
     $('#emirRiskOdul').textContent = '—';
     $('#emirOlasiKarZarar').textContent = '—';
   }
 }
 
+function fiyatHassasiyetiAl(f) {
+  if (!f || isNaN(f)) return 2;
+  const av = Math.abs(f);
+  if (av >= 100) return 2;
+  if (av >= 1) return 2;
+  if (av >= 0.1) return 4;
+  if (av >= 0.001) return 6;
+  return 8;
+}
+
 $('#emirAlisFiyat').oninput = emirHesapla;
 $('#emirAdet').oninput = emirHesapla;
 $('#emirStopFiyat').oninput = emirHesapla;
 $('#emirHedefFiyat').oninput = emirHesapla;
+
+if ($('#emirStopYuzde')) {
+  $('#emirStopYuzde').oninput = () => {
+    const f = parseFloat($('#emirAlisFiyat').value) || 0;
+    const yuzde = parseFloat($('#emirStopYuzde').value);
+    if (f <= 0 || isNaN(yuzde) || yuzde <= 0) return;
+    const hs = fiyatHassasiyetiAl(f);
+    const isShort = aktifEmirYonu === 'SHORT';
+    const stopFiyat = isShort ? +(f * (1 + yuzde / 100)).toFixed(hs) : +(f * (1 - yuzde / 100)).toFixed(hs);
+    $('#emirStopFiyat').value = stopFiyat;
+    emirHesapla();
+  };
+}
+
+if ($('#emirHedefYuzde')) {
+  $('#emirHedefYuzde').oninput = () => {
+    const f = parseFloat($('#emirAlisFiyat').value) || 0;
+    const yuzde = parseFloat($('#emirHedefYuzde').value);
+    if (f <= 0 || isNaN(yuzde) || yuzde <= 0) return;
+    const hs = fiyatHassasiyetiAl(f);
+    const isShort = aktifEmirYonu === 'SHORT';
+    const hedefFiyat = isShort ? +(f * (1 - yuzde / 100)).toFixed(hs) : +(f * (1 + yuzde / 100)).toFixed(hs);
+    $('#emirHedefFiyat').value = hedefFiyat;
+    emirHesapla();
+  };
+}
+
+// Hızlı % butonları tıklamaları (%1, %2, %3, %5, %10)
+document.addEventListener('click', e => {
+  const sBtn = e.target.closest('.stop-yuzde-btn');
+  if (sBtn) {
+    const y = sBtn.dataset.yuzde;
+    const sInput = $('#emirStopYuzde');
+    if (sInput) {
+      sInput.value = y;
+      sInput.dispatchEvent(new Event('input'));
+    }
+    return;
+  }
+  const hBtn = e.target.closest('.hedef-yuzde-btn');
+  if (hBtn) {
+    const y = hBtn.dataset.yuzde;
+    const hInput = $('#emirHedefYuzde');
+    if (hInput) {
+      hInput.value = y;
+      hInput.dispatchEvent(new Event('input'));
+    }
+    return;
+  }
+});
 
 $('#emirKapatBtn').onclick = () => {
   $('#demoEmirModal').classList.add('gizli');

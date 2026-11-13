@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alper'in Piyasa Takip Asistanı (Kendine Özel Y.T.D)</title>
-<link rel="stylesheet" href="panel.css?v=2.5">
+<link rel="stylesheet" href="panel.css?v=2.6">
 </head>
 <body>
 <header class="ust">
@@ -219,14 +219,56 @@
           <div id="emirTeminatTutar" style="font-size:15px; font-weight:bold; margin-top:10px; color:#38bdf8;">—</div>
         </div>
       </div>
+      <!-- Zarar-Kes (Stop) ve Kâr Al (Hedef) Fiyat ve Yüzde Alanları -->
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-        <div>
-          <label id="emirStopEtiket" class="kucuk" style="color:#ef4444;">🛑 Zarar-Kes (Stop)</label>
-          <input type="number" step="any" id="emirStopFiyat" style="width:100%; border-color:#ef444466; margin-top:4px;">
+        <!-- Stop Kutusu -->
+        <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:8px 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label id="emirStopEtiket" class="kucuk" style="color:#ef4444; font-weight:bold;">🛑 Zarar-Kes (Stop)</label>
+            <span id="emirStopYuzdeRozet" class="kucuk" style="color:#f87171; font-weight:bold; font-size:11px;">-%0.00</span>
+          </div>
+          <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:6px; margin-top:4px;">
+            <div>
+              <span class="kucuk" style="color:#94a3b8; font-size:10.5px; display:block;">Fiyat</span>
+              <input type="number" step="any" id="emirStopFiyat" style="width:100%; border-color:#ef444466; font-size:13.5px; padding:5px 6px;">
+            </div>
+            <div>
+              <span class="kucuk" style="color:#fca5a5; font-size:10.5px; font-weight:bold; display:block;">% Stop</span>
+              <input type="number" step="0.1" id="emirStopYuzde" placeholder="% 2" style="width:100%; border-color:#ef444466; color:#f87171; font-weight:bold; font-size:13.5px; padding:5px 6px;">
+            </div>
+          </div>
+          <!-- Hızlı % Butonları -->
+          <div style="display:flex; gap:4px; margin-top:6px;">
+            <button type="button" class="btn ikincil stop-yuzde-btn" data-yuzde="1" style="flex:1; padding:2px; font-size:10.5px; color:#fca5a5;">%1</button>
+            <button type="button" class="btn ikincil stop-yuzde-btn" data-yuzde="2" style="flex:1; padding:2px; font-size:10.5px; color:#fca5a5;">%2</button>
+            <button type="button" class="btn ikincil stop-yuzde-btn" data-yuzde="3" style="flex:1; padding:2px; font-size:10.5px; color:#fca5a5;">%3</button>
+            <button type="button" class="btn ikincil stop-yuzde-btn" data-yuzde="5" style="flex:1; padding:2px; font-size:10.5px; color:#fca5a5;">%5</button>
+          </div>
         </div>
-        <div>
-          <label id="emirHedefEtiket" class="kucuk" style="color:#10b981;">🎯 Kâr Al (Hedef)</label>
-          <input type="number" step="any" id="emirHedefFiyat" style="width:100%; border-color:#10b98166; margin-top:4px;">
+
+        <!-- Hedef Kutusu -->
+        <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:8px 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label id="emirHedefEtiket" class="kucuk" style="color:#10b981; font-weight:bold;">🎯 Kâr Al (Hedef)</label>
+            <span id="emirHedefYuzdeRozet" class="kucuk" style="color:#34d399; font-weight:bold; font-size:11px;">+%0.00</span>
+          </div>
+          <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:6px; margin-top:4px;">
+            <div>
+              <span class="kucuk" style="color:#94a3b8; font-size:10.5px; display:block;">Fiyat</span>
+              <input type="number" step="any" id="emirHedefFiyat" style="width:100%; border-color:#10b98166; font-size:13.5px; padding:5px 6px;">
+            </div>
+            <div>
+              <span class="kucuk" style="color:#86efac; font-size:10.5px; font-weight:bold; display:block;">% Kâr</span>
+              <input type="number" step="0.1" id="emirHedefYuzde" placeholder="% 4" style="width:100%; border-color:#10b98166; color:#34d399; font-weight:bold; font-size:13.5px; padding:5px 6px;">
+            </div>
+          </div>
+          <!-- Hızlı % Butonları -->
+          <div style="display:flex; gap:4px; margin-top:6px;">
+            <button type="button" class="btn ikincil hedef-yuzde-btn" data-yuzde="2" style="flex:1; padding:2px; font-size:10.5px; color:#86efac;">%2</button>
+            <button type="button" class="btn ikincil hedef-yuzde-btn" data-yuzde="4" style="flex:1; padding:2px; font-size:10.5px; color:#86efac;">%4</button>
+            <button type="button" class="btn ikincil hedef-yuzde-btn" data-yuzde="6" style="flex:1; padding:2px; font-size:10.5px; color:#86efac;">%6</button>
+            <button type="button" class="btn ikincil hedef-yuzde-btn" data-yuzde="10" style="flex:1; padding:2px; font-size:10.5px; color:#86efac;">%10</button>
+          </div>
         </div>
       </div>
       <div class="kutu" style="margin: 6px 0 0; padding:10px; background:#0d1322;">
@@ -600,7 +642,7 @@
 </section>
 
 <div id="bildirim" class="bildirim gizli"></div>
-<script src="panel.js?v=2.5"></script>
+<script src="panel.js?v=2.6"></script>
 </body>
 </html>
 
