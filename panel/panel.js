@@ -2847,7 +2847,10 @@ function radarVeSniperDegisimKontrol(satirlar) {
     const tg = y.g1 || 0;
     const rsi4h = r.rsi?.s4 || 50;
 
+    const isBist = r.id?.startsWith('BIST:');
+    const birim = paraBirimiAl(r.id);
     const sniperKey = `${r.id}_sniper`;
+    const sniperShortKey = `${r.id}_sniper_short`;
     const firsatKey = `${r.id}_firsat`;
 
     // 1. İLK TARAMA (Sayfa yeni açıldıysa veya başka listeye/kriptoya ilk geçildiyse):
@@ -2855,6 +2858,9 @@ function radarVeSniperDegisimKontrol(satirlar) {
     if (ilkKezTaranıyor) {
       if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
         oturumGorulenBildirimler.add(sniperKey);
+      }
+      if (!isBist && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 55 && rsi4h >= 32) {
+        oturumGorulenBildirimler.add(sniperShortKey);
       }
       if (r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo')) {
         oturumGorulenBildirimler.add(firsatKey);
@@ -2869,10 +2875,25 @@ function radarVeSniperDegisimKontrol(satirlar) {
         oturumGorulenBildirimler.add(sniperKey);
         yeniBildirimEkle(
           `🎯 YENİ SNIPER FIRSATI`,
-          `${r.kod} (${r.ad || ''}) tüm periyotlarda AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)} ₺`,
+          `${r.kod} (${r.ad || ''}) tüm periyotlarda AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)} ${birim}`,
           'sniper',
           r.id,
-          r.fiyat
+          r.fiyat,
+          'LONG'
+        );
+      }
+    }
+
+    if (!isBist && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 55 && rsi4h >= 32) {
+      if (!oturumGorulenBildirimler.has(sniperShortKey)) {
+        oturumGorulenBildirimler.add(sniperShortKey);
+        yeniBildirimEkle(
+          `🎯 ⬇️ YENİ SNIPER SHORT FIRSATI`,
+          `${r.kod} (${r.ad || ''}) tüm periyotlarda SAT yakarak Sniper Short radarına girdi! Fiyat: ${sayi(r.fiyat)} ${birim}`,
+          'sniper',
+          r.id,
+          r.fiyat,
+          'SHORT'
         );
       }
     }
@@ -2882,10 +2903,11 @@ function radarVeSniperDegisimKontrol(satirlar) {
         oturumGorulenBildirimler.add(firsatKey);
         yeniBildirimEkle(
           `🟢 RADARA YENİ GİRİŞ`,
-          `${r.kod} (${r.ad || ''}) hacim ve indikatör onayı alarak Fırsat Radarına girdi! Fiyat: ${sayi(r.fiyat)} ₺`,
+          `${r.kod} (${r.ad || ''}) hacim ve indikatör onayı alarak Fırsat Radarına girdi! Fiyat: ${sayi(r.fiyat)} ${birim}`,
           'firsat',
           r.id,
-          r.fiyat
+          r.fiyat,
+          'LONG'
         );
       }
     }

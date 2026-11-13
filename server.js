@@ -283,10 +283,13 @@ const sunucu = http.createServer(async (req, res) => {
         (satirlar || []).forEach(r => {
           if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat;
           const t = r.tv || {};
+          const isBist = r.id?.startsWith('BIST:');
+          const birim = isBist ? '₺' : '$';
           const isSniper = (t.s2 > 0 && t.s4 > 0 && t.g1 > 0 && (r.rsi?.s4 || 50) >= 48 && (r.rsi?.s4 || 50) <= 65 && (r.hizliPuan || 0) >= 70);
+          const isSniperShort = !isBist && (t.s2 < 0 && t.s4 < 0 && t.g1 < 0 && (r.rsi?.s4 || 50) <= 52 && (r.rsi?.s4 || 50) >= 32 && (r.hizliPuan || 0) <= -70);
           const isKombo = r.isaretler?.some(i => i.tip === 'kombo');
           const isAlfa = r.isaretler?.some(i => i.tip === 'ozel_alfa');
-          const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:'));
+          const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:'));
           if ((isSniper || isKombo || isAlfa) && uygunFiyat) {
             const sTipi = isKombo ? '⭐ Özel Kombo' : (isSniper ? '🎯 Sniper Long' : '🛡️ Alfa Gücü');
             GunlukRapor.sinyalKaydet({
@@ -301,9 +304,30 @@ const sunucu = http.createServer(async (req, res) => {
             });
             BildirimServisi.bildirimEkle({
               baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : (isKombo ? '⭐ ÖZEL KOMBO SİNYALİ' : '🛡️ ALFA GÜCÜ ONAYI'),
-              mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda AL yakarak Sniper Avcısına girdi!' : (isKombo ? 'hacim ve indikatör kombo onayı aldı!' : 'yüksek güç momentumu yakaladı!')} Fiyat: ${r.fiyat} ₺`,
+              mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda AL yakarak Sniper Avcısına girdi!' : (isKombo ? 'hacim ve indikatör kombo onayı aldı!' : 'yüksek güç momentumu yakaladı!')} Fiyat: ${r.fiyat} ${birim}`,
               tur: isSniper ? 'sniper' : (isKombo ? 'firsat' : 'alfa'),
               yon: 'LONG',
+              sembolId: r.id,
+              kod: r.kod,
+              ad: r.ad,
+              fiyat: r.fiyat
+            });
+          } else if (isSniperShort && uygunFiyat) {
+            GunlukRapor.sinyalKaydet({
+              sembol: r.id,
+              ad: r.ad,
+              tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') ? 'emtia' : 'forex'),
+              yon: 'SAT',
+              sinyalTipi: '🎯 Sniper Short',
+              fiyat: r.fiyat,
+              hedefFiyat: +(r.fiyat * 0.965).toFixed(4),
+              stopFiyat: +(r.fiyat * 1.035).toFixed(4)
+            });
+            BildirimServisi.bildirimEkle({
+              baslik: '🎯 ⬇️ YENİ SNIPER SHORT FIRSATI',
+              mesaj: `${r.kod} (${r.ad || ''}) tüm periyotlarda SAT yakarak Sniper Short radarına girdi! Fiyat: ${r.fiyat} ${birim}`,
+              tur: 'sniper',
+              yon: 'SHORT',
               sembolId: r.id,
               kod: r.kod,
               ad: r.ad,
