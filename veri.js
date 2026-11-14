@@ -222,13 +222,23 @@ async function yahooMum(kod, interval, range) {
 
 async function binanceMum(kod, interval) {
   // api.binance.com ABD sunucularında (Render) 451 engeli verir.
-  // Bu yüzden sırasıyla OKX (Global Derinlik) -> Bybit Spot -> Binance.US -> Global Binance -> Yahoo Crypto yedekli çalışır.
+  // data-api.binance.vision ise Binance'in ABD/Render dahil tüm bölgelerden açık resmi piyasa verisi sunucusudur.
+  // Yedekler: Binance Vision -> OKX -> Bybit Spot -> Binance.US -> Global Binance -> Yahoo Crypto
   const intervalMap = { '15m': '15m', '1h': '1h', '2h': '2h', '4h': '4h', '1d': '1d', '1w': '1w', '1M': '1M' };
   const intv = intervalMap[interval] || interval;
   const coin = kod.replace(/USDT$/, '');
 
   return onbellekli(`kripto:${kod}:${intv}`, 2 * 60_000, async () => {
-    // 1. Kaynak: OKX (Dünya genelinde ve ABD sunucularında açık, tam global hacim ve derinlik)
+    // 1. Kaynak: Binance Data Vision (Tüm Binance coinleri için ABD/Render engeli olmadan birebir veri)
+    try {
+      const url = `https://data-api.binance.vision/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
+      const j = await getJson(url);
+      if (Array.isArray(j) && j.length > 0) {
+        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+      }
+    } catch (_) {}
+
+    // 2. Kaynak: OKX (Yedek)
     try {
       const okxBarMap = { '15m': '15m', '1h': '1H', '2h': '2H', '4h': '4H', '1d': '1D', '1w': '1W', '1M': '1M' };
       const bar = okxBarMap[intv] || '1H';
