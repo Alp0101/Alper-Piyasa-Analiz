@@ -4008,7 +4008,7 @@ function raporArayuzunuCiz() {
           <td style="padding:8px 8px; color:#c7d2fe; font-size:12px;">${esc(s.sinyalTipi)}</td>
           <td class="sag" style="padding:8px 8px; font-weight:600; font-size:12px;">${sayi(s.girisFiyat)}</td>
           <td class="sag" style="padding:8px 8px; font-weight:700; color:#fff; font-size:12px;">${sayi(s.anlikFiyat)}</td>
-          <td class="sag" style="padding:8px 8px; color:#38bdf8; font-weight:600; font-size:12px;">${sayi(s.gunYuksek)} (${s.maxKarYuzde >= 0 ? '+' : ''}%${s.maxKarYuzde})</td>
+          <td class="sag" style="padding:8px 8px; color:#38bdf8; font-weight:600; font-size:12px;">${sayi(s.yon === 'SAT' ? (s.gunDusuk ?? s.gunYuksek) : s.gunYuksek)} (${s.maxKarYuzde >= 0 ? '+' : ''}%${s.maxKarYuzde})</td>
           <td class="sag" style="padding:8px 8px; font-weight:800; color:${oranRenk}; font-size:12.5px;">${s.degisimYuzde >= 0 ? '+' : ''}%${s.degisimYuzde}</td>
           <td class="orta" style="padding:8px 8px;"><span style="color:${durumRenk}; font-weight:700; font-size:11px; padding:3px 8px; background:${durumRenk}20; border-radius:8px;">${esc(s.durum)}</span></td>
         </tr>
@@ -4031,7 +4031,7 @@ function raporArayuzunuCiz() {
           <div style="display:flex; justify-content:space-between; align-items:center; background:#090d16; padding:6px 10px; border-radius:6px; margin-top:4px; font-size:11.5px;">
             <div><span style="color:#64748b;">Giriş:</span> <b style="color:#e2e8f0;">${sayi(s.girisFiyat)}</b></div>
             <div><span style="color:#64748b;">Son:</span> <b style="color:#fff;">${sayi(s.anlikFiyat)}</b></div>
-            <div><span style="color:#64748b;">Zirve:</span> <b style="color:#38bdf8;">${sayi(s.gunYuksek)}</b></div>
+            <div><span style="color:#64748b;">Zirve:</span> <b style="color:#38bdf8;">${sayi(s.yon === 'SAT' ? (s.gunDusuk ?? s.gunYuksek) : s.gunYuksek)}</b></div>
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:11px;">
             <span style="color:#a5b4fc;">${esc(s.sinyalTipi)}</span>
