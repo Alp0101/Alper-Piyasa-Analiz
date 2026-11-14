@@ -834,6 +834,101 @@ function sniperMatrisiHesapla(zamanDilimleri) {
   </div>`;
 }
 
+// ================= İşlem Öncesi Güvenlik Kontrol Özeti =================
+function girisKontrolKarti(v, z, anaSatir) {
+  if (!v || !z || z.hata || !z.seviyeler) return '';
+  const s = z.seviyeler;
+  const bench = anaSatir?.benchDegisim;
+  const gh = anaSatir?.goreceliHacim;
+  const tuzakSev = z.tuzak?.seviye || 'Düşük';
+  const s4 = v.zamanDilimleri?.s4;
+  const g1 = v.zamanDilimleri?.g1;
+  const rr = (s.alimHedef > s.fiyat && s.alimStop < s.fiyat)
+    ? (s.alimHedef - s.fiyat) / (s.fiyat - s.alimStop)
+    : 0;
+
+  const maddeler = [];
+  // 1. Piyasa Rejimi
+  if (bench == null) {
+    maddeler.push({ ikon: '⚪', ad: 'Piyasa Rejimi', durum: 'Veri yok', renk: '#94a3b8' });
+  } else if (bench <= -2.0) {
+    maddeler.push({ ikon: '🔴', ad: 'Piyasa Rejimi', durum: `Sert Satış (${bench >= 0 ? '+' : ''}%${bench.toFixed(2)})`, renk: '#ef4444' });
+  } else if (bench <= -0.8) {
+    maddeler.push({ ikon: '🟡', ad: 'Piyasa Rejimi', durum: `Zayıf (${bench >= 0 ? '+' : ''}%${bench.toFixed(2)})`, renk: '#f59e0b' });
+  } else {
+    maddeler.push({ ikon: '🟢', ad: 'Piyasa Rejimi', durum: `Destekleyici (${bench >= 0 ? '+' : ''}%${bench.toFixed(2)})`, renk: '#10b981' });
+  }
+
+  // 2. Hacim Desteği
+  if (gh == null) {
+    maddeler.push({ ikon: '⚪', ad: 'Hacim', durum: 'Ölçülmedi', renk: '#94a3b8' });
+  } else if (gh >= 1.2) {
+    maddeler.push({ ikon: '🟢', ad: 'Hacim', durum: `Güçlü (${gh.toFixed(2)}x)`, renk: '#10b981' });
+  } else if (gh >= 0.85) {
+    maddeler.push({ ikon: '🟡', ad: 'Hacim', durum: `Normal (${gh.toFixed(2)}x)`, renk: '#f59e0b' });
+  } else {
+    maddeler.push({ ikon: '🔴', ad: 'Hacim', durum: `Sığ (${gh.toFixed(2)}x)`, renk: '#ef4444' });
+  }
+
+  // 3. Tuzak Kontrolü
+  if (tuzakSev === 'Yüksek') {
+    maddeler.push({ ikon: '🔴', ad: 'Tuzak Riski', durum: 'Yüksek (Dikkat!)', renk: '#ef4444' });
+  } else if (tuzakSev === 'Orta') {
+    maddeler.push({ ikon: '🟡', ad: 'Tuzak Riski', durum: 'Orta', renk: '#f59e0b' });
+  } else {
+    maddeler.push({ ikon: '🟢', ad: 'Tuzak Riski', durum: 'Temiz', renk: '#10b981' });
+  }
+
+  // 4. Trend Uyumu (4S + Günlük)
+  const s4P = s4?.skor ?? 0;
+  const g1P = g1?.skor ?? 0;
+  if (s4P >= 20 && g1P >= 15) {
+    maddeler.push({ ikon: '🟢', ad: 'Trend Uyumu', durum: `4S & 1G Güçlü (+${s4P} / +${g1P})`, renk: '#10b981' });
+  } else if (s4P <= -20 && g1P <= -15) {
+    maddeler.push({ ikon: '🔴', ad: 'Trend Uyumu', durum: `Düşüş Trendi (${s4P} / ${g1P})`, renk: '#ef4444' });
+  } else {
+    maddeler.push({ ikon: '🟡', ad: 'Trend Uyumu', durum: `Kararsız (${s4P} / ${g1P})`, renk: '#f59e0b' });
+  }
+
+  // 5. Risk / Ödül
+  if (rr >= 1.5) {
+    maddeler.push({ ikon: '🟢', ad: 'Risk / Ödül', durum: `İyi (1 : ${rr.toFixed(2)})`, renk: '#10b981' });
+  } else if (rr >= 1.1) {
+    maddeler.push({ ikon: '🟡', ad: 'Risk / Ödül', durum: `Dar (1 : ${rr.toFixed(2)})`, renk: '#f59e0b' });
+  } else {
+    maddeler.push({ ikon: '🔴', ad: 'Risk / Ödül', durum: 'Yetersiz', renk: '#ef4444' });
+  }
+
+  const yesilSayisi = maddeler.filter(m => m.ikon === '🟢').length;
+  const kirmiziSayisi = maddeler.filter(m => m.ikon === '🔴').length;
+
+  let kararMetni = '🟡 DİKKATLİ GİR / ONAY BEKLE';
+  let kararRenk = '#f59e0b';
+  if (tuzakSev === 'Yüksek' || (bench != null && bench <= -2.0) || kirmiziSayisi >= 2) {
+    kararMetni = '🔴 BEKLE / GİRİŞ RİSKLİ';
+    kararRenk = '#ef4444';
+  } else if (yesilSayisi >= 4 && kirmiziSayisi === 0) {
+    kararMetni = '🟢 GİRİŞE UYGUN (KALİTELİ KURULUM)';
+    kararRenk = '#10b981';
+  }
+
+  return `
+  <div class="kutu" style="background:rgba(15, 23, 42, 0.92); border:1px solid ${kararRenk}66; border-left:4px solid ${kararRenk}; margin-bottom:16px; padding:12px 16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+      <div style="font-size:13.5px; font-weight:bold; color:#e2e8f0;">🛡️ İşlem Öncesi Doğrulama Özeti</div>
+      <span style="background:${kararRenk}22; color:${kararRenk}; border:1px solid ${kararRenk}66; padding:3px 10px; border-radius:14px; font-size:11.5px; font-weight:bold;">${kararMetni}</span>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap:8px;">
+      ${maddeler.map(m => `
+        <div style="background:rgba(0,0,0,0.28); padding:7px 10px; border-radius:8px; border:1px solid #1e293b;">
+          <div style="font-size:11px; color:#94a3b8;">${m.ikon} ${m.ad}</div>
+          <div style="font-size:12px; font-weight:bold; color:${m.renk}; margin-top:2px;">${m.durum}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
 // ================= Canlı Açık Pozisyon Risk Değerlendirmesi =================
 function pozisyonRiskKarti(poz, z, v) {
   if (!poz || !z || !z.seviyeler) return '';
@@ -1216,7 +1311,7 @@ function detayCiz() {
     <div class="uyari">Son mum: ${new Date(z.sonMum).toLocaleString('tr-TR')} · ${z.mumSayisi} mum incelendi. Bu analiz bir karar destek aracıdır, yatırım tavsiyesi değildir. Son karar her zaman sizindir.</div>`;
   }
   const poz = (demoPortfoyVerisi?.acikPozisyonlar || []).find(x => x.sembol === v.sembol);
-  const riskKartiHtml = poz ? pozisyonRiskKarti(poz, z, v) : '';
+  const riskKartiHtml = poz ? pozisyonRiskKarti(poz, z, v) : girisKontrolKarti(v, z, anaSatir);
   $('#dIcerik').innerHTML = `${riskKartiHtml}<div class="tf-ozet">${ozet}</div>${sniperHtml || ''}${alt}`;
   if (z && !z.hata && s) {
     D.sonDetayGorsel = { z, s, v };
@@ -2626,6 +2721,39 @@ function emirHesapla() {
     $('#emirRiskOdul').textContent = '—';
     $('#emirOlasiKarZarar').textContent = '—';
   }
+
+  // Akıllı Giriş & FOMO / Risk-Ödül Uyarıları
+  const uyariKutu = $('#emirAkilliUyari');
+  if (uyariKutu) {
+    const uyarilar = [];
+    if (gecerli && rr < 1.3) {
+      uyarilar.push(`⚠️ <b>Düşük Risk/Ödül Oranı (1 : ${sayi(rr, 2)}):</b> Potansiyel kâr, alınan riske göre dar (en az 1 : 1.50 önerilir).`);
+    }
+    const anaSatir = v ? D.satirlar.find(x => x.id === v.sembol) : null;
+    const deg = anaSatir?.degisim;
+    if (deg != null && isFinite(deg)) {
+      if (!isShort && deg >= 6.0) {
+        uyarilar.push(`⚠️ <b>Tepeden Alım (FOMO) Riski:</b> Varlık bugün zaten +%${deg.toFixed(1)} primli; geri çekilme beklemek daha güvenli olabilir.`);
+      } else if (isShort && deg <= -6.0) {
+        uyarilar.push(`⚠️ <b>Dipten Short Riski:</b> Varlık bugün zaten -%${Math.abs(deg).toFixed(1)} düşmüş; tepki sıçramasına dikkat.`);
+      }
+    }
+    if (v && f > 0) {
+      const bist = bistTabanTavanHesapla(v.sembol, f, deg, v.zamanDilimleri?.g1);
+      if (bist && !isShort && bist.tavan > 0) {
+        const tavanaKalan = ((bist.tavan - f) / f) * 100;
+        if (tavanaKalan >= 0 && tavanaKalan <= 1.5) {
+          uyarilar.push(`⚠️ <b>Tavana Çok Yakın:</b> Günlük tavana yalnızca %${tavanaKalan.toFixed(2)} mesafe kaldı; gün içi yukarı marj sınırlı.`);
+        }
+      }
+    }
+    if (uyarilar.length > 0) {
+      uyariKutu.innerHTML = uyarilar.join('<br>');
+      uyariKutu.classList.remove('gizli');
+    } else {
+      uyariKutu.classList.add('gizli');
+    }
+  }
 }
 
 function fiyatHassasiyetiAl(f) {
@@ -2648,6 +2776,48 @@ if ($('#emirCanliFiyatKutu')) {
     }
   };
 }
+document.querySelectorAll('.emir-risk-btn').forEach(btn => {
+  btn.onclick = () => {
+    const v = D.detayVeri;
+    const birim = v ? paraBirimiAl(v.sembol) : '₺';
+    const p = demoPortfoyOku();
+    const kasaNakit = birim === '$' ? (p.bakiyeUSD || 0) : (p.bakiyeTL || 0);
+    const f = parseFloat($('#emirAlisFiyat').value) || 0;
+    const stop = parseFloat($('#emirStopFiyat').value) || 0;
+    const kOran = parseInt($('#emirKaldirac')?.value) || 1;
+    if (f <= 0 || kasaNakit <= 0) return;
+
+    const mod = btn.dataset.mod;
+    let adet = 0;
+    if (mod === 'kasa5') {
+      adet = ((kasaNakit * 0.05) * kOran) / f;
+    } else {
+      const riskOran = mod === 'risk2' ? 0.02 : 0.01;
+      const stopMesafe = Math.abs(f - stop);
+      if (stop <= 0 || stopMesafe <= 0) {
+        return bildir('⚠️ Risk hesabı için geçerli bir Stop (Zarar-Kes) fiyatı girilmelidir.');
+      }
+      adet = (kasaNakit * riskOran) / stopMesafe;
+      const maxTeminatAdet = ((kasaNakit * 0.95) * kOran) / f;
+      if (adet > maxTeminatAdet) adet = maxTeminatAdet;
+    }
+
+    if (birim === '₺') {
+      adet = Math.max(1, Math.floor(adet));
+    } else if (f >= 1000) {
+      adet = Math.max(0.001, +adet.toFixed(3));
+    } else if (f >= 10) {
+      adet = Math.max(0.01, +adet.toFixed(2));
+    } else if (f >= 0.1) {
+      adet = Math.max(0.1, +adet.toFixed(1));
+    } else {
+      adet = Math.max(1, Math.round(adet));
+    }
+
+    $('#emirAdet').value = adet;
+    emirHesapla();
+  };
+});
 $('#emirAdet').oninput = emirHesapla;
 $('#emirStopFiyat').oninput = emirHesapla;
 $('#emirHedefFiyat').oninput = emirHesapla;

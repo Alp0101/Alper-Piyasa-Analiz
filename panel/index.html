@@ -222,6 +222,11 @@
         <div>
           <label class="kucuk">Adet (Ondalık girilebilir)</label>
           <input type="number" step="any" id="emirAdet" style="width:100%; font-size:15px; margin-top:4px;" value="1">
+          <div style="display:flex; gap:4px; margin-top:5px;">
+            <button type="button" class="btn ikincil emir-risk-btn" data-mod="risk1" style="flex:1; padding:2px 4px; font-size:10.5px; color:#38bdf8;" title="Stop olursanız kasanın en fazla %1'i kaybedilecek adedi hesaplar">%1 Risk</button>
+            <button type="button" class="btn ikincil emir-risk-btn" data-mod="risk2" style="flex:1; padding:2px 4px; font-size:10.5px; color:#38bdf8;" title="Stop olursanız kasanın en fazla %2'si kaybedilecek adedi hesaplar">%2 Risk</button>
+            <button type="button" class="btn ikincil emir-risk-btn" data-mod="kasa5" style="flex:1; padding:2px 4px; font-size:10.5px; color:#a7f3d0;" title="Kasanın %5'i kadar teminatla alınacak adedi hesaplar">Kasa %5</button>
+          </div>
         </div>
         <div>
           <label class="kucuk">Pozisyon Büyüklüğü</label>
@@ -301,6 +306,7 @@
         <div class="seviye-satir" style="border:0; padding:2px 0;"><span>Risk / Kazanç Oranı:</span><b id="emirRiskOdul" style="color:#3b82f6;">—</b></div>
         <div class="seviye-satir" style="border:0; padding:2px 0;"><span>Olası Kâr / Zarar:</span><b id="emirOlasiKarZarar">—</b></div>
       </div>
+      <div id="emirAkilliUyari" class="gizli" style="margin-top:6px; padding:8px 10px; border-radius:8px; font-size:11.5px; line-height:1.45; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.45); color:#fde68a;"></div>
       <button id="emirOnaylaBtn" class="btn tam" style="background:#10b981; font-size:15px; font-weight:bold; text-align:center; padding:10px; margin-top:8px;">✅ Emri Gerçekleştir</button>
     </div>
   </div>
@@ -668,7 +674,7 @@
 </section>
 
 <div id="bildirim" class="bildirim gizli"></div>
-<script src="panel.js?v=2.10"></script>
+<script src="panel.js?v=2.11"></script>
 </body>
 </html>
 
