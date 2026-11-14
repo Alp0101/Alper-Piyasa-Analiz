@@ -591,7 +591,28 @@ const sunucu = http.createServer(async (req, res) => {
     }
     if (p === '/api/bildirimler/ekle' && req.method === 'POST') {
       const g = await govdeOku(req);
-      return gonder(res, 200, BildirimServisi.bildirimEkle(g));
+      const eklenen = BildirimServisi.bildirimEkle(g);
+      if (eklenen && eklenen.yeni && g.sembolId && g.fiyat > 0) {
+        const isShort = (g.yon === 'SHORT' || g.yon === 'SAT');
+        const basamak = g.fiyat >= 100 ? 2 : g.fiyat >= 1 ? 3 : 5;
+        const yuv = x => +Number(x).toFixed(basamak);
+        const sTipi = g.tur === 'kurumsal'
+          ? (isShort ? '👑 Kurumsal VIP Short' : '👑 Kurumsal VIP A+')
+          : g.tur === 'sniper'
+            ? (isShort ? '🎯 Sniper Short' : '🎯 Sniper Long')
+            : '🟢 Fırsat Radarı';
+        GunlukRapor.sinyalKaydet({
+          sembol: g.sembolId,
+          ad: g.ad || g.kod,
+          tur: g.piyasa || (g.sembolId.startsWith('BINANCE:') ? 'kripto' : 'bist'),
+          yon: isShort ? 'SAT' : 'AL',
+          sinyalTipi: sTipi,
+          fiyat: +g.fiyat,
+          hedefFiyat: yuv(g.fiyat * (isShort ? 0.965 : 1.035)),
+          stopFiyat: yuv(g.fiyat * (isShort ? 1.035 : 0.965))
+        });
+      }
+      return gonder(res, 200, eklenen);
     }
     if (p === '/api/bildirimler/sil' && req.method === 'POST') {
       const g = await govdeOku(req);

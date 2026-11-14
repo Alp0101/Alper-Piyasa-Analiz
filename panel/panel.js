@@ -3161,29 +3161,32 @@ function radarVeSniperDegisimKontrol(satirlar) {
     const sniperShortKey = `${r.id}_sniper_short`;
     const firsatKey = `${r.id}_firsat`;
 
+    const gh = r.goreceliHacim || 0;
+    const tuzakVar = r.isaretler?.some(i => i.tip === 'tuzak');
+    const benchDeg = r.benchDegisim ?? 0;
+    const longIzin = benchDeg > -2.0 && (benchDeg > -1.3 || ((r.hizliPuan || 0) >= 80 && gh >= 1.5));
+
+    const isSniper = longIzin && !tuzakVar && t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 48 && rsi4h <= 65 && (r.hizliPuan || 0) >= 70 && gh >= 1.2;
+    const isSniperShort = !isBist && !tuzakVar && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 52 && rsi4h >= 32 && (r.hizliPuan || 0) <= -70 && gh >= 1.2;
+    const isFirsat = longIzin && !tuzakVar && !isSniperShort && gh >= 1.1 && r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo') && t4 > 0 && tg > 0;
+
     // 1. İLK TARAMA (Sayfa yeni açıldıysa veya başka listeye/kriptoya ilk geçildiyse):
     // Bu varlıklar zaten listede mevcut olan durumlardır. Sessizce kaydet, ASLA ses/popup çalma!
     if (ilkKezTaranıyor) {
-      if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
-        oturumGorulenBildirimler.add(sniperKey);
-      }
-      if (!isBist && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 55 && rsi4h >= 32) {
-        oturumGorulenBildirimler.add(sniperShortKey);
-      }
-      if (r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo')) {
-        oturumGorulenBildirimler.add(firsatKey);
-      }
+      if (isSniper) oturumGorulenBildirimler.add(sniperKey);
+      if (isSniperShort) oturumGorulenBildirimler.add(sniperShortKey);
+      if (isFirsat) oturumGorulenBildirimler.add(firsatKey);
       return;
     }
 
     // 2. İLK TARAMADAN SONRAKİ CANLI DÖNGÜLER:
     // Yalnızca ekranda izlenirken GERÇEKTEN yeni giren bir varlık olursa bildir!
-    if (t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 45 && rsi4h <= 68) {
+    if (isSniper) {
       if (!oturumGorulenBildirimler.has(sniperKey)) {
         oturumGorulenBildirimler.add(sniperKey);
         yeniBildirimEkle(
           `🎯 YENİ SNIPER FIRSATI`,
-          `${r.kod} (${r.ad || ''}) tüm periyotlarda AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)} ${birim}`,
+          `${r.kod} (${r.ad || ''}) tüm periyotlarda hacimli AL yakarak Sniper Avcısına girdi! Fiyat: ${sayi(r.fiyat)} ${birim}`,
           'sniper',
           r.id,
           r.fiyat,
@@ -3192,7 +3195,7 @@ function radarVeSniperDegisimKontrol(satirlar) {
       }
     }
 
-    if (!isBist && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 55 && rsi4h >= 32) {
+    if (isSniperShort) {
       if (!oturumGorulenBildirimler.has(sniperShortKey)) {
         oturumGorulenBildirimler.add(sniperShortKey);
         yeniBildirimEkle(
@@ -3206,7 +3209,7 @@ function radarVeSniperDegisimKontrol(satirlar) {
       }
     }
 
-    if (r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo')) {
+    if (isFirsat) {
       if (!oturumGorulenBildirimler.has(firsatKey)) {
         oturumGorulenBildirimler.add(firsatKey);
         yeniBildirimEkle(
