@@ -1377,6 +1377,9 @@ function gorselStratejiGrafikHtml(z, s, v) {
           <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#cbd5e1;">
             <input type="checkbox" id="gorselChkSeviyeler" checked onchange="gorselStratejiYenidenCiz()"> TP & Stop
           </label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#c4b5fd;">
+            <input type="checkbox" id="gorselChkFib" checked onchange="gorselStratejiYenidenCiz()"> Fibonacci
+          </label>
         </div>
       </div>
 
@@ -1520,6 +1523,36 @@ function gorselStratejiGrafikCiz(z, s, v) {
   const chkFvg = document.getElementById('gorselChkFvg')?.checked ?? true;
   const chkSeviyeler = document.getElementById('gorselChkSeviyeler')?.checked ?? true;
   const chkFormasyon = document.getElementById('gorselChkFormasyon')?.checked ?? true;
+  const chkFib = document.getElementById('gorselChkFib')?.checked ?? true;
+
+  // 0. FİBONACCİ DÜZELTME SEVİYELERİ (Görünür aralık içinde kalanlar)
+  if (chkFib && z?.fibonacci) {
+    const fib = z.fibonacci;
+    const fibSeviyeler = [
+      { ad: 'Fib 0.236', val: fib.f0236, altin: false },
+      { ad: 'Fib 0.382', val: fib.f0382, altin: false },
+      { ad: 'Fib 0.500', val: fib.f0500, altin: true },
+      { ad: '⭐ Fib 0.618', val: fib.f0618, altin: true },
+      { ad: 'Fib 0.786', val: fib.f0786, altin: false }
+    ];
+    ctx.save();
+    fibSeviyeler.forEach(lv => {
+      if (lv.val == null || lv.val < minP || lv.val > maxP) return;
+      const y = toY(lv.val);
+      ctx.strokeStyle = lv.altin ? 'rgba(192, 132, 252, 0.75)' : 'rgba(139, 92, 246, 0.38)';
+      ctx.lineWidth = lv.altin ? 1.25 : 0.9;
+      ctx.setLineDash(lv.altin ? [6, 3] : [2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(padSol, y);
+      ctx.lineTo(padSol + cizimW, y);
+      ctx.stroke();
+      ctx.fillStyle = lv.altin ? '#d8b4fe' : '#a78bfa';
+      ctx.font = lv.altin ? 'bold 10px sans-serif' : '9.5px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${lv.ad}: ${sayi(lv.val)}`, padSol + cizimW - 6, y - 3);
+    });
+    ctx.restore();
+  }
 
   // 1. FVG KUTUSU (Kurumsal Dengesizlik / Likidite Alanı)
   if (chkFvg) {
