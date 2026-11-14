@@ -165,6 +165,7 @@ function hizliDegerlendir(r, benchmarkDegisim = 0) {
     ...r,
     yon: { s2: tvEtiket(t.s2), s4: tvEtiket(t.s4), g1: tvEtiket(t.g1) },
     hizliPuan: agirlikli, ayKonum, isaretler, ozelTaktikler,
+    benchDegisim: benchmarkDegisim,
     tlHacim: r.tlHacim || (r.hacim && r.fiyat ? r.hacim * r.fiyat : null),
     usdHacim: r.usdHacim || (r.id?.includes('USDT') && r.hacim && r.fiyat ? r.hacim * r.fiyat : null),
   };
@@ -208,10 +209,26 @@ async function listeTara(listeId) {
   const adlar = {};
   satirlar.forEach(r => { const b = sembolBilgisi(r.id); if (b && b.tur !== 'bist' && b.ad) adlar[r.id] = b.ad; });
   
+let xu100Onbellek = { degisim: 0, zaman: 0 };
+async function xu100DegisimAl() {
+  if (Date.now() - xu100Onbellek.zaman < 60000) return xu100Onbellek.degisim;
+  try {
+    const v = await V.canliTekFiyat('BIST:XU100');
+    if (v && typeof v.degisim === 'number') {
+      xu100Onbellek = { degisim: v.degisim, zaman: Date.now() };
+    }
+  } catch (_) {}
+  return xu100Onbellek.degisim;
+}
+
   // Benchmark (BIST için XU100, Kripto için BTC) günlük değişimini tespit et
   let benchDeg = 0;
   const bSatir = satirlar.find(x => x.id === 'BIST:XU100' || x.id === 'BINANCE:BTCUSDT' || x.kod === 'BTC');
-  if (bSatir && bSatir.degisim != null) benchDeg = bSatir.degisim;
+  if (bSatir && bSatir.degisim != null) {
+    benchDeg = bSatir.degisim;
+  } else if (liste.dinamik === 'bist') {
+    benchDeg = await xu100DegisimAl();
+  }
 
   return satirlar.map(r => hizliDegerlendir({ ...r, ad: adlar[r.id] || r.ad }, benchDeg));
 }
@@ -281,76 +298,7 @@ const sunucu = http.createServer(async (req, res) => {
     if (p === '/api/listeler' && req.method === 'POST') { const v = listeDogrula(await govdeOku(req)); listeleriYaz(v); return gonder(res, 200, v); }
     if (p === '/api/listeler/varsayilan' && req.method === 'POST') { const v = varsayilanListeler(); listeleriYaz(v); return gonder(res, 200, v); }
     if (p === '/api/tarama') {
-      const satirlar = await listeTara(url.searchParams.get('liste'));
-      try {
-        const fiyatHaritasi = {};
-        (satirlar || []).forEach(r => {
-          if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat;
-          const t = r.tv || {};
-          const gh = r.goreceliHacim || 0;
-          const tuzakVar = r.isaretler?.some(i => i.tip === 'tuzak');
-          const isBist = r.id?.startsWith('BIST:');
-          const birim = isBist ? '₺' : '$';
-          const yuvarlaFiyat = (f) => {
-            const p = f >= 100 ? 2 : f >= 1 ? 3 : 5;
-            return +Number(f).toFixed(p);
-          };
-          const isSniper = !tuzakVar && t.s2 > 0.15 && t.s4 > 0.15 && t.g1 > 0.1 &&
-            (r.rsi?.s4 || 50) >= 48 && (r.rsi?.s4 || 50) <= 65 &&
-            (r.hizliPuan || 0) >= 70 && gh >= 1.2;
-          const isSniperShort = !isBist && !tuzakVar && t.s2 < -0.15 && t.s4 < -0.15 && t.g1 < -0.1 &&
-            (r.rsi?.s4 || 50) <= 52 && (r.rsi?.s4 || 50) >= 32 &&
-            (r.hizliPuan || 0) <= -70 && gh >= 1.2;
-          const isKombo = !tuzakVar && r.isaretler?.some(i => i.tip === 'kombo') &&
-            t.s4 > 0.1 && t.g1 > 0 && gh >= 1.1 && (r.rsi?.s4 || 50) <= 68;
-          const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:'));
-          if ((isSniper || isKombo) && uygunFiyat) {
-            const sTipi = isSniper ? '🎯 Sniper Long' : '⭐ Özel Kombo';
-            GunlukRapor.sinyalKaydet({
-              sembol: r.id,
-              ad: r.ad,
-              tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') || r.id === 'BIST:ALTIN' ? 'emtia' : 'bist'),
-              yon: 'AL',
-              sinyalTipi: sTipi,
-              fiyat: r.fiyat,
-              hedefFiyat: yuvarlaFiyat(r.fiyat * 1.035),
-              stopFiyat: yuvarlaFiyat(r.fiyat * 0.965)
-            });
-            BildirimServisi.bildirimEkle({
-              baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : '⭐ ÖZEL KOMBO SİNYALİ',
-              mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda hacimli AL yakarak Sniper Avcısına girdi!' : 'trend ve hacim destekli kombo onayı aldı!'} Fiyat: ${r.fiyat} ${birim}`,
-              tur: isSniper ? 'sniper' : 'firsat',
-              yon: 'LONG',
-              sembolId: r.id,
-              kod: r.kod,
-              ad: r.ad,
-              fiyat: r.fiyat
-            });
-          } else if (isSniperShort && uygunFiyat) {
-            GunlukRapor.sinyalKaydet({
-              sembol: r.id,
-              ad: r.ad,
-              tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') ? 'emtia' : 'forex'),
-              yon: 'SAT',
-              sinyalTipi: '🎯 Sniper Short',
-              fiyat: r.fiyat,
-              hedefFiyat: yuvarlaFiyat(r.fiyat * 0.965),
-              stopFiyat: yuvarlaFiyat(r.fiyat * 1.035)
-            });
-            BildirimServisi.bildirimEkle({
-              baslik: '🎯 ⬇️ YENİ SNIPER SHORT FIRSATI',
-              mesaj: `${r.kod} (${r.ad || ''}) tüm periyotlarda SAT yakarak Sniper Short radarına girdi! Fiyat: ${r.fiyat} ${birim}`,
-              tur: 'sniper',
-              yon: 'SHORT',
-              sembolId: r.id,
-              kod: r.kod,
-              ad: r.ad,
-              fiyat: r.fiyat
-            });
-          }
-        });
-        GunlukRapor.fiyatlariGuncelle(fiyatHaritasi);
-      } catch (_) {}
+      const satirlar = await taramaVeSinyalIsle(url.searchParams.get('liste'));
       return gonder(res, 200, { zaman: new Date().toISOString(), satirlar });
     }
     if (p === '/api/analiz') return gonder(res, 200, await sembolAnaliz(url.searchParams.get('sembol') || '', url.searchParams.get('tf') || 's4'));
@@ -516,25 +464,27 @@ const sunucu = http.createServer(async (req, res) => {
             if (enIyi) {
               sonuclar.push(enIyi);
               if (enIyi.onay && enIyi.puan >= 80) {
+                const isShort = enIyi.yon === 'SAT';
+                const giris = enIyi.seviyeler?.giris || enIyi.fiyat;
                 GunlukRapor.sinyalKaydet({
                   sembol: sembolId,
                   ad: b.ad,
                   tur: b.tur,
-                  yon: 'AL',
-                  sinyalTipi: '👑 Kurumsal VIP A+',
-                  fiyat: enIyi.seviyeler?.giris || enIyi.fiyat,
+                  yon: isShort ? 'SAT' : 'AL',
+                  sinyalTipi: isShort ? '👑 Kurumsal VIP Short' : '👑 Kurumsal VIP A+',
+                  fiyat: giris,
                   hedefFiyat: enIyi.seviyeler?.tp1,
                   stopFiyat: enIyi.seviyeler?.stop
                 });
                 BildirimServisi.bildirimEkle({
-                  baslik: '👑 KURUMSAL VIP SİNYALİ (%80+)',
-                  mesaj: `${b.kod || sembolId} (${b.ad || ''}) A+ Elit FVG & POC onayı aldı! Giriş: ${enIyi.seviyeler?.giris || enIyi.fiyat} ₺ | TP1: ${enIyi.seviyeler?.tp1 || '—'}`,
+                  baslik: isShort ? '👑 ⬇️ KURUMSAL VIP SHORT (%80+)' : '👑 KURUMSAL VIP SİNYALİ (%80+)',
+                  mesaj: `${b.kod || sembolId} (${b.ad || ''}) A+ Elit ${isShort ? 'Ayı FVG & POC reddi' : 'FVG & POC'} onayı aldı! Giriş: ${giris} $ | TP1: ${enIyi.seviyeler?.tp1 || '—'}`,
                   tur: 'kurumsal',
-                  yon: 'LONG',
+                  yon: isShort ? 'SHORT' : 'LONG',
                   sembolId,
                   kod: b.kod || sembolId.split(':')[1],
                   ad: b.ad,
-                  fiyat: enIyi.seviyeler?.giris || enIyi.fiyat
+                  fiyat: giris
                 });
               }
             }
@@ -690,4 +640,133 @@ sunucu.listen(PORT, '0.0.0.0', () => {
   console.log('  Kapatmak için bu pencereyi kapatın.');
   console.log('==============================================');
   if (!process.argv.includes('--tarayicisiz')) tarayiciAc();
+  arkaPlanTakipBaslat();
 });
+
+// ---------------- Otomatik Arka Plan Tarama & TP/SL Takip Döngüsü ----------------
+function dinamikTpSl(r, isShort) {
+  const f = r.fiyat;
+  const basamak = f >= 100 ? 2 : f >= 1 ? 3 : 5;
+  const yuvarla = x => +Number(x).toFixed(basamak);
+  const atrYuzde = (r.atr && f > 0) ? (r.atr / f) * 100 : 2.6;
+  const stopYuzde = Math.min(5.5, Math.max(1.8, atrYuzde * 1.15));
+  const hedefYuzde = Math.min(8.8, Math.max(2.8, stopYuzde * 1.6));
+  return isShort
+    ? { hedefFiyat: yuvarla(f * (1 - hedefYuzde / 100)), stopFiyat: yuvarla(f * (1 + stopYuzde / 100)) }
+    : { hedefFiyat: yuvarla(f * (1 + hedefYuzde / 100)), stopFiyat: yuvarla(f * (1 - stopYuzde / 100)) };
+}
+
+async function taramaVeSinyalIsle(listeId) {
+  const satirlar = await listeTara(listeId);
+  try {
+    const fiyatHaritasi = {};
+    (satirlar || []).forEach(r => {
+      if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat;
+      const t = r.tv || {};
+      const gh = r.goreceliHacim || 0;
+      const tuzakVar = r.isaretler?.some(i => i.tip === 'tuzak');
+      const isBist = r.id?.startsWith('BIST:');
+      const birim = isBist ? '₺' : '$';
+      const benchDeg = r.benchDegisim ?? 0;
+
+      // Piyasa Rejimi Kalkanı: Endeks/BTC sert satışta (-%2+) iken Long sinyalleri durdur
+      const sertSatis = benchDeg <= -2.0;
+      const zayifPiyasa = benchDeg <= -1.3;
+      const longIzin = !sertSatis && (!zayifPiyasa || ((r.hizliPuan || 0) >= 80 && gh >= 1.5));
+
+      const isSniper = longIzin && !tuzakVar && t.s2 > 0.15 && t.s4 > 0.15 && t.g1 > 0.1 &&
+        (r.rsi?.s4 || 50) >= 48 && (r.rsi?.s4 || 50) <= 65 &&
+        (r.hizliPuan || 0) >= 70 && gh >= 1.2;
+      const isSniperShort = !isBist && !tuzakVar && t.s2 < -0.15 && t.s4 < -0.15 && t.g1 < -0.1 &&
+        (r.rsi?.s4 || 50) <= 52 && (r.rsi?.s4 || 50) >= 32 &&
+        (r.hizliPuan || 0) <= -70 && gh >= 1.2;
+      const isKombo = longIzin && !tuzakVar && r.isaretler?.some(i => i.tip === 'kombo') &&
+        t.s4 > 0.1 && t.g1 > 0 && gh >= 1.1 && (r.rsi?.s4 || 50) <= 68;
+      const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:'));
+
+      if ((isSniper || isKombo) && uygunFiyat) {
+        const sTipi = isSniper ? '🎯 Sniper Long' : '⭐ Özel Kombo';
+        const { hedefFiyat, stopFiyat } = dinamikTpSl(r, false);
+        GunlukRapor.sinyalKaydet({
+          sembol: r.id,
+          ad: r.ad,
+          tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') || r.id === 'BIST:ALTIN' ? 'emtia' : 'bist'),
+          yon: 'AL',
+          sinyalTipi: sTipi,
+          fiyat: r.fiyat,
+          hedefFiyat,
+          stopFiyat
+        });
+        BildirimServisi.bildirimEkle({
+          baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : '⭐ ÖZEL KOMBO SİNYALİ',
+          mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda hacimli AL yakarak Sniper Avcısına girdi!' : 'trend ve hacim destekli kombo onayı aldı!'} Fiyat: ${r.fiyat} ${birim}`,
+          tur: isSniper ? 'sniper' : 'firsat',
+          yon: 'LONG',
+          sembolId: r.id,
+          kod: r.kod,
+          ad: r.ad,
+          fiyat: r.fiyat
+        });
+      } else if (isSniperShort && uygunFiyat) {
+        const { hedefFiyat, stopFiyat } = dinamikTpSl(r, true);
+        GunlukRapor.sinyalKaydet({
+          sembol: r.id,
+          ad: r.ad,
+          tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') ? 'emtia' : 'forex'),
+          yon: 'SAT',
+          sinyalTipi: '🎯 Sniper Short',
+          fiyat: r.fiyat,
+          hedefFiyat,
+          stopFiyat
+        });
+        BildirimServisi.bildirimEkle({
+          baslik: '🎯 ⬇️ YENİ SNIPER SHORT FIRSATI',
+          mesaj: `${r.kod} (${r.ad || ''}) tüm periyotlarda SAT yakarak Sniper Short radarına girdi! Fiyat: ${r.fiyat} ${birim}`,
+          tur: 'sniper',
+          yon: 'SHORT',
+          sembolId: r.id,
+          kod: r.kod,
+          ad: r.ad,
+          fiyat: r.fiyat
+        });
+      }
+    });
+    GunlukRapor.fiyatlariGuncelle(fiyatHaritasi);
+    Alarm.kontrolEt(fiyatHaritasi);
+  } catch (_) {}
+  return satirlar;
+}
+
+function bistSeansAcikMi() {
+  const tr = new Date(Date.now() + 3 * 3600 * 1000);
+  const gun = tr.getUTCDay(); // 1-5 hafta içi
+  if (gun === 0 || gun === 6) return false;
+  const dk = tr.getUTCHours() * 60 + tr.getUTCMinutes();
+  return dk >= 10 * 60 && dk <= 18 * 60 + 15;
+}
+
+function arkaPlanTakipBaslat() {
+  const turCalistir = async () => {
+    try {
+      // 1. Günlük rapordaki açık sinyallerin fiyatlarını güncelle
+      const rapor = GunlukRapor.gunlukRaporAl();
+      const semboller = [...new Set((rapor.sinyaller || []).map(s => s.sembol))];
+      if (semboller.length > 0) {
+        const satirlar = await V.sembolleriTara(semboller).catch(() => []);
+        const harita = {};
+        (satirlar || []).forEach(r => { if (r && r.id && r.fiyat) harita[r.id] = r.fiyat; });
+        if (Object.keys(harita).length > 0) {
+          GunlukRapor.fiyatlariGuncelle(harita);
+          Alarm.kontrolEt(harita);
+        }
+      }
+      // 2. Kripto 7/24, BIST ise seans saatlerinde otomatik taranır
+      await taramaVeSinyalIsle('kripto').catch(() => {});
+      if (bistSeansAcikMi()) {
+        await taramaVeSinyalIsle('tum-bist').catch(() => {});
+      }
+    } catch (_) {}
+  };
+  setTimeout(turCalistir, 20 * 1000);
+  setInterval(turCalistir, 5 * 60 * 1000);
+}

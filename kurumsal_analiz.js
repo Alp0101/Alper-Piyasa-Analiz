@@ -204,8 +204,10 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g
   const sonMum = son(mumlar);
   const sonFiyat = sonMum.c;
 
-  // Rejim uygun değilse (özellikle testere piyasası veya ayı trendi ise) doğrudan İŞLEME KAPALI raporu üret
-  if (!rejim.islemYapilabilir) {
+  const isShort = rejim.rejim === 'GUCLU_AYI_TRENDI' && tur !== 'bist';
+
+  // Rejim uygun değilse (testere piyasası veya BIST'te ayı trendi ise) doğrudan İŞLEME KAPALI raporu üret
+  if (!rejim.islemYapilabilir && !isShort) {
     return {
       sembol: sembolId,
       ad,
@@ -225,7 +227,7 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g
   const onaylar = [];
 
   // 1. Rejim Onayı
-  onaylar.push(rejim.etiket);
+  onaylar.push(isShort ? '🔻 Güçlü Ayı Trendi (Short Uygun)' : rejim.etiket);
 
   // 2. POC (Point of Control) Yakınlığı Kontrolü
   let pocOnay = false;
@@ -234,7 +236,9 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g
     if (pocMesafe <= 2.2) {
       pocOnay = true;
       puan += 15;
-      onaylar.push(`📍 Hacim Manyetiği (POC: ${poc}): Fiyat en yoğun kurumsal savunma bölgesinde.`);
+      onaylar.push(isShort
+        ? `📍 Direnç Hacim Manyetiği (POC: ${poc}): Fiyat yoğun kurumsal satış bölgesinde reddediliyor.`
+        : `📍 Hacim Manyetiği (POC: ${poc}): Fiyat en yoğun kurumsal savunma bölgesinde.`);
     }
   }
 
@@ -242,10 +246,14 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g
   let fvgOnay = false;
   const aktifFvg = fvgler[fvgler.length - 1];
   if (aktifFvg) {
-    if (aktifFvg.tip === 'BULLISH_FVG' && sonFiyat >= aktifFvg.alt && sonFiyat <= aktifFvg.ust * 1.015) {
+    if (!isShort && aktifFvg.tip === 'BULLISH_FVG' && sonFiyat >= aktifFvg.alt && sonFiyat <= aktifFvg.ust * 1.015) {
       fvgOnay = true;
       puan += 20;
       onaylar.push(`⚡ Boğa FVG Testi (${aktifFvg.alt} - ${aktifFvg.ust}): Kurumsal emir bloğu dolduruluyor, sıçrama beklenir.`);
+    } else if (isShort && aktifFvg.tip === 'BEARISH_FVG' && sonFiyat <= aktifFvg.ust && sonFiyat >= aktifFvg.alt * 0.985) {
+      fvgOnay = true;
+      puan += 20;
+      onaylar.push(`⚡ Ayı FVG Testi (${aktifFvg.alt} - ${aktifFvg.ust}): Kurumsal satış boşluğu test ediliyor, düşüş beklenir.`);
     }
   }
 
@@ -260,7 +268,7 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g
   }
 
   // 5. Altın için Denge Onayı
-  if (sembolId.includes('XAU') || sembolId.includes('ALTIN') || sembolId.includes('GLD')) {
+  if (!isShort && (sembolId.includes('XAU') || sembolId.includes('ALTIN') || sembolId.includes('GLD'))) {
     puan += 10;
     onaylar.push('🏅 Güvenli Liman Akışı: Kurumsal portföy sigortası talebi mevcut.');
   }
@@ -268,20 +276,18 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g
   // Yüksek Başarı için Asgari 80 Puan Şartı!
   const onay = puan >= 80;
 
-  // Çift Kademeli Çıkış Seviyeleri (TP1 & TP2)
-  // TP1: Yaklaşık %2.8 - %3.8 mesafe (Vurulma oranı %80+)
-  // TP2: %7 - %12 mesafe (Trend devamı)
-  // Stop: 1.8 ATR veya FVG/Destek altı
+  const basamak = sonFiyat >= 100 ? 2 : sonFiyat >= 1 ? 3 : 5;
   const atrTahmin = (sonMum.h - sonMum.l) * 1.5 || sonFiyat * 0.02;
-  const stopFiyat = yuvarla(sonFiyat - atrTahmin, 2);
-  const tp1Fiyat = yuvarla(sonFiyat * 1.032, 2);   // +%3.2 İlk Kâr Alma
-  const tp2Fiyat = yuvarla(sonFiyat * 1.085, 2);   // +%8.5 Trend Sonu Hedefi
+  const stopFiyat = isShort ? yuvarla(sonFiyat + atrTahmin, basamak) : yuvarla(sonFiyat - atrTahmin, basamak);
+  const tp1Fiyat = isShort ? yuvarla(sonFiyat * 0.968, basamak) : yuvarla(sonFiyat * 1.032, basamak);
+  const tp2Fiyat = isShort ? yuvarla(sonFiyat * 0.915, basamak) : yuvarla(sonFiyat * 1.085, basamak);
 
   return {
     sembol: sembolId,
     ad,
     tur,
     tf,
+    yon: isShort ? 'SAT' : 'AL',
     fiyat: sonFiyat,
     uygunluk: onay ? 'A_PLUS_ELITE' : 'BEKLEMEDE',
     puan,
@@ -294,12 +300,16 @@ function kurumsalAnalizEt(sembolId, ad, tur, mumlar, benchMumlar = null, tf = 'g
       giris: sonFiyat,
       stop: stopFiyat,
       tp1: tp1Fiyat,
-      tp1Yuzde: '+3.2%',
+      tp1Yuzde: isShort ? '-3.2%' : '+3.2%',
       tp2: tp2Fiyat,
-      tp2Yuzde: '+8.5%',
-      riskYuzde: yuvarla(((sonFiyat - stopFiyat) / sonFiyat) * 100, 2)
+      tp2Yuzde: isShort ? '-8.5%' : '+8.5%',
+      riskYuzde: yuvarla((Math.abs(sonFiyat - stopFiyat) / sonFiyat) * 100, 2)
     },
-    taktikPlani: onay ? '🎯 Kural: TP1 seviyesinde (%+3.2) pozisyonun %50\'si kapatılır, kalan yarısının stopu GİRİŞE (Başabaş) çekilerek %100 risksiz trend takibine geçilir.' : 'Kriterler tam oturmadı, A+ onay bekleniyor.'
+    taktikPlani: onay
+      ? (isShort
+        ? '🎯 Kural (SHORT): TP1 seviyesinde (%-3.2 düşüşte) pozisyonun %50\'si kapatılır, kalan yarısının stopu GİRİŞE çekilerek risksiz düşüş takibine geçilir.'
+        : '🎯 Kural: TP1 seviyesinde (%+3.2) pozisyonun %50\'si kapatılır, kalan yarısının stopu GİRİŞE (Başabaş) çekilerek %100 risksiz trend takibine geçilir.')
+      : 'Kriterler tam oturmadı, A+ onay bekleniyor.'
   };
 }
 
