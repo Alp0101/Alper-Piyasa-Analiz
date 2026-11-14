@@ -1517,7 +1517,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
     ctx.fillStyle = '#64748b';
     ctx.font = '10px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(sayi(fVal, 2), padSol + cizimW + 6, y + 3);
+    ctx.fillText(sayi(fVal), padSol + cizimW + 6, y + 3);
   }
 
   const chkFvg = document.getElementById('gorselChkFvg')?.checked ?? true;
@@ -2792,9 +2792,8 @@ function emirHesapla() {
 function fiyatHassasiyetiAl(f) {
   if (!f || isNaN(f)) return 2;
   const av = Math.abs(f);
-  if (av >= 100) return 2;
-  if (av >= 1) return 2;
-  if (av >= 0.1) return 4;
+  if (av >= 10) return 2;
+  if (av >= 0.01) return 4;
   if (av >= 0.001) return 6;
   return 8;
 }
