@@ -58,7 +58,7 @@ const sayi = (v, b) => {
   if (v == null || !isFinite(v)) return '—';
   if (b == null) {
     const av = Math.abs(v);
-    b = av >= 1 ? 2 : av >= 0.01 ? 4 : 8;
+    b = av >= 10 ? 2 : av >= 0.01 ? 4 : 8;
   }
   return v.toLocaleString('tr-TR', { minimumFractionDigits: b, maximumFractionDigits: b });
 };
