@@ -769,9 +769,8 @@ function bistSeansAcikMi() {
 function arkaPlanTakipBaslat() {
   const turCalistir = async () => {
     try {
-      // 1. Günlük rapordaki açık sinyallerin fiyatlarını güncelle
-      const rapor = GunlukRapor.gunlukRaporAl();
-      const semboller = [...new Set((rapor.sinyaller || []).map(s => s.sembol))];
+      // 1. Günlük rapordaki açık sinyallerin (bugün + 24s dolmamış dünkü sinyaller) fiyatlarını güncelle
+      const semboller = GunlukRapor.aktifTakipSembolleri();
       if (semboller.length > 0) {
         const satirlar = await V.sembolleriTara(semboller).catch(() => []);
         const harita = {};

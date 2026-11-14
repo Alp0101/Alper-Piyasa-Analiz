@@ -3973,7 +3973,7 @@ function raporArayuzunuCiz() {
 
     tabloHtml += `
       <tr class="rapor-kat-ayrac">
-        <td colspan="9">
+        <td colspan="10">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span>${baslikMetni}</span>
             <span style="font-size:11px; opacity:0.8; font-weight:normal;">Detay için tıkla</span>
@@ -3996,6 +3996,13 @@ function raporArayuzunuCiz() {
       const yonRenk = s.yon === 'AL' ? '#10b981' : '#ef4444';
       const durumRenk = s.durum.includes('HEDEF') || s.durum.includes('KÂR') ? '#10b981' : s.durum.includes('STOP') || s.durum.includes('ZARAR') ? '#ef4444' : '#38bdf8';
 
+      const dilimRozet = (etiket, obj) => {
+        if (!obj) return `<span style="font-size:10px; padding:2px 5px; border-radius:4px; background:#1e293b; color:#64748b;" title="${etiket} henüz dolmadı">${etiket}: ⏳</span>`;
+        const c = obj.yuzde > 0 ? '#10b981' : obj.yuzde < 0 ? '#ef4444' : '#94a3b8';
+        return `<span style="font-size:10.5px; font-weight:bold; padding:2px 5px; border-radius:4px; background:${c}18; color:${c}; border:1px solid ${c}33;" title="${etiket} Fiyat: ${sayi(obj.fiyat)}">${etiket}: ${obj.yuzde >= 0 ? '+' : ''}%${obj.yuzde}</span>`;
+      };
+      const zamanDilimiHtml = `<div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">${dilimRozet('2S', s.sonuc2s)}${dilimRozet('4S', s.sonuc4s)}${dilimRozet('24S', s.sonuc24s)}</div>`;
+
       // 1. Masaüstü Tablo Satırı (Kompakt ve taşmasız)
       tabloHtml += `
         <tr style="border-bottom:1px solid #1e293b; transition:background 0.2s; cursor:pointer;" onclick="detayAc('${esc(s.sembol)}'); $('#gunlukRaporModal').classList.add('gizli');">
@@ -4010,6 +4017,7 @@ function raporArayuzunuCiz() {
           <td class="sag" style="padding:8px 8px; font-weight:700; color:#fff; font-size:12px;">${sayi(s.anlikFiyat)}</td>
           <td class="sag" style="padding:8px 8px; color:#38bdf8; font-weight:600; font-size:12px;">${sayi(s.yon === 'SAT' ? (s.gunDusuk ?? s.gunYuksek) : s.gunYuksek)} (${s.maxKarYuzde >= 0 ? '+' : ''}%${s.maxKarYuzde})</td>
           <td class="sag" style="padding:8px 8px; font-weight:800; color:${oranRenk}; font-size:12.5px;">${s.degisimYuzde >= 0 ? '+' : ''}%${s.degisimYuzde}</td>
+          <td class="orta" style="padding:8px 6px;">${zamanDilimiHtml}</td>
           <td class="orta" style="padding:8px 8px;"><span style="color:${durumRenk}; font-weight:700; font-size:11px; padding:3px 8px; background:${durumRenk}20; border-radius:8px;">${esc(s.durum)}</span></td>
         </tr>
       `;
@@ -4033,6 +4041,7 @@ function raporArayuzunuCiz() {
             <div><span style="color:#64748b;">Son:</span> <b style="color:#fff;">${sayi(s.anlikFiyat)}</b></div>
             <div><span style="color:#64748b;">Zirve:</span> <b style="color:#38bdf8;">${sayi(s.yon === 'SAT' ? (s.gunDusuk ?? s.gunYuksek) : s.gunYuksek)}</b></div>
           </div>
+          <div style="margin-top:5px;">${zamanDilimiHtml}</div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:11px;">
             <span style="color:#a5b4fc;">${esc(s.sinyalTipi)}</span>
             <span style="color:${durumRenk}; font-weight:700; padding:2px 6px; background:${durumRenk}15; border-radius:6px;">${esc(s.durum)}</span>
@@ -4044,7 +4053,7 @@ function raporArayuzunuCiz() {
 
   if (toplamGosterilen === 0) {
     const bosHtml = `<div class="bos" style="padding:30px; text-align:center;">Seçili kategoride bu tarihe ait sinyal bulunmuyor.</div>`;
-    tablo.innerHTML = `<tr><td colspan="9">${bosHtml}</td></tr>`;
+    tablo.innerHTML = `<tr><td colspan="10">${bosHtml}</td></tr>`;
     if (mobilKutu) mobilKutu.innerHTML = bosHtml;
   } else {
     tablo.innerHTML = tabloHtml;

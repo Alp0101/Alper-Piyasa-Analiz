@@ -21,6 +21,11 @@ function bugunTarih() {
   return tr.toISOString().slice(0, 10);
 }
 
+function dunTarih() {
+  const tr = new Date(Date.now() + 3 * 3600 * 1000 - 24 * 3600 * 1000);
+  return tr.toISOString().slice(0, 10);
+}
+
 function suAnSaat() {
   const d = new Date();
   const tr = new Date(d.getTime() + 3 * 3600 * 1000);
@@ -141,6 +146,10 @@ function sinyalKaydet(sinyal) {
     stopFiyat: stopFiyat ? +stopFiyat : null,
     degisimYuzde: 0,
     maxKarYuzde: 0,
+    olusturmaZamani: Date.now(),
+    sonuc2s: null,
+    sonuc4s: null,
+    sonuc24s: null,
     durum: '⏳ YENİ SİNYAL',
     kapanisSonucu: null // Gün kapandığında kilitlenir
   };
@@ -154,54 +163,84 @@ function sinyalKaydet(sinyal) {
  * Fiyatları ve Günlük Sonuçları Güncelle
  */
 function fiyatlariGuncelle(fiyatHaritasi = {}) {
-  const tarih = bugunTarih();
+  const bugun = bugunTarih();
+  const dun = dunTarih();
   const veri = raporlariOku();
-  const gunluk = veri.gunler[tarih];
-  if (!gunluk || !gunluk.sinyaller || gunluk.sinyaller.length === 0) return;
-
+  const simdi = Date.now();
   let degisti = false;
 
-  gunluk.sinyaller.forEach(s => {
-    const yeniFiyat = fiyatHaritasi[s.sembol];
-    if (yeniFiyat && yeniFiyat > 0) {
-      s.anlikFiyat = +yeniFiyat;
-      if (yeniFiyat > s.gunYuksek) s.gunYuksek = +yeniFiyat;
-      if (yeniFiyat < s.gunDusuk) s.gunDusuk = +yeniFiyat;
+  [bugun, dun].forEach(tarih => {
+    const gunluk = veri.gunler[tarih];
+    if (!gunluk || !gunluk.sinyaller || gunluk.sinyaller.length === 0) return;
 
-      // Kâr/Zarar Yüzdesi
-      if (s.yon === 'AL') {
-        s.degisimYuzde = +(((s.anlikFiyat - s.girisFiyat) / s.girisFiyat) * 100).toFixed(2);
-        s.maxKarYuzde = +(((s.gunYuksek - s.girisFiyat) / s.girisFiyat) * 100).toFixed(2);
-      } else {
-        // SAT (Short)
-        s.degisimYuzde = +(((s.girisFiyat - s.anlikFiyat) / s.girisFiyat) * 100).toFixed(2);
-        s.maxKarYuzde = +(((s.girisFiyat - s.gunDusuk) / s.girisFiyat) * 100).toFixed(2);
-      }
+    gunluk.sinyaller.forEach(s => {
+      // Dünkü sinyallerden 24 saati tamamlanmış olanları dondur
+      if (tarih === dun && s.sonuc24s) return;
 
-      // Durum Etiketi (Hedef veya Stop görülünce sonucu kilitle)
-      if (!s.kapanisSonucu) {
-        if (s.hedefFiyat && ((s.yon === 'AL' && s.gunYuksek >= s.hedefFiyat) || (s.yon === 'SAT' && s.gunDusuk <= s.hedefFiyat))) {
-          s.kapanisSonucu = 'HEDEF';
-          s.durum = '🎯 HEDEFE ULAŞTI';
-        } else if (s.stopFiyat && ((s.yon === 'AL' && s.gunDusuk <= s.stopFiyat) || (s.yon === 'SAT' && s.gunYuksek >= s.stopFiyat))) {
-          s.kapanisSonucu = 'STOP';
-          s.durum = '🛑 STOP OLDU';
-        } else if (s.degisimYuzde >= 1.5) {
-          s.durum = '🎯 KÂRDA';
-        } else if (s.degisimYuzde <= -1.5) {
-          s.durum = '🛑 ZARARDA';
+      const yeniFiyat = fiyatHaritasi[s.sembol];
+      if (yeniFiyat && yeniFiyat > 0) {
+        s.anlikFiyat = +yeniFiyat;
+        if (yeniFiyat > s.gunYuksek) s.gunYuksek = +yeniFiyat;
+        if (yeniFiyat < s.gunDusuk) s.gunDusuk = +yeniFiyat;
+
+        // Kâr/Zarar Yüzdesi
+        if (s.yon === 'AL') {
+          s.degisimYuzde = +(((s.anlikFiyat - s.girisFiyat) / s.girisFiyat) * 100).toFixed(2);
+          s.maxKarYuzde = +(((s.gunYuksek - s.girisFiyat) / s.girisFiyat) * 100).toFixed(2);
         } else {
-          s.durum = '⏳ BAŞABAŞ / NÖTR';
+          // SAT (Short)
+          s.degisimYuzde = +(((s.girisFiyat - s.anlikFiyat) / s.girisFiyat) * 100).toFixed(2);
+          s.maxKarYuzde = +(((s.girisFiyat - s.gunDusuk) / s.girisFiyat) * 100).toFixed(2);
         }
-      }
 
-      degisti = true;
-    }
+        // 2 saatlik, 4 saatlik ve 24 saatlik (günlük) kontrol noktalarını kilitle
+        const baslangic = s.olusturmaZamani || Date.parse(`${s.tarih}T${s.saat || '00:00'}:00+03:00`) || simdi;
+        const gecenMs = simdi - baslangic;
+        if (gecenMs >= 2 * 3600 * 1000 && !s.sonuc2s) {
+          s.sonuc2s = { fiyat: +yeniFiyat, yuzde: s.degisimYuzde };
+        }
+        if (gecenMs >= 4 * 3600 * 1000 && !s.sonuc4s) {
+          s.sonuc4s = { fiyat: +yeniFiyat, yuzde: s.degisimYuzde };
+        }
+        if (gecenMs >= 24 * 3600 * 1000 && !s.sonuc24s) {
+          s.sonuc24s = { fiyat: +yeniFiyat, yuzde: s.degisimYuzde };
+        }
+
+        // Durum Etiketi (Hedef veya Stop görülünce sonucu kilitle)
+        if (!s.kapanisSonucu) {
+          if (s.hedefFiyat && ((s.yon === 'AL' && s.gunYuksek >= s.hedefFiyat) || (s.yon === 'SAT' && s.gunDusuk <= s.hedefFiyat))) {
+            s.kapanisSonucu = 'HEDEF';
+            s.durum = '🎯 HEDEFE ULAŞTI';
+          } else if (s.stopFiyat && ((s.yon === 'AL' && s.gunDusuk <= s.stopFiyat) || (s.yon === 'SAT' && s.gunYuksek >= s.stopFiyat))) {
+            s.kapanisSonucu = 'STOP';
+            s.durum = '🛑 STOP OLDU';
+          } else if (s.degisimYuzde >= 1.5) {
+            s.durum = '🎯 KÂRDA';
+          } else if (s.degisimYuzde <= -1.5) {
+            s.durum = '🛑 ZARARDA';
+          } else {
+            s.durum = '⏳ BAŞABAŞ / NÖTR';
+          }
+        }
+
+        degisti = true;
+      }
+    });
   });
 
   if (degisti) {
     raporlariKaydet(veri);
   }
+}
+
+function aktifTakipSembolleri() {
+  const veri = raporlariOku();
+  const set = new Set();
+  const bugun = veri.gunler[bugunTarih()]?.sinyaller || [];
+  const dun = veri.gunler[dunTarih()]?.sinyaller || [];
+  bugun.forEach(s => { if (s.sembol) set.add(s.sembol); });
+  dun.forEach(s => { if (s.sembol && !s.sonuc24s) set.add(s.sembol); });
+  return [...set];
 }
 
 /**
@@ -283,6 +322,7 @@ module.exports = {
   sifreDogrula,
   sinyalKaydet,
   fiyatlariGuncelle,
+  aktifTakipSembolleri,
   gunlukRaporAl,
   bugunTarih
 };
