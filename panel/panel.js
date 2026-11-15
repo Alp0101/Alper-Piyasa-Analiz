@@ -1231,9 +1231,36 @@ function detayCiz() {
       </div>`;
     }
 
+    const emaBilgi = z.ema || {};
+    const emaFarkStr = (val) => {
+      if (!val || !s.fiyat) return '';
+      const f = ((s.fiyat - val) / val) * 100;
+      const renk = f >= 0 ? '#10b981' : '#ef4444';
+      return `<span style="color:${renk};font-size:11px;font-weight:700;">(${f >= 0 ? '+' : ''}%${f.toFixed(1)})</span>`;
+    };
+    let emaDizilimBadge = '';
+    if (emaBilgi.ema20 && emaBilgi.ema50 && emaBilgi.ema200) {
+      if (emaBilgi.ema20 > emaBilgi.ema50 && emaBilgi.ema50 > emaBilgi.ema200) {
+        emaDizilimBadge = '<span style="background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.4);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">✨ Altın Dizilim (20&gt;50&gt;200)</span>';
+      } else if (emaBilgi.ema20 < emaBilgi.ema50 && emaBilgi.ema50 < emaBilgi.ema200) {
+        emaDizilimBadge = '<span style="background:rgba(239,68,68,0.18);color:#f87171;border:1px solid rgba(239,68,68,0.4);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚠️ Ölüm Dizilimi (20&lt;50&lt;200)</span>';
+      } else {
+        emaDizilimBadge = '<span style="background:rgba(148,163,184,0.16);color:#cbd5e1;border:1px solid rgba(148,163,184,0.3);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚖️ Karışık EMA Dizilimi</span>';
+      }
+    }
+    const emaOzetHtml = (emaBilgi.ema20 || emaBilgi.ema50 || emaBilgi.ema200) ? `
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:#0a0e17;border:1px solid #1e293b;border-radius:8px;padding:8px 10px;margin-bottom:10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;">
+          ${emaBilgi.ema20 ? `<span><b style="color:#facc15;">━ EMA20:</b> ${sayi(emaBilgi.ema20)} ${emaFarkStr(emaBilgi.ema20)}</span>` : ''}
+          ${emaBilgi.ema50 ? `<span><b style="color:#38bdf8;">━ EMA50:</b> ${sayi(emaBilgi.ema50)} ${emaFarkStr(emaBilgi.ema50)}</span>` : ''}
+          ${emaBilgi.ema200 ? `<span><b style="color:#f472b6;">━ EMA200:</b> ${sayi(emaBilgi.ema200)} ${emaFarkStr(emaBilgi.ema200)}</span>` : ''}
+        </div>
+        ${emaDizilimBadge}
+      </div>` : '';
+
     alt = `<div class="iki-kolon">
       <div>
-        <div class="kutu"><h4>🔍 ${z.ad} grafik – 8 yöntemin yorumu</h4>${yontemler}</div>
+        <div class="kutu"><h4>🔍 ${z.ad} grafik – 8 yöntemin yorumu</h4>${emaOzetHtml}${yontemler}</div>
         ${gorselStratejiGrafikHtml(z, s, v)}
       </div>
       <div>
@@ -1398,6 +1425,9 @@ function gorselStratejiGrafikHtml(z, s, v) {
           <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#c4b5fd;">
             <input type="checkbox" id="gorselChkFib" checked onchange="gorselStratejiYenidenCiz()"> Fibonacci
           </label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#fde047;">
+            <input type="checkbox" id="gorselChkEma" checked onchange="gorselStratejiYenidenCiz()"> EMA 20/50/200
+          </label>
         </div>
       </div>
 
@@ -1498,6 +1528,11 @@ function gorselStratejiGrafikCiz(z, s, v) {
     }
   }
 
+  const chkEma = document.getElementById('gorselChkEma')?.checked ?? true;
+  const emaSeri20 = (chkEma && z.ema?.seri20) ? z.ema.seri20.slice(-mumlar.length) : [];
+  const emaSeri50 = (chkEma && z.ema?.seri50) ? z.ema.seri50.slice(-mumlar.length) : [];
+  const emaSeri200 = (chkEma && z.ema?.seri200) ? z.ema.seri200.slice(-mumlar.length) : [];
+
   // Fiyat Ölçeklendirme (Min - Max)
   let minP = Math.min(...mumlar.map(m => m.l));
   let maxP = Math.max(...mumlar.map(m => m.h));
@@ -1505,6 +1540,23 @@ function gorselStratejiGrafikCiz(z, s, v) {
   if (s.alimHedef && s.alimHedef > 0) maxP = Math.max(maxP, s.alimHedef);
   if (s.destek && s.destek > 0) minP = Math.min(minP, s.destek);
   if (s.direnc && s.direnc > 0) maxP = Math.max(maxP, s.direnc);
+
+  if (chkEma) {
+    const mumAralik = (maxP - minP) || (s.fiyat * 0.05) || 1;
+    for (const val of [...emaSeri20, ...emaSeri50]) {
+      if (val != null && isFinite(val)) {
+        minP = Math.min(minP, val);
+        maxP = Math.max(maxP, val);
+      }
+    }
+    // EMA200 mumları aşırı sıkıştırmıyorsa ölçeğe kat
+    for (const val of emaSeri200) {
+      if (val != null && isFinite(val) && val >= minP - mumAralik * 0.22 && val <= maxP + mumAralik * 0.22) {
+        minP = Math.min(minP, val);
+        maxP = Math.max(maxP, val);
+      }
+    }
+  }
 
   const marj = (maxP - minP) * 0.08 || 1;
   minP -= marj;
@@ -1678,6 +1730,62 @@ function gorselStratejiGrafikCiz(z, s, v) {
 
     noktalar.push({ cx, x, yC, yH, yL, ustY, govdeH, yukari });
   });
+
+  // 3.5 EMA 20 / 50 / 200 EĞRİLERİ VE GÖSTERGE LEJANTI
+  if (chkEma && noktalar.length >= 2) {
+    const emaCiz = (seri, renk, kalinlik, kesikli) => {
+      if (!seri || !seri.length) return null;
+      ctx.save();
+      ctx.strokeStyle = renk;
+      ctx.lineWidth = kalinlik;
+      if (kesikli) ctx.setLineDash(kesikli);
+      ctx.beginPath();
+      let basladi = false;
+      let sonY = null, sonVal = null;
+      const fark = seri.length - noktalar.length;
+      for (let i = 0; i < noktalar.length; i++) {
+        const val = seri[i + fark];
+        if (val == null || !isFinite(val) || val < minP || val > maxP) {
+          basladi = false;
+          continue;
+        }
+        const y = toY(val);
+        if (!basladi) { ctx.moveTo(noktalar[i].cx, y); basladi = true; }
+        else ctx.lineTo(noktalar[i].cx, y);
+        sonY = y;
+        sonVal = val;
+      }
+      if (basladi) ctx.stroke();
+      ctx.restore();
+      return sonY != null ? { y: sonY, val: sonVal } : null;
+    };
+
+    const s200 = emaCiz(emaSeri200, '#f472b6', 2.1, [6, 3]);
+    const s50 = emaCiz(emaSeri50, '#38bdf8', 2.0, null);
+    const s20 = emaCiz(emaSeri20, '#facc15', 1.8, null);
+
+    // Sol üst köşede temiz EMA lejandı
+    const lejantParcalari = [];
+    if (z.ema?.ema20) lejantParcalari.push({ txt: `━ EMA20: ${sayi(z.ema.ema20)}`, col: '#facc15' });
+    if (z.ema?.ema50) lejantParcalari.push({ txt: `━ EMA50: ${sayi(z.ema.ema50)}`, col: '#38bdf8' });
+    if (z.ema?.ema200) {
+      const e200Off = !s200 ? (z.ema.ema200 > maxP ? ' ▲' : ' ▼') : '';
+      lejantParcalari.push({ txt: `╌ EMA200: ${sayi(z.ema.ema200)}${e200Off}`, col: '#f472b6' });
+    }
+    if (lejantParcalari.length) {
+      ctx.save();
+      ctx.font = 'bold 10.5px sans-serif';
+      ctx.textAlign = 'left';
+      let lx = padSol + 6;
+      const ly = 15;
+      lejantParcalari.forEach(item => {
+        ctx.fillStyle = item.col;
+        ctx.fillText(item.txt, lx, ly);
+        lx += ctx.measureText(item.txt).width + 14;
+      });
+      ctx.restore();
+    }
+  }
 
   // 4. FORMASYON ÇİZGİLERİ VE KIRILIM OKLARI
   if (chkFormasyon && noktalar.length >= 8) {

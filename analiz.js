@@ -63,22 +63,42 @@ function hizliYon(d) {
 // 1) TREND
 function trendYontemi(d) {
   const c = son(d.c), e20 = son(d.e20), e50 = son(d.e50), e200 = son(d.e200);
+  const hs = fiyatHassasiyet(c || 1);
+  const yuzdeFark = (a, b) => (a != null && b) ? yuvarla(((a - b) / b) * 100, 2) : null;
   const notlar = [];
   let p = 0, n = 0;
-  if (e20 != null) { p += c > e20 ? 1 : -1; n++; }
+  if (e20 != null) {
+    p += c > e20 ? 1 : -1; n++;
+    const f20 = yuzdeFark(c, e20);
+    notlar.push(`EMA20 (${yuvarla(e20, hs)}) ${c >= e20 ? 'üstünde' : 'altında'} (${f20 >= 0 ? '+' : ''}%${f20})`);
+  }
   if (e50 != null && e20 != null) { p += e20 > e50 ? 1 : -1; n++; }
-  if (e200 != null) { p += c > e200 ? 1 : -1; n++; notlar.push(c > e200 ? 'fiyat ana trendin (200 ort.) üzerinde' : 'fiyat ana trendin (200 ort.) altında'); }
+  if (e50 != null) {
+    const f50 = yuzdeFark(c, e50);
+    notlar.push(`EMA50 (${yuvarla(e50, hs)}) ${c >= e50 ? 'üstünde' : 'altında'} (${f50 >= 0 ? '+' : ''}%${f50})`);
+  }
+  if (e200 != null) {
+    p += c > e200 ? 1 : -1; n++;
+    const f200 = yuzdeFark(c, e200);
+    notlar.push(`EMA200 (${yuvarla(e200, hs)}) ana trend ${c >= e200 ? 'üstünde' : 'altında'} (${f200 >= 0 ? '+' : ''}%${f200})`);
+  }
+  if (e20 != null && e50 != null && e200 != null) {
+    if (e20 > e50 && e50 > e200) notlar.push('Altın Dizilim (EMA20 > EMA50 > EMA200)');
+    else if (e20 < e50 && e50 < e200) notlar.push('Ölüm Dizilimi (EMA20 < EMA50 < EMA200)');
+    else if (e50 >= e200) notlar.push('EMA50 > EMA200 (orta/uzun vade pozitif)');
+    else notlar.push('EMA50 < EMA200 (orta/uzun vade negatif)');
+  }
   const egim = e50 != null ? G.slope(d.e50, 10) / (son(d.atr) || 1) : 0;
   if (Math.abs(egim) > 0.05) { p += egim > 0 ? 0.5 : -0.5; n += 0.5; }
   const puan = n ? sinirla((p / n) * 2) : 0;
   let yorum;
-  if (puan >= 1.5) yorum = 'Güçlü yükseliş trendi: fiyat 20 ve 50 ortalamanın üzerinde, ortalamalar yukarı sıralı';
-  else if (puan >= 0.5) yorum = 'Yükseliş eğilimi var ama tam oturmuş değil';
-  else if (puan > -0.5) yorum = 'Yatay / kararsız seyir: ortalamalar birbirine karışmış';
-  else if (puan > -1.5) yorum = 'Düşüş eğilimi: fiyat kısa ortalamaların altında';
-  else yorum = 'Güçlü düşüş trendi: fiyat ortalamaların altında, ortalamalar aşağı sıralı';
-  if (notlar.length) yorum += '; ' + notlar.join(', ');
-  return { anahtar: 'trend', ad: 'Trend (Ortalamalar)', puan, yorum };
+  if (puan >= 1.5) yorum = 'Güçlü yükseliş trendi: fiyat EMA20 ve EMA50 üzerinde, ortalamalar yukarı sıralı';
+  else if (puan >= 0.5) yorum = 'Yükseliş eğilimi var ama ortalamalar henüz tam oturmuş değil';
+  else if (puan > -0.5) yorum = 'Yatay / kararsız seyir: EMA ortalamaları birbirine karışmış';
+  else if (puan > -1.5) yorum = 'Düşüş eğilimi: fiyat kısa EMA ortalamalarının altında';
+  else yorum = 'Güçlü düşüş trendi: fiyat EMA ortalamalarının altında, ortalamalar aşağı sıralı';
+  if (notlar.length) yorum += ' | ' + notlar.join(' · ');
+  return { anahtar: 'trend', ad: 'Trend (EMA 20/50/200)', puan, yorum };
 }
 
 // Uyumsuzluk (divergence) arama: son 40 mum içindeki son iki pivot
@@ -544,6 +564,14 @@ function analizEt(setler, benchSet, bilgi) {
         } : null
       },
       fibonacci: fibSeviyeleri,
+      ema: {
+        ema20: son(d.e20) != null ? yuvarla(son(d.e20), hs) : null,
+        ema50: son(d.e50) != null ? yuvarla(son(d.e50), hs) : null,
+        ema200: son(d.e200) != null ? yuvarla(son(d.e200), hs) : null,
+        seri20: d.e20.slice(-35).map(val => val != null ? yuvarla(val, hs) : null),
+        seri50: d.e50.slice(-35).map(val => val != null ? yuvarla(val, hs) : null),
+        seri200: d.e200.slice(-35).map(val => val != null ? yuvarla(val, hs) : null),
+      },
       rsi: yuvarla(son(d.rsi), 1),
       sonMum: new Date(son(d.mumlar).t * 1000).toISOString(),
       mumSayisi: d.c.length,
