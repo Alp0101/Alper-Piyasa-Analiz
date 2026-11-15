@@ -1262,6 +1262,28 @@ function detayCiz() {
     <div class="iki-kolon">
       <div>
         <div class="kutu"><h4>🔍 ${z.ad} grafik – 8 yöntemin yorumu</h4>${emaOzetHtml}${yontemler}</div>
+        <div class="kutu">
+          <h4>📏 Önemli Seviyeler ${bist ? '<span style="font-size:11px; background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.3); padding:2px 7px; border-radius:10px; float:right;">🏛️ BIST Seansı</span>' : ''}</h4>
+          <div class="seviye-satir"><span>Şu anki fiyat</span><b>${sayi(s.fiyat)} ${birim}</b></div>
+          ${bist ? `
+          <div class="seviye-satir" style="background:rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; padding:5px 8px; border-radius:4px;">
+            <span style="font-weight:bold; color:#10b981;">🏛️ Günlük Tavan Fiyatı (+%10)</span><b style="color:#10b981; font-size:13.5px;">${sayi(bist.tavan)} ₺</b>
+          </div>
+          <div class="seviye-satir" style="background:rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding:5px 8px; border-radius:4px;">
+            <span style="font-weight:bold; color:#ef4444;">🏛️ Günlük Taban Fiyatı (-%10)</span><b style="color:#ef4444; font-size:13.5px;">${sayi(bist.taban)} ₺</b>
+          </div>
+          <div class="seviye-satir" style="font-size:12px; color:#94a3b8; padding:3px 8px;">
+            <span>Önceki Gün Kapanış (Baz Fiyat)</span><b>${sayi(bist.bazFiyat)} ₺</b>
+          </div>
+          ` : ''}
+          <div class="seviye-satir"><span>1. Teknik Direnç</span><b class="eks">${sayi(s.direnc)} ${birim}</b></div>
+          <div class="seviye-satir"><span>2. Teknik Direnç</span><b class="eks">${sayi(s.direnc2)} ${birim}</b></div>
+          <div class="seviye-satir"><span>1. Teknik Destek</span><b class="art">${sayi(s.destek)} ${birim}</b></div>
+          <div class="seviye-satir"><span>2. Teknik Destek</span><b class="art">${sayi(s.destek2)} ${birim}</b></div>
+          <div class="seviye-satir"><span>Ortalama mum oynaklığı (ATR)</span><b>${sayi(s.atr)} ${birim}</b></div>
+        </div>
+        ${fibHtml}
+        ${btHtml}
       </div>
       <div>
         <div class="kutu tuzak-kutu ${t.seviye}">
@@ -1283,26 +1305,6 @@ function detayCiz() {
           </div>` : ''}
         </div>
         ${ozelTaktiklerHtml}
-        <div class="kutu">
-          <h4>📏 Önemli Seviyeler ${bist ? '<span style="font-size:11px; background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.3); padding:2px 7px; border-radius:10px; float:right;">🏛️ BIST Seansı</span>' : ''}</h4>
-          <div class="seviye-satir"><span>Şu anki fiyat</span><b>${sayi(s.fiyat)} ${birim}</b></div>
-          ${bist ? `
-          <div class="seviye-satir" style="background:rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; padding:5px 8px; border-radius:4px;">
-            <span style="font-weight:bold; color:#10b981;">🏛️ Günlük Tavan Fiyatı (+%10)</span><b style="color:#10b981; font-size:13.5px;">${sayi(bist.tavan)} ₺</b>
-          </div>
-          <div class="seviye-satir" style="background:rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding:5px 8px; border-radius:4px;">
-            <span style="font-weight:bold; color:#ef4444;">🏛️ Günlük Taban Fiyatı (-%10)</span><b style="color:#ef4444; font-size:13.5px;">${sayi(bist.taban)} ₺</b>
-          </div>
-          <div class="seviye-satir" style="font-size:12px; color:#94a3b8; padding:3px 8px;">
-            <span>Önceki Gün Kapanış (Baz Fiyat)</span><b>${sayi(bist.bazFiyat)} ₺</b>
-          </div>
-          ` : ''}
-          <div class="seviye-satir"><span>1. Teknik Direnç</span><b class="eks">${sayi(s.direnc)} ${birim}</b></div>
-          <div class="seviye-satir"><span>2. Teknik Direnç</span><b class="eks">${sayi(s.direnc2)} ${birim}</b></div>
-          <div class="seviye-satir"><span>1. Teknik Destek</span><b class="art">${sayi(s.destek)} ${birim}</b></div>
-          <div class="seviye-satir"><span>2. Teknik Destek</span><b class="art">${sayi(s.destek2)} ${birim}</b></div>
-          <div class="seviye-satir"><span>Ortalama mum oynaklığı (ATR)</span><b>${sayi(s.atr)} ${birim}</b></div>
-        </div>
         <div class="kutu" style="border: 2px solid rgba(56, 189, 248, 0.4); background: linear-gradient(180deg, #131824 0%, #0d121f 100%);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
             <h4 style="margin:0; font-size:15px; color:#f8fafc;">🎯 Long & Short Örnek Planları (Yapay Zeka Stratejisi)</h4>
@@ -1349,8 +1351,6 @@ function detayCiz() {
             💡 <b>Tek Dokunuşla Otomatik Test:</b> Butona bastığınızda analizdeki Stop ve Kâr Hedefi seviyeleri sisteme otomatik girilir. Kasanızdan güvenli (%5) bir bütçeyle demo pozisyon açılır ve grafik hareket ettikçe hedefe/stopa ulaşıp ulaşmadığı canlı takip edilir.
           </div>
         </div>
-        ${fibHtml}
-        ${btHtml}
       </div>
     </div>
     <div class="uyari">Son mum: ${new Date(z.sonMum).toLocaleString('tr-TR')} · ${z.mumSayisi} mum incelendi. Bu analiz bir karar destek aracıdır, yatırım tavsiyesi değildir. Son karar her zaman sizindir.</div>`;
@@ -1574,12 +1574,17 @@ function gorselStratejiGrafikCiz(z, s, v) {
   minP -= marj;
   maxP += marj;
 
-  const padUst = 36;
+  const padUst = 42;
   const padAlt = 26;
   const padSol = 14;
-  const padSag = 90;
+  const padSag = 104;
   const cizimW = w - padSol - padSag;
   const cizimH = h - padUst - padAlt;
+  // Sol ve sağ etiket bölgelerini ayır: mumlar asla Fibo / TP / Stop etiketlerinin altında kalmaz
+  const solEtiketW = 150;
+  const sagEtiketW = 170;
+  const mumBasX = padSol + solEtiketW;
+  const mumAlanW = Math.max(300, cizimW - solEtiketW - sagEtiketW);
 
   const toY = p => padUst + ((maxP - p) / (maxP - minP)) * cizimH;
 
@@ -1587,9 +1592,9 @@ function gorselStratejiGrafikCiz(z, s, v) {
   const solYler = [], sagYler = [], etiketKuyrugu = [];
   const musaitY = (hedefY, liste) => {
     let y = Math.max(padUst + 16, Math.min(h - padAlt - 14, hedefY));
-    for (let deneme = 0; deneme < 12; deneme++) {
-      if (!liste.some(u => Math.abs(u - y) < 24)) break;
-      y += (deneme % 2 === 0 ? 24 : -24);
+    for (let deneme = 0; deneme < 14; deneme++) {
+      if (!liste.some(u => Math.abs(u - y) < 27)) break;
+      y += (deneme % 2 === 0 ? 27 : -27);
       y = Math.max(padUst + 16, Math.min(h - padAlt - 14, y));
     }
     liste.push(y);
@@ -1597,27 +1602,27 @@ function gorselStratejiGrafikCiz(z, s, v) {
   };
   const etiketCiz = (metin, x, y, renk, hiza = 'left', bg = '#ffffff') => {
     ctx.save();
-    ctx.font = 'bold 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     const tw = ctx.measureText(metin).width;
-    const bw = tw + 16;
-    const bh = 21;
+    const bw = tw + 18;
+    const bh = 24;
     const bx = hiza === 'right' ? x - bw : x;
     const by = y - bh / 2;
     ctx.fillStyle = bg;
     ctx.strokeStyle = renk;
-    ctx.lineWidth = 1.25;
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 5) : ctx.rect(bx, by, bw, bh);
+    ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 6) : ctx.rect(bx, by, bw, bh);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = renk;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(metin, bx + 8, y + 0.5);
+    ctx.fillText(metin, bx + 9, y + 0.5);
     ctx.restore();
   };
 
-  // Izgara ve Fiyat Ekseni Çizgileri (Açık zemin üzerinde net gri çizgiler ve koyu rakamlar)
+  // Izgara ve Fiyat Ekseni Çizgileri (Açık zemin üzerinde net gri çizgiler ve büyük koyu rakamlar)
   ctx.strokeStyle = '#e2e8f0';
   ctx.lineWidth = 1;
   const yatayBasamak = 7;
@@ -1629,10 +1634,10 @@ function gorselStratejiGrafikCiz(z, s, v) {
     ctx.lineTo(padSol + cizimW, y);
     ctx.stroke();
 
-    ctx.fillStyle = '#1e293b';
-    ctx.font = 'bold 11.5px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 13px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(sayi(fVal), padSol + cizimW + 8, y + 4);
+    ctx.fillText(sayi(fVal), padSol + cizimW + 8, y + 4.5);
   }
   ctx.strokeStyle = '#cbd5e1';
   ctx.beginPath();
@@ -1732,14 +1737,14 @@ function gorselStratejiGrafikCiz(z, s, v) {
     ctx.setLineDash([]);
   }
 
-  // 3. MUMLARI ÇİZ (Açık zeminde keskin yeşil/kırmızı, ince gövdeli)
+  // 3. MUMLARI ÇİZ (Açık zeminde keskin yeşil/kırmızı, etiket alanlarından tamamen bağımsız)
   const mSayi = mumlar.length;
-  const adim = cizimW / mSayi;
-  const mG = Math.max(2.5, Math.min(5.5, adim * 0.36));
+  const adim = mumAlanW / mSayi;
+  const mG = Math.max(3, Math.min(7, adim * 0.40));
   const noktalar = [];
 
   mumlar.forEach((m, i) => {
-    const x = padSol + (i * adim) + (adim - mG) / 2;
+    const x = mumBasX + (i * adim) + (adim - mG) / 2;
     const cx = x + mG / 2;
     const yukari = m.c >= m.o;
     const renk = yukari ? '#16a34a' : '#dc2626';
@@ -1806,12 +1811,12 @@ function gorselStratejiGrafikCiz(z, s, v) {
     }
     if (lejantParcalari.length) {
       let lx = padSol + 6;
-      const ly = 15;
+      const ly = 18;
       lejantParcalari.forEach(item => {
         etiketKuyrugu.push({ metin: item.txt, x: lx, y: ly, renk: item.col, hiza: 'left', bg: item.bg });
         ctx.save();
-        ctx.font = 'bold 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        lx += ctx.measureText(item.txt).width + 24;
+        ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        lx += ctx.measureText(item.txt).width + 28;
         ctx.restore();
       });
     }
@@ -1877,12 +1882,12 @@ function gorselStratejiGrafikCiz(z, s, v) {
   // Sağ Fiyat Ekseninde Anlık Fiyat Rozeti
   if (s.fiyat) {
     const curY = toY(s.fiyat);
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(padSol + cizimW + 3, curY - 11, padSag - 6, 22);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(padSol + cizimW + 3, curY - 13, padSag - 6, 26);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 11.5px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.font = 'bold 13.5px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(sayi(s.fiyat), padSol + cizimW + (padSag / 2), curY + 4);
+    ctx.fillText(sayi(s.fiyat), padSol + cizimW + (padSag / 2), curY + 5);
   }
   } catch (err) {
     console.error('Grafik çizim hatası:', err);
