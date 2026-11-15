@@ -2550,6 +2550,10 @@ function emirModaliAc(yon = 'LONG') {
   $('#emirAlisFiyat').value = f;
   $('#emirAdet').value = varsayilanAdet;
   if ($('#emirKaldirac')) $('#emirKaldirac').value = '1';
+  document.querySelectorAll('.emir-teminat-btn').forEach(btn => {
+    const tutar = birim === '$' ? Number(btn.dataset.usd) : Number(btn.dataset.tl);
+    btn.textContent = birim === '$' ? `${tutar} $` : `${tutar.toLocaleString('tr-TR')} ₺`;
+  });
 
   // BIST Günlük Tavan / Taban Kutusu
   const bist = bistTabanTavanHesapla(v.sembol, f, anaSatir?.degisim, v.zamanDilimleri?.g1);
@@ -2677,7 +2681,16 @@ window.otomatikPlanUygula = async function(yon = 'LONG') {
 
 $('#emirYonLongBtn').onclick = () => emirYonAyarla('LONG');
 $('#emirYonShortBtn').onclick = () => emirYonAyarla('SHORT');
-if ($('#emirKaldirac')) $('#emirKaldirac').onchange = emirHesapla;
+if ($('#emirKaldirac')) {
+  $('#emirKaldirac').onchange = () => {
+    // Kaldıraç değiştiğinde teminat bazlı % Stop ve % Kâr oranını koru
+    const sIn = $('#emirStopYuzde');
+    const hIn = $('#emirHedefYuzde');
+    if (sIn && parseFloat(sIn.value) > 0) sIn.dispatchEvent(new Event('input'));
+    if (hIn && parseFloat(hIn.value) > 0) hIn.dispatchEvent(new Event('input'));
+    emirHesapla();
+  };
+}
 
 function emirHesapla() {
   const v = D.detayVeri;
@@ -2698,16 +2711,19 @@ function emirHesapla() {
   const isShort = aktifEmirYonu === 'SHORT';
   let risk = 0, kazanc = 0, rr = 0, gecerli = false;
 
-  // Yüzdesel Mesafeleri Hesapla ve Göstergelere / Giriş Alanlarına Yansıt
-  let stopYuzde = 0;
-  let hedefYuzde = 0;
+  // Teminat (Yatırılan Para / ROE) Bazlı Yüzdesel Mesafeleri Hesapla
+  let stopFiyatYuzde = 0;
+  let hedefFiyatYuzde = 0;
 
   if (f > 0 && stop > 0) {
-    stopYuzde = isShort ? ((stop - f) / f) * 100 : ((f - stop) / f) * 100;
+    stopFiyatYuzde = isShort ? ((stop - f) / f) * 100 : ((f - stop) / f) * 100;
   }
   if (f > 0 && hedef > 0) {
-    hedefYuzde = isShort ? ((f - hedef) / f) * 100 : ((hedef - f) / f) * 100;
+    hedefFiyatYuzde = isShort ? ((f - hedef) / f) * 100 : ((hedef - f) / f) * 100;
   }
+
+  const stopYuzde = stopFiyatYuzde * kOran;
+  const hedefYuzde = hedefFiyatYuzde * kOran;
 
   const stopRozet = $('#emirStopYuzdeRozet');
   if (stopRozet) {
@@ -2717,6 +2733,18 @@ function emirHesapla() {
   if (hedefRozet) {
     hedefRozet.textContent = hedefYuzde !== 0 ? `+%${Math.abs(hedefYuzde).toFixed(2)}` : '—';
   }
+
+  // Kaldıraca göre hızlı % butonlarını teminat riskine uyumlu ayarla
+  const stopBtnDegerler = kOran > 1 ? [5, 10, 15, 20] : [1, 2, 3, 5];
+  document.querySelectorAll('.stop-yuzde-btn').forEach((b, idx) => {
+    const val = stopBtnDegerler[idx];
+    if (val != null) { b.dataset.yuzde = val; b.textContent = `%${val}`; }
+  });
+  const hedefBtnDegerler = kOran > 1 ? [10, 20, 30, 50] : [2, 4, 6, 10];
+  document.querySelectorAll('.hedef-yuzde-btn').forEach((b, idx) => {
+    const val = hedefBtnDegerler[idx];
+    if (val != null) { b.dataset.yuzde = val; b.textContent = `%${val}`; }
+  });
 
   // Kullanıcı yüzde alanında yazmıyorsa otomatik senkronize et
   const stopYuzdeInput = $('#emirStopYuzde');
@@ -2854,14 +2882,39 @@ $('#emirAdet').oninput = emirHesapla;
 $('#emirStopFiyat').oninput = emirHesapla;
 $('#emirHedefFiyat').oninput = emirHesapla;
 
+document.querySelectorAll('.emir-teminat-btn').forEach(btn => {
+  btn.onclick = () => {
+    const v = D.detayVeri;
+    const birim = v ? paraBirimiAl(v.sembol) : '₺';
+    const f = parseFloat($('#emirAlisFiyat').value) || 0;
+    const kOran = parseInt($('#emirKaldirac')?.value) || 1;
+    if (f <= 0) return;
+    const hedefTeminat = birim === '$' ? Number(btn.dataset.usd) : Number(btn.dataset.tl);
+    let adet = (hedefTeminat * kOran) / f;
+    if (birim === '₺') {
+      adet = Math.max(1, Math.round(adet));
+    } else if (f >= 100) {
+      adet = Math.max(0.0001, +adet.toFixed(4));
+    } else if (f >= 1) {
+      adet = Math.max(0.01, +adet.toFixed(2));
+    } else {
+      adet = Math.max(1, Math.round(adet));
+    }
+    $('#emirAdet').value = adet;
+    emirHesapla();
+  };
+});
+
 if ($('#emirStopYuzde')) {
   $('#emirStopYuzde').oninput = () => {
     const f = parseFloat($('#emirAlisFiyat').value) || 0;
-    const yuzde = parseFloat($('#emirStopYuzde').value);
-    if (f <= 0 || isNaN(yuzde) || yuzde <= 0) return;
+    const teminatYuzde = parseFloat($('#emirStopYuzde').value);
+    const kOran = parseInt($('#emirKaldirac')?.value) || 1;
+    if (f <= 0 || isNaN(teminatYuzde) || teminatYuzde <= 0) return;
+    const fiyatYuzde = teminatYuzde / kOran;
     const hs = fiyatHassasiyetiAl(f);
     const isShort = aktifEmirYonu === 'SHORT';
-    const stopFiyat = isShort ? +(f * (1 + yuzde / 100)).toFixed(hs) : +(f * (1 - yuzde / 100)).toFixed(hs);
+    const stopFiyat = isShort ? +(f * (1 + fiyatYuzde / 100)).toFixed(hs) : +(f * (1 - fiyatYuzde / 100)).toFixed(hs);
     $('#emirStopFiyat').value = stopFiyat;
     emirHesapla();
   };
@@ -2870,11 +2923,13 @@ if ($('#emirStopYuzde')) {
 if ($('#emirHedefYuzde')) {
   $('#emirHedefYuzde').oninput = () => {
     const f = parseFloat($('#emirAlisFiyat').value) || 0;
-    const yuzde = parseFloat($('#emirHedefYuzde').value);
-    if (f <= 0 || isNaN(yuzde) || yuzde <= 0) return;
+    const teminatYuzde = parseFloat($('#emirHedefYuzde').value);
+    const kOran = parseInt($('#emirKaldirac')?.value) || 1;
+    if (f <= 0 || isNaN(teminatYuzde) || teminatYuzde <= 0) return;
+    const fiyatYuzde = teminatYuzde / kOran;
     const hs = fiyatHassasiyetiAl(f);
     const isShort = aktifEmirYonu === 'SHORT';
-    const hedefFiyat = isShort ? +(f * (1 - yuzde / 100)).toFixed(hs) : +(f * (1 + yuzde / 100)).toFixed(hs);
+    const hedefFiyat = isShort ? +(f * (1 - fiyatYuzde / 100)).toFixed(hs) : +(f * (1 + fiyatYuzde / 100)).toFixed(hs);
     $('#emirHedefFiyat').value = hedefFiyat;
     emirHesapla();
   };
