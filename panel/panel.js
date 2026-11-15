@@ -1439,7 +1439,7 @@ function gorselStratejiGrafikHtml(z, s, v) {
         </div>
         <div style="background:#0a0e17; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
           <span class="kucuk" style="color:#94a3b8; display:block;">Kırılım / Direnç</span>
-          <b style="color:#10b981; font-size:12.5px;">⚡ ${sayi(s.direnc)} ₺</b>
+          <b style="color:#10b981; font-size:12.5px;">⚡ ${sayi(s.direnc)} ${paraBirimiAl(v.sembol)}</b>
         </div>
         <div style="background:#0a0e17; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
           <span class="kucuk" style="color:#94a3b8; display:block;">TP1 / Stop-Loss</span>
@@ -1824,9 +1824,27 @@ function gorselStratejiGrafikCiz(z, s, v) {
     }
   }
 
-  // 4. FORMASYON ÇİZGİLERİ VE KIRILIM OKLARI
+  // 4. FORMASYON ÇİZGİLERİ VE KIRILIM OKLARI (Mumların üstüne asla binmeyecek şekilde temiz alana yerleşir)
   if (chkFormasyon && noktalar.length >= 8) {
     ctx.lineWidth = 2.0;
+
+    // Verilen X aralığındaki tüm mumların tamamen üstünde veya altında boş Y bulur
+    const mumsuzBolgeY = (merkezX, yariGenislik = 58) => {
+      const yakin = noktalar.filter(n => Math.abs(n.cx - merkezX) <= yariGenislik);
+      if (!yakin.length) return { ustY: padUst + 22, altY: h - padAlt - 22, ustBosluk: 999, altBosluk: 999 };
+      const minYH = Math.min(...yakin.map(n => n.yH));
+      const maxYL = Math.max(...yakin.map(n => n.yL));
+      const ustBosluk = minYH - (padUst + 22);
+      const altBosluk = (h - padAlt - 22) - maxYL;
+      return {
+        ustY: Math.max(padUst + 16, minYH - 26),
+        altY: Math.min(h - padAlt - 16, maxYL + 26),
+        minYH,
+        maxYL,
+        ustBosluk,
+        altBosluk
+      };
+    };
 
     if (z.tf === 's4') {
       const n0 = noktalar[Math.floor(noktalar.length * 0.15)];
@@ -1851,11 +1869,17 @@ function gorselStratejiGrafikCiz(z, s, v) {
       ctx.lineTo(padSol + cizimW, n2.yH);
       ctx.stroke();
       ctx.setLineDash([]);
-      etiketKuyrugu.push({ metin: 'W Boyun Kırılımı ➔', x: Math.min(padSol + cizimW - 150, n2.cx + 8), y: musaitY(n2.yH - 12, sagYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
+      const bW = mumsuzBolgeY(n2.cx + 50, 75);
+      const wY = bW.ustBosluk >= 24 ? bW.ustY : bW.altY;
+      etiketKuyrugu.push({ metin: 'W Boyun Kırılımı ➔', x: Math.min(mumBasX + mumAlanW - 150, n2.cx + 8), y: musaitY(wY, sagYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
     } else if (z.tf === 's1' || z.tf === 's2') {
       const nReaksiyon = noktalar[Math.floor(noktalar.length * 0.65)];
-      okCizCanvas(ctx, nReaksiyon.cx, nReaksiyon.yL + 26, nReaksiyon.cx, nReaksiyon.yL + 6, '#0284c7');
-      etiketKuyrugu.push({ metin: 'Alış Reaksiyonu', x: nReaksiyon.cx - 50, y: musaitY(nReaksiyon.yL + 36, sagYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
+      const bR = mumsuzBolgeY(nReaksiyon.cx, 65);
+      const rY = bR.altBosluk >= 26 ? bR.altY : bR.ustY;
+      const okBasY = bR.altBosluk >= 26 ? rY - 10 : rY + 10;
+      const okBitY = bR.altBosluk >= 26 ? nReaksiyon.yL + 4 : nReaksiyon.yH - 4;
+      okCizCanvas(ctx, nReaksiyon.cx, okBasY, nReaksiyon.cx, okBitY, '#0284c7');
+      etiketKuyrugu.push({ metin: 'Alış Reaksiyonu', x: Math.min(mumBasX + mumAlanW - 125, nReaksiyon.cx - 48), y: musaitY(rY, sagYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
     } else {
       const nStart = noktalar[0];
       const nDirek = noktalar[Math.floor(noktalar.length * 0.4)];
@@ -1873,8 +1897,13 @@ function gorselStratejiGrafikCiz(z, s, v) {
       ctx.lineTo(nBOS.cx, nBOS.yH + 4);
       ctx.stroke();
 
-      okCizCanvas(ctx, nBOS.cx, nBOS.yH + 26, nBOS.cx, nBOS.yH - 4, '#16a34a');
-      etiketKuyrugu.push({ metin: '⚡ BOS', x: nBOS.cx - 28, y: musaitY(nBOS.yH - 18, sagYler), renk: '#15803d', hiza: 'left', bg: '#f0fdf4' });
+      const bBos = mumsuzBolgeY(nBOS.cx, 55);
+      const usteKoy = bBos.ustBosluk >= bBos.altBosluk;
+      const bosY = usteKoy ? bBos.ustY : bBos.altY;
+      const okBasY = usteKoy ? bosY + 14 : bosY - 14;
+      const okBitY = usteKoy ? (bBos.minYH - 4) : (bBos.maxYL + 4);
+      okCizCanvas(ctx, nBOS.cx, okBasY, nBOS.cx, okBitY, '#16a34a');
+      etiketKuyrugu.push({ metin: '⚡ BOS', x: Math.min(mumBasX + mumAlanW - 76, nBOS.cx - 32), y: musaitY(bosY, sagYler), renk: '#15803d', hiza: 'left', bg: '#f0fdf4' });
     }
   }
 
