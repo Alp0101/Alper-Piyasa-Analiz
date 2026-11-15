@@ -2404,8 +2404,8 @@ function demoPortfoyCiz() {
       bekleyenEl.innerHTML = '<div class="bos" style="padding:12px;">Bekleyen emir yok. BIST veya Forex piyasası kapalıyken verilen emirler burada listelenir ve piyasa açıldığında otomatik aktifleşir.</div>';
     } else {
       bekleyenEl.innerHTML = `
-        <div class="tablo-sarma">
-          <table style="width:100%; min-width:560px;">
+        <div style="overflow-x:hidden;">
+          <table style="width:100%; font-size:12px;">
             <thead>
               <tr>
                 <th>Sembol</th>
@@ -2447,10 +2447,10 @@ function demoPortfoyCiz() {
   if (!aciklar.length) {
     $('#demoAcikPozisyonlar').innerHTML = '<div class="bos" style="padding:15px;">Henüz açık demo pozisyonunuz yok. Detay penceresinden "🛒 Demo Al" butonunu kullanabilirsiniz.</div>';
   } else {
-    // 1. Masaüstü Tablo Görünümü
+    // 1. Masaüstü Tablo Görünümü (Kaydırma çubuğu olmadan tam sığan düzen)
     const tabloHtml = `
-      <div class="demo-masaustu-tablo tablo-sarma">
-        <table style="width:100%; min-width:620px;">
+      <div class="demo-masaustu-tablo" style="overflow-x:hidden;">
+        <table style="width:100%; font-size:12px;">
           <thead>
             <tr>
               <th>Sembol</th>
@@ -2475,8 +2475,8 @@ function demoPortfoyCiz() {
               return `
               <tr>
                 <td style="cursor:pointer;" title="Canlı analizi ve risk durumunu görmek için tıklayın" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">
-                  <b>${esc(poz.sembol.split(':')[1])}</b>${yonRozet} <small class="kucuk">${esc(poz.ad)}</small>
-                  <span style="font-size:11px; color:#38bdf8; margin-left:3px;" title="Canlı Analize Git">🔍</span>
+                  <b>${esc(poz.sembol.split(':')[1])}</b>${yonRozet} <span style="font-size:11px; color:#38bdf8; margin-left:3px;" title="Canlı Analize Git">🔍</span>
+                  <br><small class="kucuk" style="color:#94a3b8;">${esc(poz.ad)}</small>
                 </td>
                 <td class="sag">${poz.adet}</td>
                 <td class="sag">${sayi(poz.alisFiyat)} ${birim}</td>
@@ -2492,9 +2492,11 @@ function demoPortfoyCiz() {
                   </span>
                 </td>
                 <td class="sag ${kz.renkSinifi}"><b>${kz.fiyatMetin}</b> <small style="font-weight:bold; margin-left:2px;">${kz.yuzdeMetin}</small></td>
-                <td class="orta" style="white-space:nowrap;">
-                  <button class="btn ikincil" style="padding:3px 7px; font-size:11px; margin-right:4px;" title="Pozisyonun risk durumunu ve analizini gör" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">🔍 Analiz</button>
-                  <button class="btn tehlike" style="padding:3px 7px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat</button>
+                <td class="orta">
+                  <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                    <button class="btn ikincil" style="padding:3px 7px; font-size:11px;" title="Pozisyonun risk durumunu ve analizini gör" onclick="demoPozisyonAnalizAc('${esc(poz.sembol)}')">🔍 Analiz</button>
+                    <button class="btn tehlike" style="padding:3px 7px; font-size:11px;" onclick="demoPozisyonKapat('${esc(poz.id)}', ${poz.anlikFiyat})">Kapat</button>
+                  </div>
                 </td>
               </tr>`;
             }).join('')}
@@ -2580,8 +2582,8 @@ function demoPortfoyCiz() {
     $('#demoKapananIslemler').innerHTML = '<div class="bos" style="padding:15px;">Henüz kapanmış işlem geçmişi yok.</div>';
   } else {
     const kapaliTablo = `
-      <div class="demo-masaustu-tablo tablo-sarma">
-        <table style="width:100%; min-width:520px;">
+      <div class="demo-masaustu-tablo" style="overflow-x:hidden;">
+        <table style="width:100%; font-size:12px;">
           <thead>
             <tr>
               <th>Sembol & Yön</th>
