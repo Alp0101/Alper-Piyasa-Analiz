@@ -1258,10 +1258,10 @@ function detayCiz() {
         ${emaDizilimBadge}
       </div>` : '';
 
-    alt = `<div class="iki-kolon">
+    alt = `${gorselStratejiGrafikHtml(z, s, v)}
+    <div class="iki-kolon">
       <div>
         <div class="kutu"><h4>🔍 ${z.ad} grafik – 8 yöntemin yorumu</h4>${emaOzetHtml}${yontemler}</div>
-        ${gorselStratejiGrafikHtml(z, s, v)}
       </div>
       <div>
         <div class="kutu tuzak-kutu ${t.seviye}">
@@ -1449,7 +1449,7 @@ function gorselStratejiGrafikHtml(z, s, v) {
 
       <!-- Grafik Canvas -->
       <div class="gorsel-strateji-canvas-sarma">
-        <canvas id="detayStratejiCanvas" width="760" height="580"></canvas>
+        <canvas id="detayStratejiCanvas" width="1160" height="500"></canvas>
       </div>
 
       <div style="margin-top:10px; font-size:11.5px; color:#94a3b8; line-height:1.45; background:#0a0e17; padding:8px 12px; border-radius:6px; border:1px solid #1e293b;">
@@ -1498,13 +1498,13 @@ function gorselStratejiGrafikCiz(z, s, v) {
   try {
     const ctx = canvas.getContext('2d');
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = 760;
-    const h = 580;
+    const w = 1160;
+    const h = 500;
     if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
       canvas.width = w * dpr;
       canvas.height = h * dpr;
       canvas.style.width = '100%';
-      canvas.style.maxWidth = w + 'px';
+      canvas.style.maxWidth = '100%';
       canvas.style.height = 'auto';
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
