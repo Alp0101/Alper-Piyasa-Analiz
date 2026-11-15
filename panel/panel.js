@@ -2550,10 +2550,9 @@ function emirModaliAc(yon = 'LONG') {
   $('#emirAlisFiyat').value = f;
   $('#emirAdet').value = varsayilanAdet;
   if ($('#emirKaldirac')) $('#emirKaldirac').value = '1';
-  document.querySelectorAll('.emir-teminat-btn').forEach(btn => {
-    const tutar = birim === '$' ? Number(btn.dataset.usd) : Number(btn.dataset.tl);
-    btn.textContent = birim === '$' ? `${tutar} $` : `${tutar.toLocaleString('tr-TR')} ₺`;
-  });
+  if ($('#emirTeminatBtnKutusu')) {
+    $('#emirTeminatBtnKutusu').classList.toggle('gizli', birim !== '$');
+  }
 
   // BIST Günlük Tavan / Taban Kutusu
   const bist = bistTabanTavanHesapla(v.sembol, f, anaSatir?.degisim, v.zamanDilimleri?.g1);
