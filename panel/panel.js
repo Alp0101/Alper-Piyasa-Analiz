@@ -1449,7 +1449,7 @@ function gorselStratejiGrafikHtml(z, s, v) {
 
       <!-- Grafik Canvas -->
       <div class="gorsel-strateji-canvas-sarma">
-        <canvas id="detayStratejiCanvas" width="760" height="320"></canvas>
+        <canvas id="detayStratejiCanvas" width="760" height="360"></canvas>
       </div>
 
       <div style="margin-top:10px; font-size:11.5px; color:#94a3b8; line-height:1.45; background:#0a0e17; padding:8px 12px; border-radius:6px; border:1px solid #1e293b;">
@@ -1497,22 +1497,36 @@ function gorselStratejiGrafikCiz(z, s, v) {
 
   try {
     const ctx = canvas.getContext('2d');
-    const w = canvas.width;
-    const h = canvas.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = 760;
+    const h = 360;
+    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = '100%';
+      canvas.style.maxWidth = w + 'px';
+      canvas.style.height = 'auto';
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Arka planı temizle
-    ctx.fillStyle = '#0a0e17';
+    const birim = paraBirimiAl(v?.sembol || '');
+
+    // Daha ferah ve net koyu lacivert-gri zemin
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+    bgGrad.addColorStop(0, '#131c2e');
+    bgGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
-  // Mum verisi hazırlığı (Gerçek z.mumlar veya destek/dirence göre dinamik simülasyon)
-  let mumlar = (z.mumlar && z.mumlar.length >= 8) ? [...z.mumlar.slice(-24)] : [];
+  // Mum verisi hazırlığı (32 mum ile daha ince ve nefes alan görünüm)
+  let mumlar = (z.mumlar && z.mumlar.length >= 8) ? [...z.mumlar.slice(-32)] : [];
   if (mumlar.length < 8) {
     const bazFiyat = s.fiyat || 100;
     const atr = s.atr || (bazFiyat * 0.02);
     let sonC = bazFiyat - (atr * 2);
     mumlar = [];
-    for (let i = 0; i < 20; i++) {
-      const yon = (i > 14 || (i % 3 !== 0)) ? 1 : -1;
+    for (let i = 0; i < 24; i++) {
+      const yon = (i > 16 || (i % 3 !== 0)) ? 1 : -1;
       const oynama = (Math.random() * atr * 0.8) * yon;
       const c = Math.max(0.1, sonC + oynama);
       const o = sonC;
@@ -1521,7 +1535,6 @@ function gorselStratejiGrafikCiz(z, s, v) {
       mumlar.push({ o, h: hF, l: lF, c });
       sonC = c;
     }
-    // Son mumu güncel fiyata hizala
     if (mumlar.length > 0) {
       mumlar[mumlar.length - 1].c = s.fiyat;
       mumlar[mumlar.length - 1].h = Math.max(mumlar[mumlar.length - 1].h, s.fiyat);
@@ -1549,7 +1562,6 @@ function gorselStratejiGrafikCiz(z, s, v) {
         maxP = Math.max(maxP, val);
       }
     }
-    // EMA200 mumları aşırı sıkıştırmıyorsa ölçeğe kat
     for (const val of emaSeri200) {
       if (val != null && isFinite(val) && val >= minP - mumAralik * 0.22 && val <= maxP + mumAralik * 0.22) {
         minP = Math.min(minP, val);
@@ -1558,21 +1570,55 @@ function gorselStratejiGrafikCiz(z, s, v) {
     }
   }
 
-  const marj = (maxP - minP) * 0.08 || 1;
+  const marj = (maxP - minP) * 0.10 || 1;
   minP -= marj;
   maxP += marj;
 
-  const padUst = 25;
-  const padAlt = 30;
-  const padSol = 20;
-  const padSag = 75; // Fiyat ekseni için alan
+  const padUst = 32;
+  const padAlt = 24;
+  const padSol = 14;
+  const padSag = 78;
   const cizimW = w - padSol - padSag;
   const cizimH = h - padUst - padAlt;
 
   const toY = p => padUst + ((maxP - p) / (maxP - minP)) * cizimH;
 
+  // Etiket çakışmasını önleyen hap rozet (pill) yardımcısı
+  const solYler = [], sagYler = [];
+  const musaitY = (hedefY, liste) => {
+    let y = Math.max(padUst + 10, Math.min(h - padAlt - 10, hedefY));
+    for (let deneme = 0; deneme < 6; deneme++) {
+      if (!liste.some(u => Math.abs(u - y) < 17)) break;
+      y += (deneme % 2 === 0 ? 18 : -18);
+      y = Math.max(padUst + 10, Math.min(h - padAlt - 10, y));
+    }
+    liste.push(y);
+    return y;
+  };
+  const etiketCiz = (metin, x, y, renk, hiza = 'left', bg = 'rgba(15, 23, 42, 0.92)') => {
+    ctx.save();
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    const tw = ctx.measureText(metin).width;
+    const bw = tw + 12;
+    const bh = 16;
+    const bx = hiza === 'right' ? x - bw : x;
+    const by = y - bh / 2;
+    ctx.fillStyle = bg;
+    ctx.strokeStyle = renk;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 4) : ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = renk;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(metin, bx + 6, y + 0.5);
+    ctx.restore();
+  };
+
   // Izgara ve Fiyat Ekseni Çizgileri
-  ctx.strokeStyle = '#141c2c';
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.10)';
   ctx.lineWidth = 1;
   const yatayBasamak = 5;
   for (let i = 0; i <= yatayBasamak; i++) {
@@ -1583,19 +1629,44 @@ function gorselStratejiGrafikCiz(z, s, v) {
     ctx.lineTo(padSol + cizimW, y);
     ctx.stroke();
 
-    // Sağ fiyat eksen etiketi
-    ctx.fillStyle = '#64748b';
-    ctx.font = '10px monospace';
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10.5px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(sayi(fVal), padSol + cizimW + 6, y + 3);
+    ctx.fillText(sayi(fVal), padSol + cizimW + 8, y + 3.5);
   }
+  // Sağ eksen ayırıcı çizgi
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
+  ctx.beginPath();
+  ctx.moveTo(padSol + cizimW, padUst - 6);
+  ctx.lineTo(padSol + cizimW, h - padAlt + 6);
+  ctx.stroke();
 
   const chkFvg = document.getElementById('gorselChkFvg')?.checked ?? true;
   const chkSeviyeler = document.getElementById('gorselChkSeviyeler')?.checked ?? true;
   const chkFormasyon = document.getElementById('gorselChkFormasyon')?.checked ?? true;
   const chkFib = document.getElementById('gorselChkFib')?.checked ?? true;
 
-  // 0. FİBONACCİ DÜZELTME SEVİYELERİ (Görünür aralık içinde kalanlar)
+  // 1. FVG KUTUSU (Daha hafif, grafiği boğmayan şeffaf bant)
+  if (chkFvg) {
+    const fvgUst = Math.min(maxP, s.direnc || (s.fiyat * 1.015));
+    const fvgAlt = Math.max(minP, s.destek || (s.fiyat * 0.985));
+    const yUst = toY(fvgUst);
+    const yAlt = toY(fvgAlt);
+    const fvgH = Math.max(16, yAlt - yUst);
+    const fvgX = padSol + 6;
+    const fvgW = cizimW - 12;
+
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.30)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.fillRect(fvgX, yUst, fvgW, fvgH);
+    ctx.strokeRect(fvgX, yUst, fvgW, fvgH);
+    ctx.setLineDash([]);
+    etiketCiz('🧲 FVG / Likidite Bölgesi', fvgX + 6, musaitY(yUst + 11, solYler), '#fbbf24', 'left');
+  }
+
+  // 0. FİBONACCİ DÜZELTME SEVİYELERİ (Sağ tarafta çakışmasız hap rozetlerle)
   if (chkFib && z?.fibonacci) {
     const fib = z.fibonacci;
     const fibSeviyeler = [
@@ -1609,129 +1680,92 @@ function gorselStratejiGrafikCiz(z, s, v) {
     fibSeviyeler.forEach(lv => {
       if (lv.val == null || lv.val < minP || lv.val > maxP) return;
       const y = toY(lv.val);
-      ctx.strokeStyle = lv.altin ? 'rgba(192, 132, 252, 0.75)' : 'rgba(139, 92, 246, 0.38)';
-      ctx.lineWidth = lv.altin ? 1.25 : 0.9;
-      ctx.setLineDash(lv.altin ? [6, 3] : [2, 4]);
+      ctx.strokeStyle = lv.altin ? 'rgba(192, 132, 252, 0.65)' : 'rgba(139, 92, 246, 0.30)';
+      ctx.lineWidth = lv.altin ? 1.2 : 0.85;
+      ctx.setLineDash(lv.altin ? [5, 3] : [2, 4]);
       ctx.beginPath();
       ctx.moveTo(padSol, y);
       ctx.lineTo(padSol + cizimW, y);
       ctx.stroke();
-      ctx.fillStyle = lv.altin ? '#d8b4fe' : '#a78bfa';
-      ctx.font = lv.altin ? 'bold 10px sans-serif' : '9.5px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(`${lv.ad}: ${sayi(lv.val)}`, padSol + cizimW - 6, y - 3);
+      const labelY = musaitY(y, sagYler);
+      etiketCiz(`${lv.ad}: ${sayi(lv.val)}`, padSol + cizimW - 6, labelY, lv.altin ? '#e9d5ff' : '#c4b5fd', 'right');
     });
     ctx.restore();
   }
 
-  // 1. FVG KUTUSU (Kurumsal Dengesizlik / Likidite Alanı)
-  if (chkFvg) {
-    const fvgUst = Math.min(maxP, s.direnc || (s.fiyat * 1.015));
-    const fvgAlt = Math.max(minP, s.destek || (s.fiyat * 0.985));
-    const yUst = toY(fvgUst);
-    const yAlt = toY(fvgAlt);
-    const fvgH = Math.max(16, yAlt - yUst);
-
-    const fvgX = padSol + 30;
-    const fvgW = cizimW - 50;
-
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
-    ctx.strokeStyle = 'rgba(245, 158, 11, 0.65)';
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([4, 4]);
-    ctx.fillRect(fvgX, yUst, fvgW, fvgH);
-    ctx.strokeRect(fvgX, yUst, fvgW, fvgH);
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 10px sans-serif';
-    ctx.fillText('🧲 Kurumsal Dengesizlik / FVG Boşluğu', fvgX + 10, yUst + 14);
-  }
-
   // 2. TP & STOP HEDEF SEVİYELERİ
   if (chkSeviyeler) {
-    // TP1 Çizgisi
     if (s.alimHedef) {
       const tpY = toY(s.alimHedef);
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.85)';
+      ctx.lineWidth = 1.3;
       ctx.setLineDash([5, 4]);
       ctx.beginPath();
       ctx.moveTo(padSol, tpY);
       ctx.lineTo(padSol + cizimW, tpY);
       ctx.stroke();
-      ctx.fillStyle = '#10b981';
-      ctx.font = 'bold 10.5px sans-serif';
-      ctx.fillText(`🎯 TP1 Kâr Al: ${sayi(s.alimHedef)} ₺`, padSol + 10, tpY - 4);
+      etiketCiz(`🎯 TP1: ${sayi(s.alimHedef)} ${birim}`, padSol + 6, musaitY(tpY, solYler), '#4ade80', 'left');
     }
 
-    // Giriş Çizgisi
     if (s.fiyat) {
       const gY = toY(s.fiyat);
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
       ctx.lineWidth = 1.2;
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(padSol, gY);
       ctx.lineTo(padSol + cizimW, gY);
       ctx.stroke();
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 10.5px sans-serif';
-      ctx.fillText(`📍 Anlık / Giriş: ${sayi(s.fiyat)} ₺`, padSol + 10, gY - 4);
+      etiketCiz(`📍 Giriş: ${sayi(s.fiyat)} ${birim}`, padSol + 6, musaitY(gY, solYler), '#38bdf8', 'left');
     }
 
-    // Stop Çizgisi
     if (s.alimStop) {
       const stpY = toY(s.alimStop);
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.85)';
+      ctx.lineWidth = 1.3;
       ctx.setLineDash([5, 4]);
       ctx.beginPath();
       ctx.moveTo(padSol, stpY);
       ctx.lineTo(padSol + cizimW, stpY);
       ctx.stroke();
-      ctx.fillStyle = '#ef4444';
-      ctx.font = 'bold 10.5px sans-serif';
-      ctx.fillText(`🛑 Zarar Kes (Stop): ${sayi(s.alimStop)} ₺`, padSol + 10, stpY + 13);
+      etiketCiz(`🛑 Stop: ${sayi(s.alimStop)} ${birim}`, padSol + 6, musaitY(stpY, solYler), '#fb7185', 'left');
     }
     ctx.setLineDash([]);
   }
 
-  // 3. MUMLARI ÇİZ
+  // 3. MUMLARI ÇİZ (Daha ince, zarif ve canlı renklerle)
   const mSayi = mumlar.length;
   const adim = cizimW / mSayi;
-  const mG = Math.max(4, Math.min(14, adim * 0.65));
+  const mG = Math.max(3, Math.min(7, adim * 0.44));
   const noktalar = [];
 
   mumlar.forEach((m, i) => {
     const x = padSol + (i * adim) + (adim - mG) / 2;
     const cx = x + mG / 2;
     const yukari = m.c >= m.o;
-    const renk = yukari ? '#10b981' : '#ef4444';
+    const renk = yukari ? '#22c55e' : '#f43f5e';
 
     const yO = toY(m.o);
     const yC = toY(m.c);
     const yH = toY(m.h);
     const yL = toY(m.l);
 
-    // Fitil
     ctx.strokeStyle = renk;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.25;
     ctx.beginPath();
     ctx.moveTo(cx, yH);
     ctx.lineTo(cx, yL);
     ctx.stroke();
 
-    // Gövde
     ctx.fillStyle = renk;
     const ustY = Math.min(yO, yC);
-    const govdeH = Math.max(3, Math.abs(yC - yO));
+    const govdeH = Math.max(2.5, Math.abs(yC - yO));
     ctx.fillRect(x, ustY, mG, govdeH);
 
     noktalar.push({ cx, x, yC, yH, yL, ustY, govdeH, yukari });
   });
 
-  // 3.5 EMA 20 / 50 / 200 EĞRİLERİ VE GÖSTERGE LEJANTI
+  // 3.5 EMA 20 / 50 / 200 EĞRİLERİ VE ÜST LEJANT
   if (chkEma && noktalar.length >= 2) {
     const emaCiz = (seri, renk, kalinlik, kesikli) => {
       if (!seri || !seri.length) return null;
@@ -1760,11 +1794,10 @@ function gorselStratejiGrafikCiz(z, s, v) {
       return sonY != null ? { y: sonY, val: sonVal } : null;
     };
 
-    const s200 = emaCiz(emaSeri200, '#f472b6', 2.1, [6, 3]);
-    const s50 = emaCiz(emaSeri50, '#38bdf8', 2.0, null);
-    const s20 = emaCiz(emaSeri20, '#facc15', 1.8, null);
+    const s200 = emaCiz(emaSeri200, '#f472b6', 2.0, [6, 3]);
+    emaCiz(emaSeri50, '#38bdf8', 1.9, null);
+    emaCiz(emaSeri20, '#facc15', 1.7, null);
 
-    // Sol üst köşede temiz EMA lejandı
     const lejantParcalari = [];
     if (z.ema?.ema20) lejantParcalari.push({ txt: `━ EMA20: ${sayi(z.ema.ema20)}`, col: '#facc15' });
     if (z.ema?.ema50) lejantParcalari.push({ txt: `━ EMA50: ${sayi(z.ema.ema50)}`, col: '#38bdf8' });
@@ -1773,33 +1806,30 @@ function gorselStratejiGrafikCiz(z, s, v) {
       lejantParcalari.push({ txt: `╌ EMA200: ${sayi(z.ema.ema200)}${e200Off}`, col: '#f472b6' });
     }
     if (lejantParcalari.length) {
-      ctx.save();
-      ctx.font = 'bold 10.5px sans-serif';
-      ctx.textAlign = 'left';
       let lx = padSol + 6;
-      const ly = 15;
+      const ly = 14;
       lejantParcalari.forEach(item => {
-        ctx.fillStyle = item.col;
-        ctx.fillText(item.txt, lx, ly);
-        lx += ctx.measureText(item.txt).width + 14;
+        etiketCiz(item.txt, lx, ly, item.col, 'left', 'rgba(15, 23, 42, 0.95)');
+        ctx.save();
+        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        lx += ctx.measureText(item.txt).width + 20;
+        ctx.restore();
       });
-      ctx.restore();
     }
   }
 
   // 4. FORMASYON ÇİZGİLERİ VE KIRILIM OKLARI
   if (chkFormasyon && noktalar.length >= 8) {
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 1.9;
 
     if (z.tf === 's4') {
-      // W (İkili Dip) Çizgisi
       const n0 = noktalar[Math.floor(noktalar.length * 0.15)];
       const n1 = noktalar[Math.floor(noktalar.length * 0.35)];
       const n2 = noktalar[Math.floor(noktalar.length * 0.55)];
       const n3 = noktalar[Math.floor(noktalar.length * 0.75)];
       const n4 = noktalar[noktalar.length - 1];
 
-      ctx.strokeStyle = '#a855f7';
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.85)';
       ctx.beginPath();
       ctx.moveTo(n0.cx, n0.yH);
       ctx.lineTo(n1.cx, n1.yL);
@@ -1808,50 +1838,37 @@ function gorselStratejiGrafikCiz(z, s, v) {
       ctx.lineTo(n4.cx, n4.yH);
       ctx.stroke();
 
-      // Boyun Kırılım Çizgisi
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(n1.cx, n2.yH);
       ctx.lineTo(padSol + cizimW, n2.yH);
       ctx.stroke();
       ctx.setLineDash([]);
-
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.fillText('W Boyun Kırılımı ➔', n2.cx + 6, n2.yH - 5);
+      etiketCiz('W Boyun Kırılımı ➔', Math.min(padSol + cizimW - 140, n2.cx + 8), musaitY(n2.yH - 12, solYler), '#38bdf8', 'left');
     } else if (z.tf === 's1' || z.tf === 's2') {
-      // FVG Dönüş Reaksiyon Oku
       const nReaksiyon = noktalar[Math.floor(noktalar.length * 0.65)];
-      okCizCanvas(ctx, nReaksiyon.cx, nReaksiyon.yL + 30, nReaksiyon.cx, nReaksiyon.yL + 6, '#38bdf8');
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.fillText('Kurumsal Alış Reaksiyonu', nReaksiyon.cx - 50, nReaksiyon.yL + 42);
+      okCizCanvas(ctx, nReaksiyon.cx, nReaksiyon.yL + 26, nReaksiyon.cx, nReaksiyon.yL + 6, '#38bdf8');
+      etiketCiz('Alış Reaksiyonu', nReaksiyon.cx - 46, Math.min(h - padAlt - 12, nReaksiyon.yL + 36), '#38bdf8', 'left');
     } else {
-      // Bayrak Direği ve Kanal Çizgisi (m15, Günlük vs.)
       const nStart = noktalar[0];
       const nDirek = noktalar[Math.floor(noktalar.length * 0.4)];
       const nBOS = noktalar[noktalar.length - 2];
 
-      // Bayrak Direği
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
       ctx.beginPath();
       ctx.moveTo(nStart.cx, nStart.yL);
       ctx.lineTo(nDirek.cx, nDirek.yH);
       ctx.stroke();
 
-      // Kanal Tavanı
-      ctx.strokeStyle = '#f59e0b';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
       ctx.beginPath();
       ctx.moveTo(nDirek.cx, nDirek.yH);
       ctx.lineTo(nBOS.cx, nBOS.yH + 4);
       ctx.stroke();
 
-      // Kırılım Oku (BOS)
-      okCizCanvas(ctx, nBOS.cx, nBOS.yH + 30, nBOS.cx, nBOS.yH - 6, '#10b981');
-      ctx.fillStyle = '#10b981';
-      ctx.font = 'bold 10.5px sans-serif';
-      ctx.fillText('⚡ BOS Kırılımı', nBOS.cx - 30, nBOS.yH - 10);
+      okCizCanvas(ctx, nBOS.cx, nBOS.yH + 26, nBOS.cx, nBOS.yH - 4, '#22c55e');
+      etiketCiz('⚡ BOS', nBOS.cx - 24, Math.max(padUst + 12, nBOS.yH - 14), '#4ade80', 'left');
     }
   }
 
