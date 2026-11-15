@@ -1497,15 +1497,17 @@ function gorselStratejiGrafikCiz(z, s, v) {
 
   try {
     const ctx = canvas.getContext('2d');
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = 1160;
+    const dpr = window.devicePixelRatio || 1;
+    const gercekW = Math.round(canvas.parentElement?.clientWidth || canvas.clientWidth || 960);
+    const w = Math.max(640, gercekW);
     const h = 500;
-    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = '100%';
-      canvas.style.maxWidth = '100%';
-      canvas.style.height = 'auto';
+    const hedefW = Math.round(w * dpr);
+    const hedefH = Math.round(h * dpr);
+    if (canvas.width !== hedefW || canvas.height !== hedefH) {
+      canvas.width = hedefW;
+      canvas.height = hedefH;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
