@@ -1344,8 +1344,8 @@ tbody tr:hover {
 
 .gorsel-strateji-canvas-sarma {
   position: relative;
-  background: #0a0e17;
-  border: 1px solid #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   overflow: hidden;
   margin-top: 10px;

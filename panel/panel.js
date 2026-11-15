@@ -1449,7 +1449,7 @@ function gorselStratejiGrafikHtml(z, s, v) {
 
       <!-- Grafik Canvas -->
       <div class="gorsel-strateji-canvas-sarma">
-        <canvas id="detayStratejiCanvas" width="760" height="480"></canvas>
+        <canvas id="detayStratejiCanvas" width="760" height="580"></canvas>
       </div>
 
       <div style="margin-top:10px; font-size:11.5px; color:#94a3b8; line-height:1.45; background:#0a0e17; padding:8px 12px; border-radius:6px; border:1px solid #1e293b;">
@@ -1499,7 +1499,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
     const ctx = canvas.getContext('2d');
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = 760;
-    const h = 480;
+    const h = 580;
     if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
       canvas.width = w * dpr;
       canvas.height = h * dpr;
@@ -1511,10 +1511,10 @@ function gorselStratejiGrafikCiz(z, s, v) {
 
     const birim = paraBirimiAl(v?.sembol || '');
 
-    // Daha ferah ve kontrastlı zemin
+    // Açık renkli, yüksek kontrastlı TradingView tarzı beyaz/krem zemin
     const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, '#162033');
-    bgGrad.addColorStop(1, '#0f172a');
+    bgGrad.addColorStop(0, '#ffffff');
+    bgGrad.addColorStop(1, '#f8fafc');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
@@ -1574,10 +1574,10 @@ function gorselStratejiGrafikCiz(z, s, v) {
   minP -= marj;
   maxP += marj;
 
-  const padUst = 32;
-  const padAlt = 24;
+  const padUst = 36;
+  const padAlt = 26;
   const padSol = 14;
-  const padSag = 78;
+  const padSag = 90;
   const cizimW = w - padSol - padSag;
   const cizimH = h - padUst - padAlt;
 
@@ -1586,26 +1586,26 @@ function gorselStratejiGrafikCiz(z, s, v) {
   // Etiket çakışmasını önleyen hap rozet (pill) ve en üst katman kuyruğu
   const solYler = [], sagYler = [], etiketKuyrugu = [];
   const musaitY = (hedefY, liste) => {
-    let y = Math.max(padUst + 14, Math.min(h - padAlt - 12, hedefY));
-    for (let deneme = 0; deneme < 10; deneme++) {
-      if (!liste.some(u => Math.abs(u - y) < 20)) break;
-      y += (deneme % 2 === 0 ? 20 : -20);
-      y = Math.max(padUst + 14, Math.min(h - padAlt - 12, y));
+    let y = Math.max(padUst + 16, Math.min(h - padAlt - 14, hedefY));
+    for (let deneme = 0; deneme < 12; deneme++) {
+      if (!liste.some(u => Math.abs(u - y) < 24)) break;
+      y += (deneme % 2 === 0 ? 24 : -24);
+      y = Math.max(padUst + 16, Math.min(h - padAlt - 14, y));
     }
     liste.push(y);
     return y;
   };
-  const etiketCiz = (metin, x, y, renk, hiza = 'left', bg = 'rgba(15, 23, 42, 0.96)') => {
+  const etiketCiz = (metin, x, y, renk, hiza = 'left', bg = '#ffffff') => {
     ctx.save();
-    ctx.font = 'bold 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.font = 'bold 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     const tw = ctx.measureText(metin).width;
-    const bw = tw + 14;
-    const bh = 18;
+    const bw = tw + 16;
+    const bh = 21;
     const bx = hiza === 'right' ? x - bw : x;
     const by = y - bh / 2;
     ctx.fillStyle = bg;
     ctx.strokeStyle = renk;
-    ctx.lineWidth = 1.1;
+    ctx.lineWidth = 1.25;
     ctx.beginPath();
     ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 5) : ctx.rect(bx, by, bw, bh);
     ctx.fill();
@@ -1613,14 +1613,14 @@ function gorselStratejiGrafikCiz(z, s, v) {
     ctx.fillStyle = renk;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(metin, bx + 7, y + 0.5);
+    ctx.fillText(metin, bx + 8, y + 0.5);
     ctx.restore();
   };
 
-  // Izgara ve Fiyat Ekseni Çizgileri
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.11)';
+  // Izgara ve Fiyat Ekseni Çizgileri (Açık zemin üzerinde net gri çizgiler ve koyu rakamlar)
+  ctx.strokeStyle = '#e2e8f0';
   ctx.lineWidth = 1;
-  const yatayBasamak = 6;
+  const yatayBasamak = 7;
   for (let i = 0; i <= yatayBasamak; i++) {
     const fVal = minP + ((maxP - minP) * (i / yatayBasamak));
     const y = toY(fVal);
@@ -1629,12 +1629,12 @@ function gorselStratejiGrafikCiz(z, s, v) {
     ctx.lineTo(padSol + cizimW, y);
     ctx.stroke();
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '10.5px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 11.5px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(sayi(fVal), padSol + cizimW + 8, y + 3.5);
+    ctx.fillText(sayi(fVal), padSol + cizimW + 8, y + 4);
   }
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+  ctx.strokeStyle = '#cbd5e1';
   ctx.beginPath();
   ctx.moveTo(padSol + cizimW, padUst - 6);
   ctx.lineTo(padSol + cizimW, h - padAlt + 6);
@@ -1645,7 +1645,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
   const chkFormasyon = document.getElementById('gorselChkFormasyon')?.checked ?? true;
   const chkFib = document.getElementById('gorselChkFib')?.checked ?? true;
 
-  // 1. FVG KUTUSU (Sadece arka plan bandı, etiket en üst katmanda çizilecek)
+  // 1. FVG KUTUSU
   if (chkFvg) {
     const fvgUst = Math.min(maxP, s.direnc || (s.fiyat * 1.015));
     const fvgAlt = Math.max(minP, s.destek || (s.fiyat * 0.985));
@@ -1655,17 +1655,17 @@ function gorselStratejiGrafikCiz(z, s, v) {
     const fvgX = padSol + 6;
     const fvgW = cizimW - 12;
 
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.045)';
-    ctx.strokeStyle = 'rgba(251, 191, 36, 0.28)';
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+    ctx.strokeStyle = 'rgba(217, 119, 6, 0.45)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     ctx.fillRect(fvgX, yUst, fvgW, fvgH);
     ctx.strokeRect(fvgX, yUst, fvgW, fvgH);
     ctx.setLineDash([]);
-    etiketKuyrugu.push({ metin: '🧲 FVG Bölgesi', x: fvgX + 6, y: musaitY(yUst + 11, solYler), renk: '#fbbf24', hiza: 'left' });
+    etiketKuyrugu.push({ metin: '🧲 FVG Bölgesi', x: fvgX + 6, y: musaitY(yUst + 12, solYler), renk: '#b45309', hiza: 'left', bg: '#fffbeb' });
   }
 
-  // 0. FİBONACCİ ÇİZGİLERİ (Etiketler en üst katmanda)
+  // 0. FİBONACCİ ÇİZGİLERİ
   if (chkFib && z?.fibonacci) {
     const fib = z.fibonacci;
     const fibSeviyeler = [
@@ -1679,60 +1679,60 @@ function gorselStratejiGrafikCiz(z, s, v) {
     fibSeviyeler.forEach(lv => {
       if (lv.val == null || lv.val < minP || lv.val > maxP) return;
       const y = toY(lv.val);
-      ctx.strokeStyle = lv.altin ? 'rgba(192, 132, 252, 0.65)' : 'rgba(139, 92, 246, 0.28)';
-      ctx.lineWidth = lv.altin ? 1.2 : 0.85;
+      ctx.strokeStyle = lv.altin ? 'rgba(124, 58, 237, 0.65)' : 'rgba(100, 116, 139, 0.38)';
+      ctx.lineWidth = lv.altin ? 1.3 : 0.9;
       ctx.setLineDash(lv.altin ? [5, 3] : [2, 4]);
       ctx.beginPath();
       ctx.moveTo(padSol, y);
       ctx.lineTo(padSol + cizimW, y);
       ctx.stroke();
       const labelY = musaitY(y, sagYler);
-      etiketKuyrugu.push({ metin: `${lv.ad}: ${sayi(lv.val)}`, x: padSol + cizimW - 6, y: labelY, renk: lv.altin ? '#e9d5ff' : '#c4b5fd', hiza: 'right' });
+      etiketKuyrugu.push({ metin: `${lv.ad}: ${sayi(lv.val)}`, x: padSol + cizimW - 6, y: labelY, renk: lv.altin ? '#6d28d9' : '#334155', hiza: 'right', bg: lv.altin ? '#f5f3ff' : '#ffffff' });
     });
     ctx.restore();
   }
 
-  // 2. TP & STOP HEDEF ÇİZGİLERİ (Etiketler en üst katmanda)
+  // 2. TP & STOP HEDEF ÇİZGİLERİ
   if (chkSeviyeler) {
     if (s.alimHedef) {
       const tpY = toY(s.alimHedef);
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.85)';
-      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = '#16a34a';
+      ctx.lineWidth = 1.4;
       ctx.setLineDash([5, 4]);
       ctx.beginPath();
       ctx.moveTo(padSol, tpY);
       ctx.lineTo(padSol + cizimW, tpY);
       ctx.stroke();
-      etiketKuyrugu.push({ metin: `🎯 TP1: ${sayi(s.alimHedef)} ${birim}`, x: padSol + 6, y: musaitY(tpY, solYler), renk: '#4ade80', hiza: 'left' });
+      etiketKuyrugu.push({ metin: `🎯 TP1: ${sayi(s.alimHedef)} ${birim}`, x: padSol + 6, y: musaitY(tpY, solYler), renk: '#15803d', hiza: 'left', bg: '#f0fdf4' });
     }
 
     if (s.fiyat) {
       const gY = toY(s.fiyat);
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1.3;
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(padSol, gY);
       ctx.lineTo(padSol + cizimW, gY);
       ctx.stroke();
-      etiketKuyrugu.push({ metin: `📍 Giriş: ${sayi(s.fiyat)} ${birim}`, x: padSol + 6, y: musaitY(gY, solYler), renk: '#38bdf8', hiza: 'left' });
+      etiketKuyrugu.push({ metin: `📍 Giriş: ${sayi(s.fiyat)} ${birim}`, x: padSol + 6, y: musaitY(gY, solYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
     }
 
     if (s.alimStop) {
       const stpY = toY(s.alimStop);
-      ctx.strokeStyle = 'rgba(244, 63, 94, 0.85)';
-      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 1.4;
       ctx.setLineDash([5, 4]);
       ctx.beginPath();
       ctx.moveTo(padSol, stpY);
       ctx.lineTo(padSol + cizimW, stpY);
       ctx.stroke();
-      etiketKuyrugu.push({ metin: `🛑 Stop: ${sayi(s.alimStop)} ${birim}`, x: padSol + 6, y: musaitY(stpY, solYler), renk: '#fb7185', hiza: 'left' });
+      etiketKuyrugu.push({ metin: `🛑 Stop: ${sayi(s.alimStop)} ${birim}`, x: padSol + 6, y: musaitY(stpY, solYler), renk: '#b91c1c', hiza: 'left', bg: '#fef2f2' });
     }
     ctx.setLineDash([]);
   }
 
-  // 3. MUMLARI ÇİZ (Daha ince, zarif ve canlı)
+  // 3. MUMLARI ÇİZ (Açık zeminde keskin yeşil/kırmızı, ince gövdeli)
   const mSayi = mumlar.length;
   const adim = cizimW / mSayi;
   const mG = Math.max(2.5, Math.min(5.5, adim * 0.36));
@@ -1742,7 +1742,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
     const x = padSol + (i * adim) + (adim - mG) / 2;
     const cx = x + mG / 2;
     const yukari = m.c >= m.o;
-    const renk = yukari ? '#22c55e' : '#f43f5e';
+    const renk = yukari ? '#16a34a' : '#dc2626';
 
     const yO = toY(m.o);
     const yC = toY(m.c);
@@ -1750,7 +1750,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
     const yL = toY(m.l);
 
     ctx.strokeStyle = renk;
-    ctx.lineWidth = 1.15;
+    ctx.lineWidth = 1.25;
     ctx.beginPath();
     ctx.moveTo(cx, yH);
     ctx.lineTo(cx, yL);
@@ -1764,7 +1764,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
     noktalar.push({ cx, x, yC, yH, yL, ustY, govdeH, yukari });
   });
 
-  // 3.5 EMA 20 / 50 / 200 EĞRİLERİ
+  // 3.5 EMA 20 / 50 / 200 EĞRİLERİ (Açık zeminde koyu kontrastlı renkler)
   if (chkEma && noktalar.length >= 2) {
     const emaCiz = (seri, renk, kalinlik, kesikli) => {
       if (!seri || !seri.length) return null;
@@ -1793,25 +1793,25 @@ function gorselStratejiGrafikCiz(z, s, v) {
       return sonY != null ? { y: sonY, val: sonVal } : null;
     };
 
-    const s200 = emaCiz(emaSeri200, '#f472b6', 2.0, [6, 3]);
-    emaCiz(emaSeri50, '#38bdf8', 1.9, null);
-    emaCiz(emaSeri20, '#facc15', 1.7, null);
+    const s200 = emaCiz(emaSeri200, '#9333ea', 2.2, [6, 3]);
+    emaCiz(emaSeri50, '#2563eb', 2.1, null);
+    emaCiz(emaSeri20, '#d97706', 2.0, null);
 
     const lejantParcalari = [];
-    if (z.ema?.ema20) lejantParcalari.push({ txt: `━ EMA20: ${sayi(z.ema.ema20)}`, col: '#facc15' });
-    if (z.ema?.ema50) lejantParcalari.push({ txt: `━ EMA50: ${sayi(z.ema.ema50)}`, col: '#38bdf8' });
+    if (z.ema?.ema20) lejantParcalari.push({ txt: `━ EMA20: ${sayi(z.ema.ema20)}`, col: '#b45309', bg: '#fffbeb' });
+    if (z.ema?.ema50) lejantParcalari.push({ txt: `━ EMA50: ${sayi(z.ema.ema50)}`, col: '#1d4ed8', bg: '#eff6ff' });
     if (z.ema?.ema200) {
       const e200Off = !s200 ? (z.ema.ema200 > maxP ? ' ▲' : ' ▼') : '';
-      lejantParcalari.push({ txt: `╌ EMA200: ${sayi(z.ema.ema200)}${e200Off}`, col: '#f472b6' });
+      lejantParcalari.push({ txt: `╌ EMA200: ${sayi(z.ema.ema200)}${e200Off}`, col: '#7e22ce', bg: '#faf5ff' });
     }
     if (lejantParcalari.length) {
       let lx = padSol + 6;
-      const ly = 14;
+      const ly = 15;
       lejantParcalari.forEach(item => {
-        etiketKuyrugu.push({ metin: item.txt, x: lx, y: ly, renk: item.col, hiza: 'left', bg: 'rgba(15, 23, 42, 0.96)' });
+        etiketKuyrugu.push({ metin: item.txt, x: lx, y: ly, renk: item.col, hiza: 'left', bg: item.bg });
         ctx.save();
-        ctx.font = 'bold 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        lx += ctx.measureText(item.txt).width + 22;
+        ctx.font = 'bold 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        lx += ctx.measureText(item.txt).width + 24;
         ctx.restore();
       });
     }
@@ -1819,7 +1819,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
 
   // 4. FORMASYON ÇİZGİLERİ VE KIRILIM OKLARI
   if (chkFormasyon && noktalar.length >= 8) {
-    ctx.lineWidth = 1.9;
+    ctx.lineWidth = 2.0;
 
     if (z.tf === 's4') {
       const n0 = noktalar[Math.floor(noktalar.length * 0.15)];
@@ -1828,7 +1828,7 @@ function gorselStratejiGrafikCiz(z, s, v) {
       const n3 = noktalar[Math.floor(noktalar.length * 0.75)];
       const n4 = noktalar[noktalar.length - 1];
 
-      ctx.strokeStyle = 'rgba(168, 85, 247, 0.85)';
+      ctx.strokeStyle = '#7e22ce';
       ctx.beginPath();
       ctx.moveTo(n0.cx, n0.yH);
       ctx.lineTo(n1.cx, n1.yL);
@@ -1837,37 +1837,37 @@ function gorselStratejiGrafikCiz(z, s, v) {
       ctx.lineTo(n4.cx, n4.yH);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+      ctx.strokeStyle = '#0284c7';
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(n1.cx, n2.yH);
       ctx.lineTo(padSol + cizimW, n2.yH);
       ctx.stroke();
       ctx.setLineDash([]);
-      etiketKuyrugu.push({ metin: 'W Boyun Kırılımı ➔', x: Math.min(padSol + cizimW - 140, n2.cx + 8), y: musaitY(n2.yH - 12, sagYler), renk: '#38bdf8', hiza: 'left' });
+      etiketKuyrugu.push({ metin: 'W Boyun Kırılımı ➔', x: Math.min(padSol + cizimW - 150, n2.cx + 8), y: musaitY(n2.yH - 12, sagYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
     } else if (z.tf === 's1' || z.tf === 's2') {
       const nReaksiyon = noktalar[Math.floor(noktalar.length * 0.65)];
-      okCizCanvas(ctx, nReaksiyon.cx, nReaksiyon.yL + 26, nReaksiyon.cx, nReaksiyon.yL + 6, '#38bdf8');
-      etiketKuyrugu.push({ metin: 'Alış Reaksiyonu', x: nReaksiyon.cx - 46, y: musaitY(nReaksiyon.yL + 36, sagYler), renk: '#38bdf8', hiza: 'left' });
+      okCizCanvas(ctx, nReaksiyon.cx, nReaksiyon.yL + 26, nReaksiyon.cx, nReaksiyon.yL + 6, '#0284c7');
+      etiketKuyrugu.push({ metin: 'Alış Reaksiyonu', x: nReaksiyon.cx - 50, y: musaitY(nReaksiyon.yL + 36, sagYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
     } else {
       const nStart = noktalar[0];
       const nDirek = noktalar[Math.floor(noktalar.length * 0.4)];
       const nBOS = noktalar[noktalar.length - 2];
 
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.strokeStyle = '#0284c7';
       ctx.beginPath();
       ctx.moveTo(nStart.cx, nStart.yL);
       ctx.lineTo(nDirek.cx, nDirek.yH);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
+      ctx.strokeStyle = '#d97706';
       ctx.beginPath();
       ctx.moveTo(nDirek.cx, nDirek.yH);
       ctx.lineTo(nBOS.cx, nBOS.yH + 4);
       ctx.stroke();
 
-      okCizCanvas(ctx, nBOS.cx, nBOS.yH + 26, nBOS.cx, nBOS.yH - 4, '#22c55e');
-      etiketKuyrugu.push({ metin: '⚡ BOS', x: nBOS.cx - 24, y: musaitY(nBOS.yH - 16, sagYler), renk: '#4ade80', hiza: 'left' });
+      okCizCanvas(ctx, nBOS.cx, nBOS.yH + 26, nBOS.cx, nBOS.yH - 4, '#16a34a');
+      etiketKuyrugu.push({ metin: '⚡ BOS', x: nBOS.cx - 28, y: musaitY(nBOS.yH - 18, sagYler), renk: '#15803d', hiza: 'left', bg: '#f0fdf4' });
     }
   }
 
@@ -1877,12 +1877,12 @@ function gorselStratejiGrafikCiz(z, s, v) {
   // Sağ Fiyat Ekseninde Anlık Fiyat Rozeti
   if (s.fiyat) {
     const curY = toY(s.fiyat);
-    ctx.fillStyle = '#0284c7';
-    ctx.fillRect(padSol + cizimW + 2, curY - 9, padSag - 6, 18);
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(padSol + cizimW + 3, curY - 11, padSag - 6, 22);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 10px sans-serif';
+    ctx.font = 'bold 11.5px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(sayi(s.fiyat), padSol + cizimW + (padSag / 2) - 1, curY + 3);
+    ctx.fillText(sayi(s.fiyat), padSol + cizimW + (padSag / 2), curY + 4);
   }
   } catch (err) {
     console.error('Grafik çizim hatası:', err);
