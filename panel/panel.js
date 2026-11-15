@@ -2860,7 +2860,9 @@ function emirModaliAc(yon = 'LONG') {
   const z = v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1;
 
   const anaSatir = D.satirlar.find(x => x.id === v.sembol);
-  const f = anaSatir?.fiyat || z?.seviyeler?.fiyat;
+  const f = (sonDetayFiyat && sonDetayFiyat > 0 && D.detaySembol === v.sembol)
+    ? sonDetayFiyat
+    : ((v.canliFiyat && v.canliFiyat > 0) ? v.canliFiyat : (anaSatir?.fiyat || z?.seviyeler?.fiyat));
   if (!f) return bildir('Fiyat verisi alınamadı.');
 
   const birim = paraBirimiAl(v.sembol);
@@ -2917,7 +2919,16 @@ window.otomatikPlanUygula = async function(yon = 'LONG', hedefTip = 'tp1') {
   if (!s) return bildir('⚠️ Bu zaman dilimi için seviye verisi bulunamadı.');
 
   const anaSatir = D.satirlar.find(x => x.id === v.sembol);
-  const f = anaSatir?.fiyat || s.fiyat;
+  let f = (sonDetayFiyat && sonDetayFiyat > 0 && D.detaySembol === v.sembol)
+    ? sonDetayFiyat
+    : ((v.canliFiyat && v.canliFiyat > 0) ? v.canliFiyat : (anaSatir?.fiyat || s.fiyat));
+  try {
+    const canliVeri = await api(`/api/fiyat?sembol=${encodeURIComponent(v.sembol)}`);
+    if (canliVeri && canliVeri.fiyat > 0) {
+      f = canliVeri.fiyat;
+      detayCanliFiyatGuncelle(v.sembol, f, canliVeri.degisim ?? v.canliDegisim ?? anaSatir?.degisim);
+    }
+  } catch (_) {}
   if (!f || f <= 0) return bildir('⚠️ Güncel canlı fiyat verisi alınamadı.');
 
   const isShort = (yon === 'SHORT');
