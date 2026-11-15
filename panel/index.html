@@ -273,8 +273,9 @@
               <input type="number" step="0.1" id="emirStopYuzde" placeholder="% 2" style="width:100%; border-color:#ef444466; color:#f87171; font-weight:bold; font-size:13.5px; padding:5px 6px;">
             </div>
           </div>
-          <!-- Hızlı % Butonları -->
-          <div style="display:flex; gap:4px; margin-top:6px;">
+          <!-- Hızlı % ve Analiz Stop Butonları -->
+          <div style="display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;">
+            <button type="button" id="emirAnalizStopBtn" class="btn ikincil" style="flex:1.5; padding:2px 5px; font-size:10.5px; color:#fca5a5; border-color:#ef444455;" title="Analizdeki Stop seviyesini uygula">📊 Analiz Stop</button>
             <button type="button" class="btn ikincil stop-yuzde-btn" data-yuzde="1" style="flex:1; padding:2px; font-size:10.5px; color:#fca5a5;">%1</button>
             <button type="button" class="btn ikincil stop-yuzde-btn" data-yuzde="2" style="flex:1; padding:2px; font-size:10.5px; color:#fca5a5;">%2</button>
             <button type="button" class="btn ikincil stop-yuzde-btn" data-yuzde="3" style="flex:1; padding:2px; font-size:10.5px; color:#fca5a5;">%3</button>
@@ -298,8 +299,10 @@
               <input type="number" step="0.1" id="emirHedefYuzde" placeholder="% 4" style="width:100%; border-color:#10b98166; color:#34d399; font-weight:bold; font-size:13.5px; padding:5px 6px;">
             </div>
           </div>
-          <!-- Hızlı % Butonları -->
-          <div style="display:flex; gap:4px; margin-top:6px;">
+          <!-- Hızlı % ve Analiz TP1 / TP2 Butonları -->
+          <div style="display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;">
+            <button type="button" id="emirAnalizTp1Btn" class="btn ikincil" style="flex:1.2; padding:2px 5px; font-size:10.5px; color:#34d399; border-color:#10b98155;" title="Analizdeki 1. Kâr Hedefi (TP1)">🎯 TP1</button>
+            <button type="button" id="emirAnalizTp2Btn" class="btn ikincil" style="flex:1.2; padding:2px 5px; font-size:10.5px; color:#fde047; border-color:#f59e0b55;" title="Analizdeki 2. Kâr Hedefi (TP2)">🚀 TP2</button>
             <button type="button" class="btn ikincil hedef-yuzde-btn" data-yuzde="2" style="flex:1; padding:2px; font-size:10.5px; color:#86efac;">%2</button>
             <button type="button" class="btn ikincil hedef-yuzde-btn" data-yuzde="4" style="flex:1; padding:2px; font-size:10.5px; color:#86efac;">%4</button>
             <button type="button" class="btn ikincil hedef-yuzde-btn" data-yuzde="6" style="flex:1; padding:2px; font-size:10.5px; color:#86efac;">%6</button>
@@ -685,7 +688,7 @@
 </section>
 
 <div id="bildirim" class="bildirim gizli"></div>
-<script src="panel.js?v=2.30"></script>
+<script src="panel.js?v=2.31"></script>
 </body>
 </html>
 

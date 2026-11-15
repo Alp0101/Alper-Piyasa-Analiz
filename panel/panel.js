@@ -1318,10 +1318,14 @@ function detayCiz() {
               <span class="kucuk" style="color:#a7f3d0;">R/R: <b>1 : ${sayi(s.riskOdul, 2)}</b></span>
             </div>
             <div class="seviye-satir" style="margin-top:6px;"><span>🛑 Zarar-kes (Stop-Loss)</span><b class="eks">${sayi(s.alimStop)}</b></div>
-            <div class="seviye-satir"><span>🎯 1. Kâr Hedefi</span><b class="art">${sayi(s.alimHedef)}</b></div>
+            <div class="seviye-satir"><span>🎯 1. Kâr Hedefi (TP1)</span><b class="art">${sayi(s.alimHedef)}</b></div>
+            <div class="seviye-satir"><span>🚀 2. Kâr Hedefi (TP2)</span><b class="art" style="color:#fde047;">${sayi(s.alimHedef2 || '—')}</b></div>
             <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="btn" style="background:#10b981; color:#fff; font-size:12px; font-weight:bold; padding:7px 14px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 0 10px rgba(16,185,129,0.3);" onclick="otomatikPlanUygula('LONG')">
-                ⚡ Bu Planla Demo Long Aç (Otomatik Al)
+              <button class="btn" style="background:#10b981; color:#fff; font-size:12px; font-weight:bold; padding:7px 10px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 0 10px rgba(16,185,129,0.25);" onclick="otomatikPlanUygula('LONG', 'tp1')">
+                ⚡ TP1 ile Aç
+              </button>
+              <button class="btn" style="background:#059669; color:#fef08a; border:1px solid rgba(250,204,21,0.45); font-size:12px; font-weight:bold; padding:7px 10px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px;" onclick="otomatikPlanUygula('LONG', 'tp2')">
+                🚀 TP2 ile Aç
               </button>
               <button class="btn ikincil" style="font-size:12px; padding:7px 12px;" title="Emri özelleştirerek aç" onclick="emirModaliAc('LONG')">
                 ✏️ Özelleştir
@@ -1336,10 +1340,14 @@ function detayCiz() {
               <span class="kucuk" style="color:#fecaca;">R/R: <b>1 : ${sayi(s.satisRiskOdul || '—', 2)}</b></span>
             </div>
             <div class="seviye-satir" style="margin-top:6px;"><span>🛑 Zarar-kes (Stop-Loss)</span><b class="eks">${sayi(s.satisStop || '—')}</b></div>
-            <div class="seviye-satir"><span>🎯 1. Kâr Hedefi</span><b class="art">${sayi(s.satisHedef || '—')}</b></div>
+            <div class="seviye-satir"><span>🎯 1. Kâr Hedefi (TP1)</span><b class="art">${sayi(s.satisHedef || '—')}</b></div>
+            <div class="seviye-satir"><span>🚀 2. Kâr Hedefi (TP2)</span><b class="art" style="color:#fde047;">${sayi(s.satisHedef2 || '—')}</b></div>
             <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="btn" style="background:#ef4444; color:#fff; font-size:12px; font-weight:bold; padding:7px 14px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 0 10px rgba(239,68,68,0.3);" onclick="otomatikPlanUygula('SHORT')">
-                ⚡ Bu Planla Demo Short Aç (Otomatik Sat)
+              <button class="btn" style="background:#ef4444; color:#fff; font-size:12px; font-weight:bold; padding:7px 10px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 0 10px rgba(239,68,68,0.25);" onclick="otomatikPlanUygula('SHORT', 'tp1')">
+                ⚡ TP1 ile Aç
+              </button>
+              <button class="btn" style="background:#dc2626; color:#fef08a; border:1px solid rgba(250,204,21,0.45); font-size:12px; font-weight:bold; padding:7px 10px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px;" onclick="otomatikPlanUygula('SHORT', 'tp2')">
+                🚀 TP2 ile Aç
               </button>
               <button class="btn ikincil" style="font-size:12px; padding:7px 12px;" title="Emri özelleştirerek aç" onclick="emirModaliAc('SHORT')">
                 ✏️ Özelleştir
@@ -2899,8 +2907,8 @@ function emirModaliAc(yon = 'LONG') {
 $('#dDemoAlBtn').onclick = () => emirModaliAc('LONG');
 $('#dDemoSatBtn').onclick = () => emirModaliAc('SHORT');
 
-// Analiz planını tek tıkla otomatik demo portföyde başlatan fonksiyon
-window.otomatikPlanUygula = async function(yon = 'LONG') {
+// Analiz planını tek tıkla (TP1 veya TP2 + Stop) otomatik demo portföyde başlatan fonksiyon
+window.otomatikPlanUygula = async function(yon = 'LONG', hedefTip = 'tp1') {
   const v = D.detayVeri;
   if (!v) return bildir('⚠️ Analiz verisi yüklenemedi.');
 
@@ -2913,8 +2921,12 @@ window.otomatikPlanUygula = async function(yon = 'LONG') {
   if (!f || f <= 0) return bildir('⚠️ Güncel canlı fiyat verisi alınamadı.');
 
   const isShort = (yon === 'SHORT');
+  const tp2Secili = (hedefTip === 'tp2');
   let stop = isShort ? (s.satisStop || null) : (s.alimStop || null);
-  let hedef = isShort ? (s.satisHedef || null) : (s.alimHedef || null);
+  let hedef = isShort
+    ? (tp2Secili ? (s.satisHedef2 || s.satisHedef || null) : (s.satisHedef || null))
+    : (tp2Secili ? (s.alimHedef2 || s.alimHedef || null) : (s.alimHedef || null));
+  const hedefEtiket = tp2Secili ? 'TP2' : 'TP1';
 
   // BIST Günlük Tavan/Taban (±%10) Sınırlarını Uygula
   const bist = bistTabanTavanHesapla(v.sembol, f, anaSatir?.degisim, v.zamanDilimleri?.g1);
@@ -3023,7 +3035,7 @@ window.otomatikPlanUygula = async function(yon = 'LONG') {
 
   sesCal('kar');
   const yonMetni = isShort ? '🔴 SHORT (Düşüş)' : '🟢 LONG (Yükseliş)';
-  bildir(`🚀 ${sembolKodu} ${yonMetni} demo işlemi analiz planıyla açıldı!\n🎯 Hedef: ${sayi(hedef)} ${birim} | 🛑 Stop: ${sayi(stop)} ${birim}`, 6000);
+  bildir(`🚀 ${sembolKodu} ${yonMetni} (${hedefEtiket}) demo işlemi analiz planıyla açıldı!\n🎯 ${hedefEtiket}: ${sayi(hedef)} ${birim} | 🛑 Stop: ${sayi(stop)} ${birim}`, 6000);
 
   await demoPortfoyYukle();
   detayCiz();
@@ -3031,6 +3043,36 @@ window.otomatikPlanUygula = async function(yon = 'LONG') {
 
 $('#emirYonLongBtn').onclick = () => emirYonAyarla('LONG');
 $('#emirYonShortBtn').onclick = () => emirYonAyarla('SHORT');
+if ($('#emirAnalizStopBtn')) {
+  $('#emirAnalizStopBtn').onclick = () => {
+    const v = D.detayVeri;
+    const z = v ? (v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1) : null;
+    const val = aktifEmirYonu === 'SHORT' ? z?.seviyeler?.satisStop : z?.seviyeler?.alimStop;
+    if (!val) return bildir('⚠️ Bu zaman dilimi için analiz stop seviyesi bulunamadı.');
+    $('#emirStopFiyat').value = val;
+    emirHesapla();
+  };
+}
+if ($('#emirAnalizTp1Btn')) {
+  $('#emirAnalizTp1Btn').onclick = () => {
+    const v = D.detayVeri;
+    const z = v ? (v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1) : null;
+    const val = aktifEmirYonu === 'SHORT' ? z?.seviyeler?.satisHedef : z?.seviyeler?.alimHedef;
+    if (!val) return bildir('⚠️ Bu zaman dilimi için TP1 hedefi bulunamadı.');
+    $('#emirHedefFiyat').value = val;
+    emirHesapla();
+  };
+}
+if ($('#emirAnalizTp2Btn')) {
+  $('#emirAnalizTp2Btn').onclick = () => {
+    const v = D.detayVeri;
+    const z = v ? (v.zamanDilimleri[D.detayTf] || v.zamanDilimleri.s4 || v.zamanDilimleri.g1) : null;
+    const val = aktifEmirYonu === 'SHORT' ? (z?.seviyeler?.satisHedef2 || z?.seviyeler?.satisHedef) : (z?.seviyeler?.alimHedef2 || z?.seviyeler?.alimHedef);
+    if (!val) return bildir('⚠️ Bu zaman dilimi için TP2 hedefi bulunamadı.');
+    $('#emirHedefFiyat').value = val;
+    emirHesapla();
+  };
+}
 if ($('#emirKaldirac')) {
   $('#emirKaldirac').onchange = () => {
     // Kaldıraç değiştiğinde teminat bazlı % Stop ve % Kâr oranını koru
