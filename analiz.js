@@ -529,6 +529,7 @@ function analizEt(setler, benchSet, bilgi) {
       yontemler: ['trend', 'momentum', 'oynaklik', 'seviye', 'hacim', 'mum', 'uyum', 'ortam'].map(k => ({ ...y[k], puan: yuvarla(y[k].puan, 1) })),
       tuzak,
       balina,
+      hacimAkisi: hacimAkisiHesapla(d.mumlar),
       seviyeler: {
         fiyat: yuvarla(c, hs), destek: yuvarla(sv.destek, hs), destek2: yuvarla(sv.destek2, hs),
         direnc: yuvarla(sv.direnc, hs), direnc2: yuvarla(sv.direnc2, hs), atr: yuvarla(a, hs),
@@ -551,6 +552,43 @@ function analizEt(setler, benchSet, bilgi) {
   }
   const ozelTaktikler = ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi);
   return { sembol: bilgi.id, ad: bilgi.ad, tur: bilgi.tur, zamanDilimleri, ozelTaktikler, bistLimitler: bistLimit, not: setler.not, zaman: new Date().toISOString() };
+}
+
+function hacimAkisiHesapla(mumlar) {
+  if (!mumlar || mumlar.length === 0) return null;
+  const sonlar = mumlar.slice(-10);
+  const gercekVar = sonlar.some(m => m.tbv != null && isFinite(m.tbv) && m.v > 0);
+  let alisTop = 0;
+  let satisTop = 0;
+  sonlar.forEach(m => {
+    const v = m.v || 0;
+    if (v <= 0) return;
+    if (gercekVar && m.tbv != null) {
+      const a = Math.min(v, Math.max(0, m.tbv));
+      alisTop += a;
+      satisTop += (v - a);
+    } else if (m.h > m.l) {
+      const oran = Math.min(0.95, Math.max(0.05, (m.c - m.l) / (m.h - m.l)));
+      alisTop += v * oran;
+      satisTop += v * (1 - oran);
+    } else {
+      const oran = m.c >= m.o ? 0.6 : 0.4;
+      alisTop += v * oran;
+      satisTop += v * (1 - oran);
+    }
+  });
+  const top = alisTop + satisTop;
+  if (top <= 0) return null;
+  const alisYuzde = Math.round((alisTop / top) * 100);
+  const satisYuzde = 100 - alisYuzde;
+  return {
+    alisYuzde,
+    satisYuzde,
+    alisHacim: yuvarla(alisTop, 2),
+    satisHacim: yuvarla(satisTop, 2),
+    netDelta: yuvarla(alisTop - satisTop, 2),
+    gercek: gercekVar
+  };
 }
 
 function ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi) {

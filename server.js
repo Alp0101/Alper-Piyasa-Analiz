@@ -681,6 +681,9 @@ async function taramaVeSinyalIsle(listeId) {
   const satirlar = await listeTara(listeId);
   try {
     const fiyatHaritasi = {};
+    const btcSatir = (satirlar || []).find(x => x.id === 'BINANCE:BTCUSDT' || x.kod === 'BTC');
+    const btc4s = btcSatir?.tv?.s4 ?? 0;
+
     (satirlar || []).forEach(r => {
       if (r && r.id && r.fiyat) fiyatHaritasi[r.id] = r.fiyat;
       const t = r.tv || {};
@@ -690,18 +693,32 @@ async function taramaVeSinyalIsle(listeId) {
       const birim = isBist ? '₺' : '$';
       const benchDeg = r.benchDegisim ?? 0;
 
-      // Piyasa Rejimi Kalkanı: Endeks/BTC sert satışta (-%2+) iken Long sinyalleri durdur
-      const sertSatis = benchDeg <= -2.0;
-      const zayifPiyasa = benchDeg <= -1.3;
+      // 1. Piyasa Rejimi Kalkanı (XU100 / BTC günlük düşüş + BTC 4S trend koruması)
+      const sertSatis = benchDeg <= -2.0 || (!isBist && btc4s <= -0.35);
+      const zayifPiyasa = benchDeg <= -1.3 || (!isBist && btc4s <= -0.2);
       const longIzin = !sertSatis && (!zayifPiyasa || ((r.hizliPuan || 0) >= 80 && gh >= 1.5));
 
-      const isSniper = longIzin && !tuzakVar && t.s2 > 0.15 && t.s4 > 0.15 && t.g1 > 0.1 &&
+      // 2. Ana Trend (EMA50 / EMA200) ve Anti-FOMO Koruması
+      const ema50 = r.ema50;
+      const ema200 = r.ema200;
+      const trendLongUygun = (!ema50 || r.fiyat > ema50) && (!ema200 || r.fiyat >= ema200 * 0.985) && (!ema50 || !ema200 || ema50 >= ema200 * 0.99);
+      const trendShortUygun = (!ema50 || r.fiyat < ema50) && (!ema200 || r.fiyat <= ema200 * 1.015);
+      const fomoYok = Math.abs(r.degisim || 0) < 6.5 && (!ema50 || ((Math.abs(r.fiyat - ema50) / ema50) * 100) <= 9.0);
+
+      // 3. Alış / Satış Hacim Baskısı Onayı
+      const alisPct = r.hacimAkisi?.alisYuzde ?? 50;
+      const satisPct = r.hacimAkisi?.satisYuzde ?? 50;
+
+      const isSniper = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar &&
+        t.s2 > 0.15 && t.s4 > 0.15 && t.g1 > 0.1 &&
         (r.rsi?.s4 || 50) >= 48 && (r.rsi?.s4 || 50) <= 65 &&
         (r.hizliPuan || 0) >= 70 && gh >= 1.2;
-      const isSniperShort = !isBist && !tuzakVar && t.s2 < -0.15 && t.s4 < -0.15 && t.g1 < -0.1 &&
+      const isSniperShort = !isBist && trendShortUygun && fomoYok && satisPct >= 52 && !tuzakVar &&
+        t.s2 < -0.15 && t.s4 < -0.15 && t.g1 < -0.1 &&
         (r.rsi?.s4 || 50) <= 52 && (r.rsi?.s4 || 50) >= 32 &&
         (r.hizliPuan || 0) <= -70 && gh >= 1.2;
-      const isKombo = longIzin && !tuzakVar && r.isaretler?.some(i => i.tip === 'kombo') &&
+      const isKombo = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar &&
+        r.isaretler?.some(i => i.tip === 'kombo') &&
         t.s4 > 0.1 && t.g1 > 0 && gh >= 1.1 && (r.rsi?.s4 || 50) <= 68;
       const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:'));
 

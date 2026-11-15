@@ -501,6 +501,15 @@ function tablo() {
       <td class="sag">
         <div style="font-weight:600; color:${r.goreceliHacim >= 2.0 ? '#38bdf8' : r.goreceliHacim >= 1.3 ? '#10b981' : 'inherit'};">${r.goreceliHacim == null ? '—' : sayi(r.goreceliHacim, 1) + 'x'}</div>
         ${hacimFormat(r) ? `<div class="kucuk" style="color:#94a3b8; font-size:11px; white-space:nowrap;">${hacimFormat(r)}</div>` : ''}
+        ${r.hacimAkisi ? `<div style="margin-top:3px; min-width:86px;" title="Alış Baskısı: %${r.hacimAkisi.alisYuzde} | Satış Baskısı: %${r.hacimAkisi.satisYuzde}">
+          <div style="display:flex; justify-content:space-between; font-size:9.5px; line-height:1.1; margin-bottom:2px;">
+            <span style="color:#34d399;">A:%${r.hacimAkisi.alisYuzde}</span>
+            <span style="color:#f87171;">S:%${r.hacimAkisi.satisYuzde}</span>
+          </div>
+          <div style="height:3px; background:#ef444466; border-radius:2px; overflow:hidden;">
+            <div style="height:100%; width:${r.hacimAkisi.alisYuzde}%; background:#10b981;"></div>
+          </div>
+        </div>` : ''}
       </td>
       <td>${konum}</td>
       <td class="sag ${puanRenk}"><b>${r.hizliPuan ?? '—'}</b></td>
@@ -1236,6 +1245,15 @@ function detayCiz() {
         <div class="kutu" style="border-left: 3px solid ${b.renk};">
           <h4>${b.ikon} Balina & Akıllı Para Dedektörü: <span style="color:${b.renk}">${esc(b.seviye)}</span></h4>
           <div style="font-size:13px; line-height:1.5;">${esc(b.mesaj)}</div>
+          ${z.hacimAkisi ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid #1e293b;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:5px;">
+              <span style="color:#cbd5e1; font-weight:bold;">📊 ${z.hacimAkisi.gercek ? '⚡ Gerçek Emir Akışı (Binance Taker)' : '🕯️ Mum Hacim Baskısı (Tahmini)'}</span>
+              <span><b style="color:#34d399;">Alış %${z.hacimAkisi.alisYuzde}</b> · <b style="color:#f87171;">Satış %${z.hacimAkisi.satisYuzde}</b></span>
+            </div>
+            <div style="height:8px; background:#ef444455; border-radius:4px; overflow:hidden; display:flex;">
+              <div style="width:${z.hacimAkisi.alisYuzde}%; background:#10b981;"></div>
+            </div>
+          </div>` : ''}
         </div>
         ${ozelTaktiklerHtml}
         <div class="kutu">
@@ -3219,10 +3237,17 @@ function radarVeSniperDegisimKontrol(satirlar) {
     const tuzakVar = r.isaretler?.some(i => i.tip === 'tuzak');
     const benchDeg = r.benchDegisim ?? 0;
     const longIzin = benchDeg > -2.0 && (benchDeg > -1.3 || ((r.hizliPuan || 0) >= 80 && gh >= 1.5));
+    const ema50 = r.ema50;
+    const ema200 = r.ema200;
+    const trendLongUygun = (!ema50 || r.fiyat > ema50) && (!ema200 || r.fiyat >= ema200 * 0.985) && (!ema50 || !ema200 || ema50 >= ema200 * 0.99);
+    const trendShortUygun = (!ema50 || r.fiyat < ema50) && (!ema200 || r.fiyat <= ema200 * 1.015);
+    const fomoYok = Math.abs(r.degisim || 0) < 6.5 && (!ema50 || ((Math.abs(r.fiyat - ema50) / ema50) * 100) <= 9.0);
+    const alisPct = r.hacimAkisi?.alisYuzde ?? 50;
+    const satisPct = r.hacimAkisi?.satisYuzde ?? 50;
 
-    const isSniper = longIzin && !tuzakVar && t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 48 && rsi4h <= 65 && (r.hizliPuan || 0) >= 70 && gh >= 1.2;
-    const isSniperShort = !isBist && !tuzakVar && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 52 && rsi4h >= 32 && (r.hizliPuan || 0) <= -70 && gh >= 1.2;
-    const isFirsat = longIzin && !tuzakVar && !isSniperShort && gh >= 1.1 && r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo') && t4 > 0 && tg > 0;
+    const isSniper = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar && t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 48 && rsi4h <= 65 && (r.hizliPuan || 0) >= 70 && gh >= 1.2;
+    const isSniperShort = !isBist && trendShortUygun && fomoYok && satisPct >= 52 && !tuzakVar && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 52 && rsi4h >= 32 && (r.hizliPuan || 0) <= -70 && gh >= 1.2;
+    const isFirsat = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar && !isSniperShort && gh >= 1.1 && r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo') && t4 > 0 && tg > 0;
 
     // 1. İLK TARAMA (Sayfa yeni açıldıysa veya başka listeye/kriptoya ilk geçildiyse):
     // Bu varlıklar zaten listede mevcut olan durumlardır. Sessizce kaydet, ASLA ses/popup çalma!

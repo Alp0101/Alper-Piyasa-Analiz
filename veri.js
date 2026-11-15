@@ -71,10 +71,24 @@ async function getJson(url, opts = {}) {
 }
 
 // ---------------- TradingView tarayıcı ----------------
+function hacimBaskiHesapla(o, h, l, c) {
+  if (h != null && l != null && c != null && h > l) {
+    const oran = Math.min(0.95, Math.max(0.05, (c - l) / (h - l)));
+    const alisYuzde = Math.round(oran * 100);
+    return { alisYuzde, satisYuzde: 100 - alisYuzde, gercek: false };
+  }
+  if (o != null && c != null) {
+    const alisYuzde = c > o ? 60 : c < o ? 40 : 50;
+    return { alisYuzde, satisYuzde: 100 - alisYuzde, gercek: false };
+  }
+  return null;
+}
+
 const TARAMA_KOLONLARI = [
   'name', 'description', 'close', 'change', 'volume', 'relative_volume_10d_calc',
   'Recommend.All|120', 'Recommend.All|240', 'Recommend.All',
   'RSI|120', 'RSI|240', 'RSI', 'High.1M', 'Low.1M', 'ATR', 'EMA50', 'EMA200', 'market_cap_basic',
+  'open', 'high', 'low'
 ];
 
 function satirCoz(item) {
@@ -93,6 +107,7 @@ function satirCoz(item) {
     ayYuksek: d['High.1M'], ayDusuk: d['Low.1M'],
     atr: d.ATR, ema50: d.EMA50, ema200: d.EMA200,
     piyasaDegeri: d.market_cap_basic,
+    hacimAkisi: hacimBaskiHesapla(d.open, d.high, d.low, d.close),
   };
 }
 
@@ -137,7 +152,8 @@ async function tumKriptoTara() {
       columns: [
         'name', 'description', 'close', 'change', 'volume', 'relative_volume_10d_calc',
         'Recommend.All|15', 'Recommend.All|60', 'Recommend.All|120', 'Recommend.All|240', 'Recommend.All',
-        'RSI|60', 'RSI|120', 'RSI|240', 'RSI', 'High.1M', 'Low.1M', 'ATR', 'EMA50', 'EMA200', '24h_vol|5'
+        'RSI|60', 'RSI|120', 'RSI|240', 'RSI', 'High.1M', 'Low.1M', 'ATR', 'EMA50', 'EMA200', '24h_vol|5',
+        'open', 'high', 'low'
       ],
       sort: { sortBy: '24h_vol|5', sortOrder: 'desc' },
       range: [0, 80]
@@ -162,7 +178,8 @@ async function tumKriptoTara() {
         ayYuksek: d[15], ayDusuk: d[16],
         atr: d[17], ema50: d[18], ema200: d[19],
         tlHacim: usdHacim ? usdHacim * kur : null,
-        usdHacim
+        usdHacim,
+        hacimAkisi: hacimBaskiHesapla(d[21], d[22], d[23], d[2])
       };
     });
   });
@@ -234,7 +251,7 @@ async function binanceMum(kod, interval) {
       const url = `https://data-api.binance.vision/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
       const j = await getJson(url);
       if (Array.isArray(j) && j.length > 0) {
-        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5], tbv: k[9] != null ? +k[9] : undefined }));
       }
     } catch (_) {}
 
@@ -265,7 +282,7 @@ async function binanceMum(kod, interval) {
       const url = `https://api.binance.us/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
       const j = await getJson(url);
       if (Array.isArray(j) && j.length > 0) {
-        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5], tbv: k[9] != null ? +k[9] : undefined }));
       }
     } catch (_) {}
 
@@ -274,7 +291,7 @@ async function binanceMum(kod, interval) {
       const url = `https://api.binance.com/api/v3/klines?symbol=${kod}&interval=${intv}&limit=300`;
       const j = await getJson(url);
       if (Array.isArray(j) && j.length > 0) {
-        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+        return j.map(k => ({ t: Math.floor(k[0] / 1000), o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5], tbv: k[9] != null ? +k[9] : undefined }));
       }
     } catch (_) {}
 
