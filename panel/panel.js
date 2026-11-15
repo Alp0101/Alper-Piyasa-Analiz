@@ -493,7 +493,7 @@ function tablo() {
     const konum = r.ayKonum == null ? '—' : `<span class="konum" title="%${r.ayKonum}"><i style="left:calc(${Math.max(0, Math.min(100, r.ayKonum))}% - 2px)"></i></span>`;
     const puanRenk = r.hizliPuan == null ? '' : r.hizliPuan > 15 ? 'art' : r.hizliPuan < -15 ? 'eks' : '';
     return `<tr data-id="${esc(r.id)}">
-      <td><span class="kod">${esc(r.kod)}</span><span class="ad">${esc(r.ad)}</span></td>
+      <td><span class="kod">${esc(r.kod)}</span>${piyasaRozetHtml(r.id, true)}<span class="ad">${esc(r.ad)}</span></td>
       <td class="sag">${r.veriYok ? '<small class="kucuk">veri yok</small>' : sayi(r.fiyat)}</td>
       <td class="sag ${deg > 0 ? 'art' : deg < 0 ? 'eks' : ''}">${deg == null ? '—' : (deg > 0 ? '+' : '') + sayi(deg, 2) + '%'}</td>
       <td class="orta">${rozet(r.yon?.s2)}</td><td class="orta">${rozet(r.yon?.s4)}</td><td class="orta">${rozet(r.yon?.g1)}</td>
@@ -1356,8 +1356,14 @@ function detayCiz() {
     <div class="uyari">Son mum: ${new Date(z.sonMum).toLocaleString('tr-TR')} · ${z.mumSayisi} mum incelendi. Bu analiz bir karar destek aracıdır, yatırım tavsiyesi değildir. Son karar her zaman sizindir.</div>`;
   }
   const poz = (demoPortfoyVerisi?.acikPozisyonlar || []).find(x => x.sembol === v.sembol);
+  const bekleyen = (demoPortfoyVerisi?.bekleyenEmirler || []).find(x => x.sembol === v.sembol);
+  const pdDetay = piyasaDurumu(v.sembol);
+  const piyasaBannerHtml = `<div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; padding:8px 12px; border-radius:8px; background:${pdDetay.acik ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.09)'}; border:1px solid ${pdDetay.acik ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.35)'};">
+    <span style="font-size:12.5px; font-weight:700; color:${pdDetay.acik ? '#34d399' : '#f87171'};">${pdDetay.etiket}${!pdDetay.acik ? ' — Şimdi verilen emirler "Bekleyen Emirler" listesine alınır' : ''}</span>
+    ${bekleyen ? `<span style="font-size:12px; background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); padding:2px 9px; border-radius:8px; font-weight:700;">⏳ Bekleyen ${bekleyen.yon} Emriniz Var (${sayi(bekleyen.emirFiyat)} ${paraBirimiAl(v.sembol)})</span>` : ''}
+  </div>`;
   const riskKartiHtml = poz ? pozisyonRiskKarti(poz, z, v) : girisKontrolKarti(v, z, anaSatir);
-  $('#dIcerik').innerHTML = `${riskKartiHtml}<div class="tf-ozet">${ozet}</div>${sniperHtml || ''}${alt}`;
+  $('#dIcerik').innerHTML = `${piyasaBannerHtml}${riskKartiHtml}<div class="tf-ozet">${ozet}</div>${sniperHtml || ''}${alt}`;
   if (z && !z.hata && s) {
     D.sonDetayGorsel = { z, s, v };
     setTimeout(() => gorselStratejiGrafikCiz(z, s, v), 60);
@@ -2079,6 +2085,39 @@ function paraBirimiAl(sembolId) {
   return '₺';
 }
 
+function piyasaDurumu(sembolId) {
+  const s = String(sembolId || '').toUpperCase();
+  if (s.startsWith('BINANCE:') || s.startsWith('OKX:') || s.startsWith('GATE:') || s.startsWith('BYBIT:')) {
+    return { acik: true, kisa: '7/24 Açık', etiket: '🟢 7/24 Kripto Açık', tur: 'kripto' };
+  }
+  const tr = new Date(Date.now() + 3 * 3600 * 1000);
+  const gun = tr.getUTCDay(); // 0: Pazar, 1-5: Hafta içi, 6: Cumartesi
+  const dk = tr.getUTCHours() * 60 + tr.getUTCMinutes();
+
+  if (s.startsWith('BIST:')) {
+    const haftaIci = gun >= 1 && gun <= 5;
+    const seansAcik = haftaIci && dk >= 10 * 60 && dk <= 18 * 60 + 10;
+    return seansAcik
+      ? { acik: true, kisa: 'Açık', etiket: '🟢 BIST Seansı Açık (10:00–18:10)', tur: 'bist' }
+      : { acik: false, kisa: 'Kapalı', etiket: '🔴 BIST Kapalı (10:00–18:10)', tur: 'bist' };
+  }
+
+  // Forex / Emtia / Global Endeksler (24/5 — Pzt 01:00 TR -> Cmt 00:55 TR)
+  const fxKapali = gun === 0 || (gun === 6 && dk >= 55) || (gun === 1 && dk < 60);
+  return fxKapali
+    ? { acik: false, kisa: 'Kapalı', etiket: '🔴 Piyasa Kapalı (Hafta Sonu)', tur: 'forex' }
+    : { acik: true, kisa: 'Açık', etiket: '🟢 Forex / Emtia Açık (24/5)', tur: 'forex' };
+}
+
+function piyasaRozetHtml(sembolId, kisaMi = true) {
+  const d = piyasaDurumu(sembolId);
+  const bg = d.acik ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)';
+  const renk = d.acik ? '#34d399' : '#f87171';
+  const brd = d.acik ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)';
+  const txt = kisaMi ? `${d.acik ? '🟢' : '🔴'} ${d.kisa}` : d.etiket;
+  return `<span title="${esc(d.etiket)}" style="display:inline-block; background:${bg}; color:${renk}; border:1px solid ${brd}; border-radius:6px; padding:1px 6px; font-size:10px; font-weight:700; margin-left:5px; vertical-align:middle; white-space:nowrap;">${txt}</span>`;
+}
+
 function demoYerelOku() {
   try {
     const raw = localStorage.getItem('alper_demo_portfoy');
@@ -2090,6 +2129,9 @@ function demoYerelOku() {
         p.bakiyeUSD = VARSAYILAN_USD_KASA;
         p.baslangicUSD = VARSAYILAN_USD_KASA;
       }
+      p.acikPozisyonlar = p.acikPozisyonlar || [];
+      p.bekleyenEmirler = p.bekleyenEmirler || [];
+      p.kapananIslemler = p.kapananIslemler || [];
       (p.acikPozisyonlar || []).forEach(poz => {
         if (!poz.paraBirimi) poz.paraBirimi = paraBirimiAl(poz.sembol);
         if (!poz.yon) poz.yon = 'LONG';
@@ -2136,6 +2178,7 @@ function demoYerelOku() {
     bakiyeUSD: VARSAYILAN_USD_KASA,
     baslangicUSD: VARSAYILAN_USD_KASA,
     acikPozisyonlar: [],
+    bekleyenEmirler: [],
     kapananIslemler: []
   };
 }
@@ -2149,7 +2192,9 @@ function demoYerelKaydet(p) {
 async function demoPortfoyYukle() {
   try {
     let yerel = demoYerelOku();
-    const yerelSemboller = (yerel.acikPozisyonlar || []).map(x => x.sembol).filter(Boolean);
+    const acikSemboller = (yerel.acikPozisyonlar || []).map(x => x.sembol);
+    const bekleyenSemboller = (yerel.bekleyenEmirler || []).map(x => x.sembol);
+    const yerelSemboller = [...new Set([...acikSemboller, ...bekleyenSemboller].filter(Boolean))];
 
     const fiyatHaritasi = {};
     if (D.satirlar && D.satirlar.length) {
@@ -2164,8 +2209,37 @@ async function demoPortfoyYukle() {
       }
     } catch (_) {}
 
-    // Otomatik Stop / Hedef Kontrolü (SADECE bu kullanıcının kendi açık pozisyonları için - İzole)
+    // Piyasa açıldığında Bekleyen Emirleri otomatik aktif pozisyona çevir
     let otomatikDegisiklikVar = false;
+    for (let i = (yerel.bekleyenEmirler || []).length - 1; i >= 0; i--) {
+      const emir = yerel.bekleyenEmirler[i];
+      if (!piyasaDurumu(emir.sembol).acik) continue;
+      const acilisFiyati = fiyatHaritasi[emir.sembol] || emir.emirFiyat;
+      if (!acilisFiyati || acilisFiyati <= 0) continue;
+      otomatikDegisiklikVar = true;
+      yerel.bekleyenEmirler.splice(i, 1);
+      yerel.acikPozisyonlar = yerel.acikPozisyonlar || [];
+      yerel.acikPozisyonlar.push({
+        id: 'poz-' + Date.now() + '-' + i,
+        sembol: emir.sembol,
+        ad: emir.ad,
+        yon: emir.yon || 'LONG',
+        kaldirac: emir.kaldirac || 1,
+        adet: emir.adet,
+        alisFiyat: acilisFiyati,
+        paraBirimi: emir.paraBirimi || paraBirimiAl(emir.sembol),
+        alisTarih: new Date().toISOString(),
+        stopFiyat: emir.stopFiyat,
+        hedefFiyat: emir.hedefFiyat,
+        teminat: emir.teminat,
+        tutar: +(acilisFiyati * emir.adet).toFixed(2),
+        planTf: emir.planTf
+      });
+      sesCal('kar');
+      bildir(`🚀 Piyasa açıldı! Bekleyen ${emir.sembol.split(':')[1] || emir.sembol} ${emir.yon} emri ${sayi(acilisFiyati)} fiyatından aktifleşti!`, 6000);
+    }
+
+    // Otomatik Stop / Hedef Kontrolü (SADECE bu kullanıcının kendi açık pozisyonları için - İzole)
     for (let i = (yerel.acikPozisyonlar || []).length - 1; i >= 0; i--) {
       const poz = yerel.acikPozisyonlar[i];
       const anlikFiyat = fiyatHaritasi[poz.sembol];
@@ -2288,6 +2362,7 @@ async function demoPortfoyYukle() {
       netKarYuzdeUSD,
       istatistik: { toplamKapali: kapanan.length, basarili, basarisiz, basariOrani },
       acikPozisyonlar: pozisyonlar,
+      bekleyenEmirler: yerel.bekleyenEmirler || [],
       kapananIslemler: kapanan
     };
 
@@ -2312,6 +2387,54 @@ async function demoPortfoyYukle() {
 
 function demoPortfoyCiz() {
   const p = demoPortfoyVerisi; if (!p) return;
+
+  // 0. Bekleyen Emirler Listesi
+  const bekleyenler = p.bekleyenEmirler || [];
+  const bekleyenEl = $('#demoBekleyenEmirler');
+  if (bekleyenEl) {
+    if (!bekleyenler.length) {
+      bekleyenEl.innerHTML = '<div class="bos" style="padding:12px;">Bekleyen emir yok. BIST veya Forex piyasası kapalıyken verilen emirler burada listelenir ve piyasa açıldığında otomatik aktifleşir.</div>';
+    } else {
+      bekleyenEl.innerHTML = `
+        <div class="tablo-sarma">
+          <table style="width:100%; min-width:560px;">
+            <thead>
+              <tr>
+                <th>Sembol</th>
+                <th class="sag">Adet</th>
+                <th class="sag">Emir Fiyatı</th>
+                <th class="sag">Teminat</th>
+                <th class="sag" style="color:#ef4444;">🛑 Stop</th>
+                <th class="sag" style="color:#10b981;">🎯 Hedef</th>
+                <th class="orta">Durum</th>
+                <th class="orta">İşlem</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${bekleyenler.map(em => {
+                const birim = em.paraBirimi || '₺';
+                const isShort = em.yon === 'SHORT';
+                const kStr = em.kaldirac > 1 ? ` ${em.kaldirac}x` : '';
+                const yonRozet = isShort
+                  ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🔴 SHORT${kStr}</span>`
+                  : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold; margin-left:4px;">🟢 LONG${kStr}</span>`;
+                return `<tr>
+                  <td><b style="color:#fbbf24;">${esc(em.sembol.split(':')[1] || em.sembol)}</b> ${yonRozet}<br><span class="kucuk" style="color:#94a3b8;">${new Date(em.emirTarih).toLocaleString('tr-TR')}</span></td>
+                  <td class="sag">${sayi(em.adet, 4)}</td>
+                  <td class="sag">${sayi(em.emirFiyat)} ${birim}</td>
+                  <td class="sag">${sayi(em.teminat, 2)} ${birim}</td>
+                  <td class="sag" style="color:#ef4444;">${em.stopFiyat ? sayi(em.stopFiyat) + ' ' + birim : '—'}</td>
+                  <td class="sag" style="color:#10b981;">${em.hedefFiyat ? sayi(em.hedefFiyat) + ' ' + birim : '—'}</td>
+                  <td class="orta"><span style="background:rgba(245,158,11,0.16); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">⏳ Piyasa Bekleniyor</span></td>
+                  <td class="orta"><button class="btn ikincil" style="padding:4px 10px; font-size:11px; border-color:#ef4444; color:#f87171;" onclick="bekleyenEmirIptal('${esc(em.id)}')">❌ İptal Et</button></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+  }
+
   const aciklar = p.acikPozisyonlar;
   if (!aciklar.length) {
     $('#demoAcikPozisyonlar').innerHTML = '<div class="bos" style="padding:15px;">Henüz açık demo pozisyonunuz yok. Detay penceresinden "🛒 Demo Al" butonunu kullanabilirsiniz.</div>';
@@ -2538,6 +2661,23 @@ window.demoSeviyeDuzenle = (pozId, tur, mevcutDeger) => {
   demoPortfoyYukle();
 };
 
+window.bekleyenEmirIptal = async (emirId) => {
+  const p = demoYerelOku();
+  const idx = (p.bekleyenEmirler || []).findIndex(x => x.id === emirId);
+  if (idx === -1) return;
+  const em = p.bekleyenEmirler[idx];
+  const birim = em.paraBirimi || paraBirimiAl(em.sembol);
+  const teminat = Number(em.teminat || 0);
+  if (!confirm(`${em.sembol.split(':')[1] || em.sembol} bekleyen ${em.yon} emrini iptal edip ${sayi(teminat, 2)} ${birim} teminatı kasaya iade etmek istiyor musunuz?`)) return;
+  if (birim === '$') p.bakiyeUSD = +((p.bakiyeUSD || 0) + teminat).toFixed(2);
+  else p.bakiyeTL = +((p.bakiyeTL || 0) + teminat).toFixed(2);
+  p.bekleyenEmirler.splice(idx, 1);
+  demoYerelKaydet(p);
+  bildir(`❌ Bekleyen emir iptal edildi. ${sayi(teminat, 2)} ${birim} kasaya iade edildi.`);
+  await demoPortfoyYukle();
+  if (D.detayVeri && D.detayVeri.sembol === em.sembol) detayCiz();
+};
+
 window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
   if (!confirm('Bu pozisyonu güncel fiyattan kapatmak istediğinize emin misiniz?')) return;
   try {
@@ -2652,6 +2792,7 @@ $('#demoSifirlaBtn').onclick = async () => {
     bakiyeUSD: VARSAYILAN_USD_KASA,
     baslangicUSD: VARSAYILAN_USD_KASA,
     acikPozisyonlar: [],
+    bekleyenEmirler: [],
     kapananIslemler: []
   };
   demoYerelKaydet(p);
@@ -2727,7 +2868,8 @@ function emirModaliAc(yon = 'LONG') {
     varsayilanAdet = Math.max(1, Math.round(varsayilanAdet));
   }
 
-  $('#emirSembolAd').textContent = `${v.sembol.split(':')[1]} · ${v.ad} (Para Birimi: ${birim})`;
+  const pdEmir = piyasaDurumu(v.sembol);
+  $('#emirSembolAd').innerHTML = `${esc(v.sembol.split(':')[1])} · ${esc(v.ad)} (Para Birimi: ${birim}) ${piyasaRozetHtml(v.sembol, false)}${!pdEmir.acik ? ' <span style="color:#fbbf24; font-size:11px; font-weight:700;">⏳ Piyasa kapalı — Bekleyen Emir olarak açılır</span>' : ''}`;
   $('#emirAlisFiyat').value = f;
   $('#emirAdet').value = varsayilanAdet;
   if ($('#emirKaldirac')) $('#emirKaldirac').value = '1';
@@ -2832,7 +2974,35 @@ window.otomatikPlanUygula = async function(yon = 'LONG') {
   }
 
   p.acikPozisyonlar = p.acikPozisyonlar || [];
+  p.bekleyenEmirler = p.bekleyenEmirler || [];
   const sembolKodu = v.sembol.split(':')[1];
+  const pd = piyasaDurumu(v.sembol);
+  if (!pd.acik) {
+    p.bekleyenEmirler.push({
+      id: 'emr-' + Date.now(),
+      sembol: v.sembol,
+      ad: v.ad,
+      yon: isShort ? 'SHORT' : 'LONG',
+      kaldirac: 1,
+      adet,
+      emirFiyat: f,
+      paraBirimi: birim,
+      emirTarih: new Date().toISOString(),
+      stopFiyat: stop,
+      hedefFiyat: hedef,
+      teminat,
+      tutar,
+      planTf: D.detayTf
+    });
+    demoYerelKaydet(p);
+    sesCal('uyari');
+    const yonMetni = isShort ? '🔴 SHORT' : '🟢 LONG';
+    bildir(`⏳ ${pd.etiket} — ${sembolKodu} ${yonMetni} emri "Bekleyen Emirler" listesine alındı!\nPiyasa açılınca otomatik pozisyona dönüşecektir.`, 6500);
+    await demoPortfoyYukle();
+    detayCiz();
+    return;
+  }
+
   p.acikPozisyonlar.push({
     id: 'poz-' + Date.now(),
     sembol: v.sembol,
@@ -3199,6 +3369,33 @@ $('#emirOnaylaBtn').onclick = async () => {
   }
 
   p.acikPozisyonlar = p.acikPozisyonlar || [];
+  p.bekleyenEmirler = p.bekleyenEmirler || [];
+  const pdModal = piyasaDurumu(v.sembol);
+  const yonIsim = yon === 'SHORT' ? '🔴 SHORT (Açığa Satış)' : '🟢 LONG';
+
+  if (!pdModal.acik) {
+    p.bekleyenEmirler.push({
+      id: 'emr-' + Date.now(),
+      sembol: v.sembol,
+      ad: v.ad,
+      yon,
+      kaldirac,
+      adet: adet,
+      emirFiyat: f,
+      paraBirimi: birim,
+      emirTarih: new Date().toISOString(),
+      stopFiyat: stop,
+      hedefFiyat: hedef,
+      teminat,
+      tutar
+    });
+    demoYerelKaydet(p);
+    bildir(`⏳ ${pdModal.etiket} — ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} emri "Bekleyen Emirler" listesine alındı!`, 6500);
+    $('#demoEmirModal').classList.add('gizli');
+    await demoPortfoyYukle();
+    return;
+  }
+
   p.acikPozisyonlar.push({
     id: 'poz-' + Date.now(),
     sembol: v.sembol,
@@ -3216,7 +3413,6 @@ $('#emirOnaylaBtn').onclick = async () => {
   });
   demoYerelKaydet(p);
 
-  const yonIsim = yon === 'SHORT' ? '🔴 SHORT (Açığa Satış)' : '🟢 LONG';
   bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} pozisyonu ${sayi(f)} ${birim} seviyesinden açıldı!`);
   $('#demoEmirModal').classList.add('gizli');
   await demoPortfoyYukle();
