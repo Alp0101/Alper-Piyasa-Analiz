@@ -2839,7 +2839,7 @@ document.querySelectorAll('.emir-risk-btn').forEach(btn => {
   btn.onclick = () => {
     const v = D.detayVeri;
     const birim = v ? paraBirimiAl(v.sembol) : '₺';
-    const p = demoPortfoyOku();
+    const p = demoPortfoyVerisi || demoYerelOku();
     const kasaNakit = birim === '$' ? (p.bakiyeUSD || 0) : (p.bakiyeTL || 0);
     const f = parseFloat($('#emirAlisFiyat').value) || 0;
     const stop = parseFloat($('#emirStopFiyat').value) || 0;
