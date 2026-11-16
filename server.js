@@ -720,10 +720,36 @@ async function taramaVeSinyalIsle(listeId) {
       const isKombo = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar &&
         r.isaretler?.some(i => i.tip === 'kombo') &&
         t.s4 > 0.1 && t.g1 > 0 && gh >= 1.1 && (r.rsi?.s4 || 50) <= 68;
+
+      // 4. ERKEN SİNYAL YÖNTEMLERİ (2S/4S/1G tamamen dönmeden ilk kıvılcımı ve EMA50 tepkisini yakala)
+      const rsi1h = r.rsi?.s1 ?? r.rsi?.s4 ?? 50;
+      const rsi4h = r.rsi?.s4 ?? 50;
+      const deg = r.degisim ?? 0;
+      const ema50Yakin = ema50 ? (r.fiyat >= ema50 * 0.992 && r.fiyat <= ema50 * 1.012) : false;
+      const isErkenLong = longIzin && fomoYok && !tuzakVar && !isSniper && !isKombo &&
+        (t.s15 ?? 0) > 0.25 && (t.s1 ?? 0) > 0.18 && (t.s4 ?? 0) > -0.05 &&
+        alisPct >= 56 && gh >= 1.4 && deg >= -1.0 && deg <= 4.2 &&
+        rsi1h >= 45 && rsi1h <= 64 &&
+        (trendLongUygun || (ema50 && r.fiyat >= ema50 * 0.992 && (!ema200 || ema50 >= ema200 * 0.99)));
+      const isEma50Tepki = longIzin && fomoYok && !tuzakVar && !isSniper && !isKombo && !isErkenLong &&
+        ema50 && ema200 && ema50 > ema200 * 1.002 && (t.g1 ?? 0) > 0 &&
+        ema50Yakin && alisPct >= 55 && ((t.s15 ?? 0) > 0.1 || (t.s1 ?? 0) > 0.08) &&
+        rsi4h >= 42 && rsi4h <= 56;
+      const isErkenShort = !isBist && trendShortUygun && fomoYok && !tuzakVar && !isSniperShort &&
+        (t.s15 ?? 0) < -0.25 && (t.s1 ?? 0) < -0.18 && (t.s4 ?? 0) < 0.05 &&
+        satisPct >= 56 && gh >= 1.4 && deg >= -4.2 && deg <= 1.0 &&
+        rsi1h >= 36 && rsi1h <= 55;
+
       const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:'));
 
-      if ((isSniper || isKombo) && uygunFiyat) {
-        const sTipi = isSniper ? '🎯 Sniper Long' : '⭐ Özel Kombo';
+      if ((isSniper || isKombo || isErkenLong || isEma50Tepki) && uygunFiyat) {
+        const sTipi = isSniper
+          ? '🎯 Sniper Long'
+          : isKombo
+            ? '⭐ Özel Kombo'
+            : isEma50Tepki
+              ? '🧲 EMA50 Tepki'
+              : '⚡ Erken Long';
         const { hedefFiyat, stopFiyat } = dinamikTpSl(r, false);
         GunlukRapor.sinyalKaydet({
           sembol: r.id,
@@ -736,8 +762,8 @@ async function taramaVeSinyalIsle(listeId) {
           stopFiyat
         });
         BildirimServisi.bildirimEkle({
-          baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : '⭐ ÖZEL KOMBO SİNYALİ',
-          mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda hacimli AL yakarak Sniper Avcısına girdi!' : 'trend ve hacim destekli kombo onayı aldı!'} Fiyat: ${r.fiyat} ${birim}`,
+          baslik: isSniper ? '🎯 YENİ SNIPER FIRSATI' : isKombo ? '⭐ ÖZEL KOMBO SİNYALİ' : isEma50Tepki ? '🧲 EMA50 TEPKİ ALIMI' : '⚡ ERKEN LONG KIVILCIMI',
+          mesaj: `${r.kod} (${r.ad || ''}) ${isSniper ? 'tüm periyotlarda hacimli AL yakarak Sniper Avcısına girdi!' : isKombo ? 'trend ve hacim destekli kombo onayı aldı!' : isEma50Tepki ? 'yükseliş trendinde EMA50 desteğinden hacimli tepki verdi!' : '15dk ve 1s periyotlarında hacimli erken AL kıvılcımı yaktı!'} Fiyat: ${r.fiyat} ${birim}`,
           tur: isSniper ? 'sniper' : 'firsat',
           yon: 'LONG',
           sembolId: r.id,
@@ -745,21 +771,22 @@ async function taramaVeSinyalIsle(listeId) {
           ad: r.ad,
           fiyat: r.fiyat
         });
-      } else if (isSniperShort && uygunFiyat) {
+      } else if ((isSniperShort || isErkenShort) && uygunFiyat) {
+        const sTipi = isSniperShort ? '🎯 Sniper Short' : '⚡ Erken Short';
         const { hedefFiyat, stopFiyat } = dinamikTpSl(r, true);
         GunlukRapor.sinyalKaydet({
           sembol: r.id,
           ad: r.ad,
           tur: r.id.startsWith('BINANCE:') ? 'kripto' : (r.id.includes('XAU') || r.id.includes('SILVER') ? 'emtia' : 'forex'),
           yon: 'SAT',
-          sinyalTipi: '🎯 Sniper Short',
+          sinyalTipi: sTipi,
           fiyat: r.fiyat,
           hedefFiyat,
           stopFiyat
         });
         BildirimServisi.bildirimEkle({
-          baslik: '🎯 ⬇️ YENİ SNIPER SHORT FIRSATI',
-          mesaj: `${r.kod} (${r.ad || ''}) tüm periyotlarda SAT yakarak Sniper Short radarına girdi! Fiyat: ${r.fiyat} ${birim}`,
+          baslik: isSniperShort ? '🎯 ⬇️ YENİ SNIPER SHORT FIRSATI' : '⚡ ⬇️ ERKEN SHORT SİNYALİ',
+          mesaj: `${r.kod} (${r.ad || ''}) ${isSniperShort ? 'tüm periyotlarda SAT yakarak Sniper Short radarına girdi!' : '15dk ve 1s periyotlarında satış baskısıyla erken SHORT kıvılcımı verdi!'} Fiyat: ${r.fiyat} ${birim}`,
           tur: 'sniper',
           yon: 'SHORT',
           sembolId: r.id,
@@ -805,5 +832,5 @@ function arkaPlanTakipBaslat() {
     } catch (_) {}
   };
   setTimeout(turCalistir, 20 * 1000);
-  setInterval(turCalistir, 5 * 60 * 1000);
+  setInterval(turCalistir, 2 * 60 * 1000);
 }

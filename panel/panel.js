@@ -4412,6 +4412,13 @@ function radarVeSniperDegisimKontrol(satirlar) {
     const isSniper = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar && t2 > 0 && t4 > 0 && tg > 0 && rsi4h >= 48 && rsi4h <= 65 && (r.hizliPuan || 0) >= 70 && gh >= 1.2;
     const isSniperShort = !isBist && trendShortUygun && fomoYok && satisPct >= 52 && !tuzakVar && t2 < 0 && t4 < 0 && tg < 0 && rsi4h <= 52 && rsi4h >= 32 && (r.hizliPuan || 0) <= -70 && gh >= 1.2;
     const isFirsat = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar && !isSniperShort && gh >= 1.1 && r.isaretler?.some(i => i.tip === 'firsat' || i.tip === 'kombo') && t4 > 0 && tg > 0;
+    const rsi1h = r.rsi?.s1 ?? rsi4h;
+    const deg = r.degisim ?? 0;
+    const ema50Yakin = ema50 ? (r.fiyat >= ema50 * 0.992 && r.fiyat <= ema50 * 1.012) : false;
+    const isErkenLong = longIzin && fomoYok && !tuzakVar && !isSniper && !isFirsat && (r.tv?.s15 ?? 0) > 0.25 && (r.tv?.s1 ?? 0) > 0.18 && t4 > -0.05 && alisPct >= 56 && gh >= 1.4 && deg >= -1.0 && deg <= 4.2 && rsi1h >= 45 && rsi1h <= 64 && (trendLongUygun || (ema50 && r.fiyat >= ema50 * 0.992 && (!ema200 || ema50 >= ema200 * 0.99)));
+    const isEma50Tepki = longIzin && fomoYok && !tuzakVar && !isSniper && !isFirsat && !isErkenLong && ema50 && ema200 && ema50 > ema200 * 1.002 && tg > 0 && ema50Yakin && alisPct >= 55 && ((r.tv?.s15 ?? 0) > 0.1 || (r.tv?.s1 ?? 0) > 0.08) && rsi4h >= 42 && rsi4h <= 56;
+    const isErkenShort = !isBist && trendShortUygun && fomoYok && !tuzakVar && !isSniperShort && (r.tv?.s15 ?? 0) < -0.25 && (r.tv?.s1 ?? 0) < -0.18 && t4 < 0.05 && satisPct >= 56 && gh >= 1.4 && deg >= -4.2 && deg <= 1.0 && rsi1h >= 36 && rsi1h <= 55;
+    const erkenLongKey = `${r.id}:ERKEN_LONG`, emaTepkiKey = `${r.id}:EMA50_TEPKI`, erkenShortKey = `${r.id}:ERKEN_SHORT`;
 
     // 1. İLK TARAMA (Sayfa yeni açıldıysa veya başka listeye/kriptoya ilk geçildiyse):
     // Bu varlıklar zaten listede mevcut olan durumlardır. Sessizce kaydet, ASLA ses/popup çalma!
@@ -4419,6 +4426,9 @@ function radarVeSniperDegisimKontrol(satirlar) {
       if (isSniper) oturumGorulenBildirimler.add(sniperKey);
       if (isSniperShort) oturumGorulenBildirimler.add(sniperShortKey);
       if (isFirsat) oturumGorulenBildirimler.add(firsatKey);
+      if (isErkenLong) oturumGorulenBildirimler.add(erkenLongKey);
+      if (isEma50Tepki) oturumGorulenBildirimler.add(emaTepkiKey);
+      if (isErkenShort) oturumGorulenBildirimler.add(erkenShortKey);
       return;
     }
 
@@ -4464,6 +4474,19 @@ function radarVeSniperDegisimKontrol(satirlar) {
           'LONG'
         );
       }
+    }
+
+    if (isErkenLong && !oturumGorulenBildirimler.has(erkenLongKey)) {
+      oturumGorulenBildirimler.add(erkenLongKey);
+      yeniBildirimEkle(`⚡ ERKEN LONG KIVILCIMI`, `${r.kod} (${r.ad || ''}) 15dk ve 1s periyotlarında hacimli erken AL kıvılcımı yaktı! Fiyat: ${sayi(r.fiyat)} ${birim}`, 'firsat', r.id, r.fiyat, 'LONG');
+    }
+    if (isEma50Tepki && !oturumGorulenBildirimler.has(emaTepkiKey)) {
+      oturumGorulenBildirimler.add(emaTepkiKey);
+      yeniBildirimEkle(`🧲 EMA50 TEPKİ ALIMI`, `${r.kod} (${r.ad || ''}) yükseliş trendinde EMA50 desteğinden hacimli tepki verdi! Fiyat: ${sayi(r.fiyat)} ${birim}`, 'firsat', r.id, r.fiyat, 'LONG');
+    }
+    if (isErkenShort && !oturumGorulenBildirimler.has(erkenShortKey)) {
+      oturumGorulenBildirimler.add(erkenShortKey);
+      yeniBildirimEkle(`⚡ ⬇️ ERKEN SHORT SİNYALİ`, `${r.kod} (${r.ad || ''}) 15dk ve 1s periyotlarında satış baskısıyla erken SHORT kıvılcımı verdi! Fiyat: ${sayi(r.fiyat)} ${birim}`, 'sniper', r.id, r.fiyat, 'SHORT');
     }
   });
 
