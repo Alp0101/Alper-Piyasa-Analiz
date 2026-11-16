@@ -568,14 +568,14 @@ function analizEt(setler, benchSet, bilgi) {
         ema20: son(d.e20) != null ? yuvarla(son(d.e20), hs) : null,
         ema50: son(d.e50) != null ? yuvarla(son(d.e50), hs) : null,
         ema200: son(d.e200) != null ? yuvarla(son(d.e200), hs) : null,
-        seri20: d.e20.slice(-35).map(val => val != null ? yuvarla(val, hs) : null),
-        seri50: d.e50.slice(-35).map(val => val != null ? yuvarla(val, hs) : null),
-        seri200: d.e200.slice(-35).map(val => val != null ? yuvarla(val, hs) : null),
+        seri20: d.e20.slice(-120).map(val => val != null ? yuvarla(val, hs) : null),
+        seri50: d.e50.slice(-120).map(val => val != null ? yuvarla(val, hs) : null),
+        seri200: d.e200.slice(-120).map(val => val != null ? yuvarla(val, hs) : null),
       },
       rsi: yuvarla(son(d.rsi), 1),
       sonMum: new Date(son(d.mumlar).t * 1000).toISOString(),
       mumSayisi: d.c.length,
-      mumlar: d.mumlar.slice(-35),
+      mumlar: d.mumlar.slice(-120),
     };
   }
   const ozelTaktikler = ozelTaktikKarnesiHesapla(hazir, benchHazir, bilgi);

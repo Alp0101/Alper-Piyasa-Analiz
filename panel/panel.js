@@ -1430,10 +1430,17 @@ function gorselStratejiGrafikHtml(z, s, v) {
   return `
     <div class="kutu gorsel-strateji-kutu">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-bottom:1px solid #1e293b; padding-bottom:10px; margin-bottom:10px;">
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <span style="font-size:17px;">📊</span>
           <h4 style="margin:0; font-size:14px; color:#f8fafc;">${esc(v.kod || v.sembol)} · ${esc(tfAd)} Görsel Strateji & Formasyon</h4>
           <span style="font-size:11px; padding:2px 7px; background:${yonRenk}20; color:${yonRenk}; border:1px solid ${yonRenk}40; border-radius:10px; font-weight:800;">${yonMetin}</span>
+          <div style="display:inline-flex; gap:3px; background:#0a0e17; padding:2px 4px; border-radius:7px; border:1px solid #1e293b; margin-left:4px;">
+            ${[['m15','15dk'],['s1','1s'],['s2','2s'],['s4','4s'],['g1','1G'],['h1','1H']].map(([tfK, tfEt]) => {
+              const aktif = D.detayTf === tfK;
+              return `<button type="button" onclick="grafikTfDegistir('${tfK}')" style="border:none; cursor:pointer; padding:2px 7px; border-radius:5px; font-size:11px; font-weight:700; background:${aktif ? '#0284c7' : 'transparent'}; color:${aktif ? '#fff' : '#94a3b8'};">${tfEt}</button>`;
+            }).join('')}
+            <button type="button" onclick="grafikGorunumSifirla()" title="Yakınlaştırma ve kaydırmayı sıfırla" style="border:none; cursor:pointer; padding:2px 7px; border-radius:5px; font-size:11px; font-weight:700; background:transparent; color:#fbbf24;">↺ Sıfırla</button>
+          </div>
         </div>
         <div style="display:flex; align-items:center; gap:12px; font-size:11.5px;">
           <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:#cbd5e1;">
@@ -1485,9 +1492,21 @@ function gorselStratejiGrafikHtml(z, s, v) {
 function gorselStratejiYenidenCiz() {
   if (D.sonDetayGorsel) {
     const { z, s, v } = D.sonDetayGorsel;
-    gorselStratejiGrafikCiz(z, s, v);
+    gorselStratejiGrafikCiz(z, s, v, D._sonGrafikHover || null);
   }
 }
+
+window.grafikTfDegistir = function(tf) {
+  if (!tf || D.detayTf === tf) return;
+  D.detayTf = tf;
+  D.grafikGorunum = { barSayisi: 34, kaydir: 0 };
+  detayCiz();
+};
+
+window.grafikGorunumSifirla = function() {
+  D.grafikGorunum = { barSayisi: 34, kaydir: 0 };
+  gorselStratejiYenidenCiz();
+};
 
 function okCizCanvas(ctx, fromX, fromY, toX, toY, color) {
   const headlen = 10;
@@ -1522,8 +1541,30 @@ function gorselStratejiGrafikCiz(z, s, v, hoverPos = null) {
     canvas.dataset.hoverBagli = '1';
     canvas.style.cursor = 'crosshair';
     let rafId = null;
+    let surukle = null;
+    canvas.addEventListener('mousedown', (ev) => {
+      if (ev.button !== 0) return;
+      const g = D.grafikGorunum || { barSayisi: 34, kaydir: 0 };
+      surukle = { basX: ev.clientX, basKaydir: g.kaydir };
+      canvas.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mouseup', () => {
+      if (surukle) {
+        surukle = null;
+        const cEl = document.getElementById('detayStratejiCanvas');
+        if (cEl) cEl.style.cursor = 'crosshair';
+      }
+    });
     canvas.addEventListener('mousemove', (ev) => {
       const rect = canvas.getBoundingClientRect();
+      if (surukle && D.sonDetayGorsel) {
+        const g = D.grafikGorunum || (D.grafikGorunum = { barSayisi: 34, kaydir: 0 });
+        const toplam = (D.sonDetayGorsel.z?.mumlar || []).length;
+        const pikselAdim = Math.max(6, (rect.width - 280) / Math.max(10, g.barSayisi));
+        const deltaBar = Math.round((ev.clientX - surukle.basX) / pikselAdim);
+        const maxKaydir = Math.max(0, toplam - Math.min(g.barSayisi, toplam));
+        g.kaydir = Math.max(0, Math.min(maxKaydir, surukle.basKaydir + deltaBar));
+      }
       D._sonGrafikHover = { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
@@ -1539,6 +1580,17 @@ function gorselStratejiGrafikCiz(z, s, v, hoverPos = null) {
         gorselStratejiGrafikCiz(D.sonDetayGorsel.z, D.sonDetayGorsel.s, D.sonDetayGorsel.v, null);
       }
     });
+    canvas.addEventListener('wheel', (ev) => {
+      if (!D.sonDetayGorsel) return;
+      ev.preventDefault();
+      const g = D.grafikGorunum || (D.grafikGorunum = { barSayisi: 34, kaydir: 0 });
+      const toplam = (D.sonDetayGorsel.z?.mumlar || []).length || 34;
+      const adim = ev.deltaY > 0 ? 5 : -5;
+      g.barSayisi = Math.max(12, Math.min(Math.max(34, toplam), g.barSayisi + adim));
+      const maxKaydir = Math.max(0, toplam - g.barSayisi);
+      if (g.kaydir > maxKaydir) g.kaydir = maxKaydir;
+      gorselStratejiGrafikCiz(D.sonDetayGorsel.z, D.sonDetayGorsel.s, D.sonDetayGorsel.v, D._sonGrafikHover || null);
+    }, { passive: false });
   }
 
   try {
@@ -1566,8 +1618,12 @@ function gorselStratejiGrafikCiz(z, s, v, hoverPos = null) {
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
-  // Mum verisi hazırlığı (32 mum ile daha ince ve nefes alan görünüm)
-  let mumlar = (z.mumlar && z.mumlar.length >= 8) ? [...z.mumlar.slice(-32)] : [];
+  // Mum verisi hazırlığı (Zoom & Kaydırma destekli aralık)
+  const gorunum = D.grafikGorunum || { barSayisi: 34, kaydir: 0 };
+  const hamMumlar = (z.mumlar && z.mumlar.length >= 8) ? z.mumlar : [];
+  const bitIdx = Math.max(8, hamMumlar.length - (gorunum.kaydir || 0));
+  const basIdx = Math.max(0, bitIdx - (gorunum.barSayisi || 34));
+  let mumlar = hamMumlar.length >= 8 ? hamMumlar.slice(basIdx, bitIdx) : [];
   if (mumlar.length < 8) {
     const bazFiyat = s.fiyat || 100;
     const atr = s.atr || (bazFiyat * 0.02);
@@ -1590,9 +1646,14 @@ function gorselStratejiGrafikCiz(z, s, v, hoverPos = null) {
   }
 
   const chkEma = document.getElementById('gorselChkEma')?.checked ?? true;
-  const emaSeri20 = (chkEma && z.ema?.seri20) ? z.ema.seri20.slice(-mumlar.length) : [];
-  const emaSeri50 = (chkEma && z.ema?.seri50) ? z.ema.seri50.slice(-mumlar.length) : [];
-  const emaSeri200 = (chkEma && z.ema?.seri200) ? z.ema.seri200.slice(-mumlar.length) : [];
+  const emaDilimle = (seri) => {
+    if (!chkEma || !seri || !seri.length) return [];
+    if (hamMumlar.length >= 8 && seri.length >= bitIdx) return seri.slice(basIdx, bitIdx);
+    return seri.slice(-mumlar.length);
+  };
+  const emaSeri20 = emaDilimle(z.ema?.seri20);
+  const emaSeri50 = emaDilimle(z.ema?.seri50);
+  const emaSeri200 = emaDilimle(z.ema?.seri200);
 
   // Fiyat Ölçeklendirme (Min - Max)
   let minP = Math.min(...mumlar.map(m => m.l));
@@ -2883,6 +2944,7 @@ window.demoPozisyonAnalizAc = (sembol) => {
 
 if ($('#kapaliDetayKapatBtn')) {
   $('#kapaliDetayKapatBtn').onclick = () => {
+    if (D._kapaliCanliTimer) { clearInterval(D._kapaliCanliTimer); D._kapaliCanliTimer = null; }
     $('#kapaliIslemModal').classList.add('gizli');
   };
 }
@@ -2928,6 +2990,7 @@ window.kapaliIslemDetayAc = async (id, idx) => {
 
   if ($('#kapaliAnalizGitBtn')) {
     $('#kapaliAnalizGitBtn').onclick = () => {
+      if (D._kapaliCanliTimer) { clearInterval(D._kapaliCanliTimer); D._kapaliCanliTimer = null; }
       $('#kapaliIslemModal').classList.add('gizli');
       $('#demoModal').classList.add('gizli');
       detayAc(k.sembol);
@@ -2988,7 +3051,16 @@ window.kapaliIslemDetayAc = async (id, idx) => {
     </div>
 
     <div class="kutu" style="margin:0; background:#ffffff; border:1px solid #cbd5e1; padding:10px;">
-      <div id="kapaliGrafikDurum" style="font-size:12px; color:#475569; margin-bottom:6px; font-weight:700;">📈 Giriş & Çıkış Grafiği yükleniyor...</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <div id="kapaliGrafikDurum" style="font-size:12px; color:#334155; font-weight:700;">📈 Giriş & Çıkış Grafiği yükleniyor...</div>
+        <div id="kapaliTfBar" style="display:inline-flex; gap:3px; background:#f1f5f9; padding:3px 5px; border-radius:7px; border:1px solid #cbd5e1;">
+          ${[['m15','15dk'],['s1','1s'],['s2','2s'],['s4','4s'],['g1','1G'],['h1','1H']].map(([tfK, tfEt]) => {
+            const aktif = (k.planTf || 's1') === tfK;
+            return `<button type="button" data-ktf="${tfK}" onclick="kapaliGrafikTfDegistir('${tfK}')" style="border:none; cursor:pointer; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:700; background:${aktif ? '#0284c7' : 'transparent'}; color:${aktif ? '#fff' : '#475569'};">${tfEt}</button>`;
+          }).join('')}
+          <button type="button" onclick="kapaliGrafikSifirla()" title="Yakınlaştırma ve kaydırmayı sıfırla" style="border:none; cursor:pointer; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:700; background:transparent; color:#b45309;">↺ Sıfırla</button>
+        </div>
+      </div>
       <canvas id="kapaliIslemCanvas" style="display:block; width:100%;"></canvas>
     </div>
   `;
@@ -2996,11 +3068,66 @@ window.kapaliIslemDetayAc = async (id, idx) => {
   $('#perde').classList.remove('gizli');
   $('#kapaliIslemModal').classList.remove('gizli');
 
+  D._kapaliGrafikState = { k, tf: k.planTf || 's1', mumlar: [], emaData: null, barSayisi: 35, kaydir: 0, hoverPos: null, canliFiyat: null };
+  await kapaliGrafikVeriYukle(D._kapaliGrafikState.tf);
+
+  if (D._kapaliCanliTimer) clearInterval(D._kapaliCanliTimer);
+  D._kapaliCanliTimer = setInterval(async () => {
+    const mod = $('#kapaliIslemModal');
+    if (!mod || mod.classList.contains('gizli') || !D._kapaliGrafikState) {
+      clearInterval(D._kapaliCanliTimer);
+      D._kapaliCanliTimer = null;
+      return;
+    }
+    try {
+      const fVeri = await api(`/api/fiyat?sembol=${encodeURIComponent(k.sembol)}`);
+      if (fVeri && fVeri.fiyat > 0 && D._kapaliGrafikState) {
+        D._kapaliGrafikState.canliFiyat = fVeri.fiyat;
+        const mList = D._kapaliGrafikState.mumlar;
+        if (mList && mList.length > 0) {
+          const sonM = mList[mList.length - 1];
+          sonM.c = fVeri.fiyat;
+          if (fVeri.fiyat > sonM.h) sonM.h = fVeri.fiyat;
+          if (fVeri.fiyat < sonM.l) sonM.l = fVeri.fiyat;
+        }
+        kapaliIslemGrafikCiz();
+      }
+    } catch (_) {}
+  }, 3000);
+};
+
+window.kapaliGrafikTfDegistir = async (tf) => {
+  if (!D._kapaliGrafikState || !tf) return;
+  D._kapaliGrafikState.tf = tf;
+  D._kapaliGrafikState.kaydir = 0;
+  D._kapaliGrafikState.barSayisi = 35;
+  document.querySelectorAll('#kapaliTfBar [data-ktf]').forEach(btn => {
+    const aktif = btn.dataset.ktf === tf;
+    btn.style.background = aktif ? '#0284c7' : 'transparent';
+    btn.style.color = aktif ? '#fff' : '#475569';
+  });
+  await kapaliGrafikVeriYukle(tf);
+};
+
+window.kapaliGrafikSifirla = () => {
+  if (!D._kapaliGrafikState) return;
+  D._kapaliGrafikState.barSayisi = 35;
+  D._kapaliGrafikState.kaydir = 0;
+  kapaliIslemGrafikCiz();
+};
+
+async function kapaliGrafikVeriYukle(tf) {
+  const st = D._kapaliGrafikState;
+  if (!st) return;
+  const k = st.k;
+  const birim = k.paraBirimi || paraBirimiAl(k.sembol);
+  const sembolKodu = (k.sembol || '').split(':')[1] || k.sembol;
   try {
-    const tf = k.planTf || 's1';
     const analiz = await api(`/api/analiz?sembol=${encodeURIComponent(k.sembol)}&tf=${encodeURIComponent(tf)}`);
     const zVeri = analiz?.zamanDilimleri?.[tf] || analiz?.zamanDilimleri?.s1 || analiz?.zamanDilimleri?.s4;
-    const mumlar = zVeri?.mumlar || [];
+    st.mumlar = zVeri?.mumlar ? zVeri.mumlar.map(m => ({ ...m })) : [];
+    st.emaData = zVeri?.ema || null;
+    if (analiz?.canliFiyat > 0) st.canliFiyat = analiz.canliFiyat;
     const teknikEl = $('#kapaliTeknikVeri');
     if (teknikEl && zVeri) {
       const ha = zVeri.hacimAkisi;
@@ -3015,30 +3142,81 @@ window.kapaliIslemDetayAc = async (id, idx) => {
           ${ha ? `<span><b>Hacim Akışı:</b> <span style="color:#34d399;">Alış %${ha.alisYuzde}</span> / <span style="color:#f87171;">Satış %${ha.satisYuzde}</span></span>` : ''}
         </div>
       `;
-    } else if (teknikEl) {
-      teknikEl.textContent = 'Güncel teknik indikatör verisi alınamadı.';
     }
     const durumEl = $('#kapaliGrafikDurum');
     if (durumEl) {
-      durumEl.textContent = mumlar.length
-        ? `📈 ${sembolKodu} · Giriş (${sayi(k.alisFiyat)} ${birim}) ➔ Çıkış (${sayi(k.satisFiyat)} ${birim}) · EMA20 / EMA50`
+      durumEl.textContent = st.mumlar.length
+        ? `📈 ${sembolKodu} (${esc(zVeri?.ad || tf)}) · Giriş (${sayi(k.alisFiyat)} ${birim}) ➔ Çıkış (${sayi(k.satisFiyat)} ${birim})`
         : '⚠️ Mum verisi alınamadı, giriş/çıkış seviyeleri gösteriliyor.';
     }
-    kapaliIslemGrafikCiz(k, mumlar, zVeri?.ema || null);
+    kapaliIslemGrafikCiz();
   } catch (_) {
     const durumEl = $('#kapaliGrafikDurum');
     if (durumEl) durumEl.textContent = '⚠️ Canlı mum verisi alınamadı, giriş/çıkış seviyeleri gösteriliyor.';
-    kapaliIslemGrafikCiz(k, [], null);
+    st.mumlar = [];
+    st.emaData = null;
+    kapaliIslemGrafikCiz();
   }
-};
+}
 
-function kapaliIslemGrafikCiz(k, hamMumlar, emaData = null) {
+function kapaliIslemGrafikCiz() {
   const canvas = document.getElementById('kapaliIslemCanvas');
-  if (!canvas) return;
+  const st = D._kapaliGrafikState;
+  if (!canvas || !st) return;
+  const { k, emaData, hoverPos, canliFiyat } = st;
+
+  if (!canvas.dataset.etkilesimBagli) {
+    canvas.dataset.etkilesimBagli = '1';
+    canvas.style.cursor = 'crosshair';
+    let surukle = null;
+    let rafId = null;
+    canvas.addEventListener('mousedown', (ev) => {
+      if (ev.button !== 0 || !D._kapaliGrafikState) return;
+      surukle = { basX: ev.clientX, basKaydir: D._kapaliGrafikState.kaydir || 0 };
+      canvas.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mouseup', () => {
+      if (surukle) {
+        surukle = null;
+        const cEl = document.getElementById('kapaliIslemCanvas');
+        if (cEl) cEl.style.cursor = 'crosshair';
+      }
+    });
+    canvas.addEventListener('mousemove', (ev) => {
+      if (!D._kapaliGrafikState) return;
+      const rect = canvas.getBoundingClientRect();
+      if (surukle) {
+        const toplam = (D._kapaliGrafikState.mumlar || []).length;
+        const pikselAdim = Math.max(6, (rect.width - 250) / Math.max(10, D._kapaliGrafikState.barSayisi || 35));
+        const deltaBar = Math.round((ev.clientX - surukle.basX) / pikselAdim);
+        const maxKaydir = Math.max(0, toplam - Math.min(D._kapaliGrafikState.barSayisi || 35, toplam));
+        D._kapaliGrafikState.kaydir = Math.max(0, Math.min(maxKaydir, surukle.basKaydir + deltaBar));
+      }
+      D._kapaliGrafikState.hoverPos = { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => { rafId = null; kapaliIslemGrafikCiz(); });
+    });
+    canvas.addEventListener('mouseleave', () => {
+      if (!D._kapaliGrafikState) return;
+      D._kapaliGrafikState.hoverPos = null;
+      kapaliIslemGrafikCiz();
+    });
+    canvas.addEventListener('wheel', (ev) => {
+      if (!D._kapaliGrafikState) return;
+      ev.preventDefault();
+      const s = D._kapaliGrafikState;
+      const toplam = (s.mumlar || []).length || 35;
+      s.barSayisi = Math.max(12, Math.min(Math.max(35, toplam), (s.barSayisi || 35) + (ev.deltaY > 0 ? 5 : -5)));
+      const maxKaydir = Math.max(0, toplam - s.barSayisi);
+      if (s.kaydir > maxKaydir) s.kaydir = maxKaydir;
+      kapaliIslemGrafikCiz();
+    }, { passive: false });
+  }
+
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const w = Math.max(540, Math.round(canvas.parentElement?.clientWidth - 20 || 880));
-  const h = 340;
+  const h = 360;
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   canvas.style.width = w + 'px';
@@ -3046,12 +3224,16 @@ function kapaliIslemGrafikCiz(k, hamMumlar, emaData = null) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const birim = k.paraBirimi || paraBirimiAl(k.sembol);
-  const mumlar = (hamMumlar && hamMumlar.length >= 5) ? hamMumlar.slice(-35) : [
+  const tumMumlar = st.mumlar || [];
+  const bitIdx = Math.max(5, tumMumlar.length - (st.kaydir || 0));
+  const basIdx = Math.max(0, bitIdx - (st.barSayisi || 35));
+  const mumlar = (tumMumlar.length >= 5) ? tumMumlar.slice(basIdx, bitIdx) : [
     { o: k.alisFiyat, h: Math.max(k.alisFiyat, k.satisFiyat), l: Math.min(k.alisFiyat, k.satisFiyat), c: k.satisFiyat }
   ];
 
   let minP = Math.min(...mumlar.map(m => m.l), k.alisFiyat, k.satisFiyat);
   let maxP = Math.max(...mumlar.map(m => m.h), k.alisFiyat, k.satisFiyat);
+  if (canliFiyat > 0) { minP = Math.min(minP, canliFiyat); maxP = Math.max(maxP, canliFiyat); }
   if (k.stopFiyat) { minP = Math.min(minP, k.stopFiyat); maxP = Math.max(maxP, k.stopFiyat); }
   if (k.hedefFiyat) { minP = Math.min(minP, k.hedefFiyat); maxP = Math.max(maxP, k.hedefFiyat); }
   const marj = (maxP - minP) * 0.14 || (k.alisFiyat * 0.02) || 1;
@@ -3099,7 +3281,10 @@ function kapaliIslemGrafikCiz(k, hamMumlar, emaData = null) {
     noktalar.push({ cx, t: m.t ? m.t * 1000 : null });
   });
 
-  // EMA 20 / EMA 50 eğrileri (varsa)
+  // EMA 20 / EMA 50 eğrileri (varsa, kaydırma/zoom penceresiyle hizalı)
+  const dilimEma = (seri) => (seri && seri.length && tumMumlar.length >= 5 && seri.length >= bitIdx) ? seri.slice(basIdx, bitIdx) : (seri ? seri.slice(-mumlar.length) : []);
+  const kEma20 = dilimEma(emaData?.seri20);
+  const kEma50 = dilimEma(emaData?.seri50);
   if (emaData && noktalar.length >= 2) {
     const emaMiniCiz = (seri, renk) => {
       if (!seri || !seri.length) return;
@@ -3119,8 +3304,8 @@ function kapaliIslemGrafikCiz(k, hamMumlar, emaData = null) {
       if (bas) ctx.stroke();
       ctx.restore();
     };
-    emaMiniCiz(emaData.seri50, '#2563eb');
-    emaMiniCiz(emaData.seri20, '#d97706');
+    emaMiniCiz(kEma50, '#2563eb');
+    emaMiniCiz(kEma20, '#d97706');
   }
 
   // Alt eksen zaman etiketleri
@@ -3216,6 +3401,75 @@ function kapaliIslemGrafikCiz(k, hamMumlar, emaData = null) {
     ctx.fillStyle = col; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
   });
+
+  // Canlı güncel fiyat çizgisi + sağ eksen rozeti
+  if (canliFiyat > 0) {
+    const cy = toY(canliFiyat);
+    ctx.save();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(padSol, cy); ctx.lineTo(padSol + cizimW, cy); ctx.stroke();
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(padSol + cizimW + 3, cy - 11, padSag - 6, 22);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11.5px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(sayi(canliFiyat), padSol + cizimW + (padSag / 2), cy + 4);
+    ctx.restore();
+  }
+
+  // Hareketli imleç (Crosshair) + Mum OHLC bilgi kutusu
+  if (hoverPos && hoverPos.x >= padSol && hoverPos.x <= padSol + cizimW && hoverPos.y >= padUst && hoverPos.y <= h - padAlt) {
+    const hx = hoverPos.x, hy = hoverPos.y;
+    const hoverFiyat = maxP - ((hy - padUst) / cizimH) * (maxP - minP);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(padSol, hy); ctx.lineTo(padSol + cizimW, hy); ctx.moveTo(hx, padUst); ctx.lineTo(hx, h - padAlt); ctx.stroke();
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(padSol + cizimW + 3, hy - 10, padSag - 6, 20);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(sayi(hoverFiyat), padSol + cizimW + (padSag / 2), hy + 4);
+    ctx.restore();
+
+    if (noktalar.length > 0) {
+      let enYakinIdx = 0, enKucukFark = Infinity;
+      noktalar.forEach((n, idx) => {
+        const fark = Math.abs(n.cx - hx);
+        if (fark < enKucukFark) { enKucukFark = fark; enYakinIdx = idx; }
+      });
+      const hm = mumlar[enYakinIdx];
+      if (hm && enKucukFark <= 40) {
+        const tStr = hm.t ? new Date(hm.t * 1000).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+        const satirlar = [
+          tStr ? `🕒 ${tStr}` : '🕯️ Mum',
+          `A: ${sayi(hm.o)}  Y: ${sayi(hm.h)}`,
+          `D: ${sayi(hm.l)}  K: ${sayi(hm.c)}`
+        ];
+        ctx.save();
+        ctx.font = 'bold 11px ui-monospace, monospace';
+        const kutuW = Math.max(...satirlar.map(t => ctx.measureText(t).width)) + 18;
+        const kutuH = satirlar.length * 16 + 10;
+        const kx = hx + 12 + kutuW > padSol + cizimW ? hx - kutuW - 12 : hx + 12;
+        const ky = Math.max(padUst + 4, Math.min(h - padAlt - kutuH - 4, hy - kutuH / 2));
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(kx, ky, kutuW, kutuH, 6) : ctx.rect(kx, ky, kutuW, kutuH);
+        ctx.fill(); ctx.stroke();
+        ctx.textAlign = 'left';
+        satirlar.forEach((st, i) => {
+          ctx.fillStyle = i === 0 ? '#38bdf8' : '#f8fafc';
+          ctx.fillText(st, kx + 9, ky + 16 + i * 16);
+        });
+        ctx.restore();
+      }
+    }
+  }
 }
 
 window.demoStopuMaliyeteCek = (pozId) => {
