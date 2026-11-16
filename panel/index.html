@@ -566,6 +566,21 @@
   </div>
 </section>
 
+<!-- Kapanan İşlem Detay & Grafik Modalı -->
+<section id="kapaliIslemModal" class="detay gizli" style="max-width: 980px; width: min(980px, 95vw); z-index: 1005;">
+  <div class="detay-ust">
+    <div>
+      <div id="kapaliDetayBaslik" class="d-ad">İşlem Detayı</div>
+      <div id="kapaliDetayAlt" class="d-alt"></div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="kapaliAnalizGitBtn" class="btn" style="background:#0284c7; color:#fff;">📊 Paritenin Analiz Sayfasına Git</button>
+      <button id="kapaliDetayKapatBtn" class="btn ikincil">✖ Kapat</button>
+    </div>
+  </div>
+  <div id="kapaliDetayIcerik" class="detay-icerik" style="padding:16px 18px;"></div>
+</section>
+
 <!-- Sayfanın Sol Aşağısında Sabit Günlük Rapor Butonu (Özel Şifreli: sea01) -->
 <div id="solAltRaporKutusu" style="position: fixed; bottom: 22px; left: 22px; z-index: 995;">
   <button id="gunlukRaporBtn" class="btn" style="background: linear-gradient(135deg, #1e1b4b, #3730a3); border: 1.5px solid #818cf8; color: #ffffff; font-weight: 800; font-size: 13px; padding: 10px 18px; border-radius: 30px; box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5); display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.25s ease;" title="Günlük Sinyal ve Kapanış Raporu (Korumalı)">
@@ -688,7 +703,7 @@
 </section>
 
 <div id="bildirim" class="bildirim gizli"></div>
-<script src="panel.js?v=2.34"></script>
+<script src="panel.js?v=2.35"></script>
 </body>
 </html>
 

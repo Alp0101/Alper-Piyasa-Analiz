@@ -2304,7 +2304,11 @@ async function demoPortfoyYukle() {
           alisFiyat: poz.alisFiyat,
           satisFiyat: anlikFiyat,
           paraBirimi: birim,
+          alisTarih: poz.alisTarih || null,
           satisTarih: new Date().toISOString(),
+          stopFiyat: poz.stopFiyat || null,
+          hedefFiyat: poz.hedefFiyat || null,
+          planTf: poz.planTf || null,
           teminat,
           karZarar,
           karZararYuzde,
@@ -2611,7 +2615,7 @@ function demoPortfoyCiz() {
             </tr>
           </thead>
           <tbody>
-            ${kapali.map(k => {
+            ${kapali.map((k, idx) => {
               const birim = k.paraBirimi || '₺';
               const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
               const kz = formatKarZarar(netSonuc, k.karZararYuzde, birim);
@@ -2621,8 +2625,8 @@ function demoPortfoyCiz() {
                 ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
                 : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
               return `
-              <tr>
-                <td><b>${esc(k.sembol.split(':')[1])}</b>${yonRozet}</td>
+              <tr style="cursor:pointer;" title="Kapanış detayını ve giriş-çıkış grafiğini görmek için tıklayın" onclick="kapaliIslemDetayAc('${esc(k.id || '')}', ${idx})">
+                <td><b>${esc(k.sembol.split(':')[1])}</b>${yonRozet} <span style="font-size:11px; color:#38bdf8; margin-left:4px;">🔍</span></td>
                 <td class="sag">${k.adet}</td>
                 <td class="sag">${sayi(k.alisFiyat)} ${birim} ➔ ${sayi(k.satisFiyat)} ${birim}</td>
                 <td class="sag ${kz.renkSinifi}"><b>${kz.fiyatMetin}</b> <small style="font-weight:bold; margin-left:2px;">${kz.yuzdeMetin}</small></td>
@@ -2635,7 +2639,7 @@ function demoPortfoyCiz() {
 
     const kapaliKartlar = `
       <div class="demo-mobil-kartlar">
-        ${kapali.map(k => {
+        ${kapali.map((k, idx) => {
           const birim = k.paraBirimi || '₺';
           const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
           const kz = formatKarZarar(netSonuc, k.karZararYuzde, birim);
@@ -2645,7 +2649,7 @@ function demoPortfoyCiz() {
             ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
             : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
           return `
-          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${kz.renkKodu}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+          <div style="background:#11151f; border:1px solid #283142; border-left:4px solid ${kz.renkKodu}; border-radius:8px; padding:10px 12px; margin-bottom:8px; cursor:pointer;" onclick="kapaliIslemDetayAc('${esc(k.id || '')}', ${idx})">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <div>
                 <b style="font-size:14px; color:#fff;">${esc(k.sembol.split(':')[1])}</b> ${yonRozet}
@@ -2740,7 +2744,11 @@ window.demoPozisyonKapat = async (pozId, guncelFiyat) => {
         alisFiyat: poz.alisFiyat,
         satisFiyat: +guncelFiyat,
         paraBirimi: birim,
+        alisTarih: poz.alisTarih || null,
         satisTarih: new Date().toISOString(),
+        stopFiyat: poz.stopFiyat || null,
+        hedefFiyat: poz.hedefFiyat || null,
+        planTf: poz.planTf || null,
         teminat,
         karZarar,
         karZararYuzde,
@@ -2760,6 +2768,262 @@ window.demoPozisyonAnalizAc = (sembol) => {
   $('#demoModal').classList.add('gizli');
   detayAc(sembol);
 };
+
+if ($('#kapaliDetayKapatBtn')) {
+  $('#kapaliDetayKapatBtn').onclick = () => {
+    $('#kapaliIslemModal').classList.add('gizli');
+  };
+}
+
+window.kapaliIslemDetayAc = async (id, idx) => {
+  const p = demoYerelOku();
+  const liste = p.kapananIslemler || [];
+  const k = (id ? liste.find(x => x.id === id) : null) || liste[idx];
+  if (!k) return;
+
+  const birim = k.paraBirimi || paraBirimiAl(k.sembol);
+  const netSonuc = k.karZarar ?? k.karZararTL ?? 0;
+  const kz = formatKarZarar(netSonuc, k.karZararYuzde, birim);
+  const isShort = k.yon === 'SHORT';
+  const kStr = (k.kaldirac && k.kaldirac > 1) ? ` ${k.kaldirac}x` : '';
+  const sembolKodu = (k.sembol || '').split(':')[1] || k.sembol;
+
+  let sebepBaslik = '✋ Manuel Kapatıldı';
+  let sebepAciklama = `${sembolKodu} paritesinde ${isShort ? 'SHORT (Düşüş)' : 'LONG (Yükseliş)'}${kStr} işlemi ${sayi(k.alisFiyat)} ${birim} seviyesinden açıldı ve kullanıcı tarafından ${sayi(k.satisFiyat)} ${birim} fiyatından manuel kapatıldı.`;
+  let sebepRenk = '#38bdf8';
+
+  if (k.sebep === 'hedef') {
+    sebepBaslik = '🎯 Kâr Al (Hedef) Tetiklendi';
+    sebepRenk = '#10b981';
+    sebepAciklama = `${sembolKodu} paritesinde ${isShort ? 'SHORT' : 'LONG'}${kStr} işlemi ${sayi(k.alisFiyat)} ${birim} seviyesinden açıldı. Fiyat belirlenen ${sayi(k.hedefFiyat || k.satisFiyat)} ${birim} Kâr Al (TP) hedefine ulaştığı için sistem pozisyonu otomatik kârla kapattı.`;
+  } else if (k.sebep === 'stop') {
+    sebepBaslik = '🛑 Zarar-Kes (Stop) Tetiklendi';
+    sebepRenk = '#ef4444';
+    sebepAciklama = `${sembolKodu} paritesinde ${isShort ? 'SHORT' : 'LONG'}${kStr} işlemi ${sayi(k.alisFiyat)} ${birim} seviyesinden açıldı. Fiyat belirlenen ${sayi(k.stopFiyat || k.satisFiyat)} ${birim} Zarar-Kes (Stop) seviyesine ulaştığı için sermayeyi korumak adına sistem işlemi otomatik kapattı.`;
+  }
+
+  let sureMetni = '—';
+  if (k.alisTarih && k.satisTarih) {
+    const ms = Math.max(0, new Date(k.satisTarih).getTime() - new Date(k.alisTarih).getTime());
+    const dk = Math.floor(ms / 60000);
+    if (dk < 60) sureMetni = `${dk} dakika`;
+    else if (dk < 1440) sureMetni = `${Math.floor(dk / 60)} sa ${dk % 60} dk`;
+    else sureMetni = `${Math.floor(dk / 1440)} gün ${Math.floor((dk % 1440) / 60)} sa`;
+  }
+
+  $('#kapaliDetayBaslik').innerHTML = `${esc(sembolKodu)} · ${esc(k.ad || '')} <span style="font-size:12px; padding:2px 8px; border-radius:6px; background:${sebepRenk}22; color:${sebepRenk}; border:1px solid ${sebepRenk}55; margin-left:6px;">${sebepBaslik}</span>`;
+  $('#kapaliDetayAlt').textContent = `${isShort ? '🔴 SHORT' : '🟢 LONG'}${kStr} · Kapanış: ${new Date(k.satisTarih).toLocaleString('tr-TR')}`;
+
+  if ($('#kapaliAnalizGitBtn')) {
+    $('#kapaliAnalizGitBtn').onclick = () => {
+      $('#kapaliIslemModal').classList.add('gizli');
+      $('#demoModal').classList.add('gizli');
+      detayAc(k.sembol);
+    };
+  }
+
+  $('#kapaliDetayIcerik').innerHTML = `
+    <div class="tf-ozet" style="margin-bottom:12px;">
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">📍 Giriş Fiyatı</div>
+        <div style="font-size:17px; font-weight:800; color:#38bdf8; margin-top:3px;">${sayi(k.alisFiyat)} ${birim}</div>
+        <div class="kucuk" style="color:#94a3b8; margin-top:2px;">${k.alisTarih ? new Date(k.alisTarih).toLocaleString('tr-TR') : '—'}</div>
+      </div>
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">🏁 Çıkış Fiyatı</div>
+        <div style="font-size:17px; font-weight:800; color:${kz.renkKodu}; margin-top:3px;">${sayi(k.satisFiyat)} ${birim}</div>
+        <div class="kucuk" style="color:#94a3b8; margin-top:2px;">Süre: ${sureMetni}</div>
+      </div>
+      <div class="kutu" style="margin:0;">
+        <div class="kucuk">💰 Adet & Teminat</div>
+        <div style="font-size:16px; font-weight:800; color:#e2e8f0; margin-top:3px;">${k.adet} Adet</div>
+        <div class="kucuk" style="color:#94a3b8; margin-top:2px;">Teminat: ${k.teminat ? sayi(k.teminat, 2) + ' ' + birim : '—'}</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid ${kz.renkKodu};">
+        <div class="kucuk">📊 Net Sonuç</div>
+        <div style="font-size:17px; font-weight:800; color:${kz.renkKodu}; margin-top:3px;">${kz.fiyatMetin}</div>
+        <div class="kucuk" style="color:${kz.renkKodu}; font-weight:700; margin-top:2px;">${kz.yuzdeMetin}</div>
+      </div>
+    </div>
+
+    <div class="kutu" style="margin-bottom:12px; border-left:3px solid ${sebepRenk}; background:#0f172a;">
+      <div style="font-size:13px; font-weight:700; color:${sebepRenk}; margin-bottom:4px;">💡 Ne Oldu? (İşlem Özeti)</div>
+      <div style="font-size:13px; color:#e2e8f0; line-height:1.5;">${esc(sebepAciklama)}</div>
+      ${(k.stopFiyat || k.hedefFiyat) ? `<div style="margin-top:8px; font-size:12px; color:#94a3b8;">Kayıtlı Seviyeler: <b style="color:#f87171;">Stop: ${k.stopFiyat ? sayi(k.stopFiyat) + ' ' + birim : 'Yok'}</b> · <b style="color:#34d399;">Hedef: ${k.hedefFiyat ? sayi(k.hedefFiyat) + ' ' + birim : 'Yok'}</b></div>` : ''}
+    </div>
+
+    <div class="kutu" style="margin:0; background:#ffffff; border:1px solid #cbd5e1; padding:10px;">
+      <div id="kapaliGrafikDurum" style="font-size:12px; color:#475569; margin-bottom:6px; font-weight:700;">📈 Giriş & Çıkış Grafiği yükleniyor...</div>
+      <canvas id="kapaliIslemCanvas" style="display:block; width:100%;"></canvas>
+    </div>
+  `;
+
+  $('#perde').classList.remove('gizli');
+  $('#kapaliIslemModal').classList.remove('gizli');
+
+  try {
+    const tf = k.planTf || 's1';
+    const analiz = await api(`/api/analiz?sembol=${encodeURIComponent(k.sembol)}&tf=${encodeURIComponent(tf)}`);
+    const mumlar = analiz?.zamanDilimleri?.[tf]?.mumlar || analiz?.zamanDilimleri?.s1?.mumlar || analiz?.zamanDilimleri?.s4?.mumlar || [];
+    const durumEl = $('#kapaliGrafikDurum');
+    if (durumEl) {
+      durumEl.textContent = mumlar.length
+        ? `📈 ${sembolKodu} · Giriş (${sayi(k.alisFiyat)} ${birim}) ➔ Çıkış (${sayi(k.satisFiyat)} ${birim})`
+        : '⚠️ Mum verisi alınamadı, giriş/çıkış seviyeleri gösteriliyor.';
+    }
+    kapaliIslemGrafikCiz(k, mumlar);
+  } catch (_) {
+    const durumEl = $('#kapaliGrafikDurum');
+    if (durumEl) durumEl.textContent = '⚠️ Canlı mum verisi alınamadı, giriş/çıkış seviyeleri gösteriliyor.';
+    kapaliIslemGrafikCiz(k, []);
+  }
+};
+
+function kapaliIslemGrafikCiz(k, hamMumlar) {
+  const canvas = document.getElementById('kapaliIslemCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(540, Math.round(canvas.parentElement?.clientWidth - 20 || 880));
+  const h = 340;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const birim = k.paraBirimi || paraBirimiAl(k.sembol);
+  const mumlar = (hamMumlar && hamMumlar.length >= 5) ? hamMumlar.slice(-35) : [
+    { o: k.alisFiyat, h: Math.max(k.alisFiyat, k.satisFiyat), l: Math.min(k.alisFiyat, k.satisFiyat), c: k.satisFiyat }
+  ];
+
+  let minP = Math.min(...mumlar.map(m => m.l), k.alisFiyat, k.satisFiyat);
+  let maxP = Math.max(...mumlar.map(m => m.h), k.alisFiyat, k.satisFiyat);
+  if (k.stopFiyat) { minP = Math.min(minP, k.stopFiyat); maxP = Math.max(maxP, k.stopFiyat); }
+  if (k.hedefFiyat) { minP = Math.min(minP, k.hedefFiyat); maxP = Math.max(maxP, k.hedefFiyat); }
+  const marj = (maxP - minP) * 0.14 || (k.alisFiyat * 0.02) || 1;
+  minP -= marj;
+  maxP += marj;
+
+  const padUst = 22, padAlt = 22, padSol = 12, padSag = 96;
+  const solEtiketW = 148;
+  const mumBasX = padSol + solEtiketW;
+  const cizimW = w - padSol - padSag;
+  const mumAlanW = Math.max(220, cizimW - solEtiketW - 12);
+  const cizimH = h - padUst - padAlt;
+  const toY = p => padUst + ((maxP - p) / (maxP - minP)) * cizimH;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+
+  // Izgara + sağ fiyat ekseni
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const val = minP + ((maxP - minP) * (i / 5));
+    const y = toY(val);
+    ctx.beginPath(); ctx.moveTo(padSol, y); ctx.lineTo(padSol + cizimW, y); ctx.stroke();
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 12px ui-monospace, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(sayi(val), padSol + cizimW + 8, y + 4);
+  }
+
+  // Mumlar
+  const adim = mumAlanW / mumlar.length;
+  const mG = Math.max(3, Math.min(8, adim * 0.45));
+  const noktalar = [];
+  mumlar.forEach((m, i) => {
+    const x = mumBasX + i * adim + (adim - mG) / 2;
+    const cx = x + mG / 2;
+    const renk = m.c >= m.o ? '#16a34a' : '#dc2626';
+    ctx.strokeStyle = renk;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath(); ctx.moveTo(cx, toY(m.h)); ctx.lineTo(cx, toY(m.l)); ctx.stroke();
+    ctx.fillStyle = renk;
+    const yO = toY(m.o), yC = toY(m.c);
+    ctx.fillRect(x, Math.min(yO, yC), mG, Math.max(2.5, Math.abs(yC - yO)));
+    noktalar.push({ cx, t: m.t ? m.t * 1000 : null });
+  });
+
+  // Giriş & Çıkış yatay çizgileri ve noktaları
+  const solYler = [];
+  const yerlesikY = (y) => {
+    let ry = Math.max(padUst + 12, Math.min(h - padAlt - 12, y));
+    for (let d = 0; d < 8; d++) {
+      if (!solYler.some(u => Math.abs(u - ry) < 24)) break;
+      ry += (d % 2 === 0 ? 24 : -24);
+    }
+    solYler.push(ry);
+    return ry;
+  };
+  const hapCiz = (metin, y, renk, bg) => {
+    ctx.save();
+    ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    const tw = ctx.measureText(metin).width + 14;
+    const bh = 22;
+    const bx = padSol + 4, by = y - bh / 2;
+    ctx.fillStyle = bg; ctx.strokeStyle = renk; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, tw, bh, 5) : ctx.rect(bx, by, tw, bh);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = renk; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(metin, bx + 7, y + 0.5);
+    ctx.restore();
+  };
+
+  const cizSeviye = (fiyat, metin, renk, bg, kesikli = [5, 4]) => {
+    if (!fiyat) return;
+    const y = toY(fiyat);
+    ctx.save();
+    ctx.strokeStyle = renk;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash(kesikli);
+    ctx.beginPath(); ctx.moveTo(padSol, y); ctx.lineTo(padSol + cizimW, y); ctx.stroke();
+    ctx.restore();
+    hapCiz(metin, yerlesikY(y), renk, bg);
+  };
+
+  const cikisKarli = (k.karZarar ?? 0) >= 0;
+  if (k.hedefFiyat && Math.abs(k.hedefFiyat - k.satisFiyat) > (maxP - minP) * 0.01) {
+    cizSeviye(k.hedefFiyat, `🎯 Hedef: ${sayi(k.hedefFiyat)}`, '#15803d', '#f0fdf4', [2, 4]);
+  }
+  if (k.stopFiyat && Math.abs(k.stopFiyat - k.satisFiyat) > (maxP - minP) * 0.01) {
+    cizSeviye(k.stopFiyat, `🛑 Stop: ${sayi(k.stopFiyat)}`, '#b91c1c', '#fef2f2', [2, 4]);
+  }
+  cizSeviye(k.alisFiyat, `📍 Giriş: ${sayi(k.alisFiyat)} ${birim}`, '#0369a1', '#f0f9ff', [6, 3]);
+  cizSeviye(k.satisFiyat, `🏁 Çıkış: ${sayi(k.satisFiyat)} ${birim}`, cikisKarli ? '#15803d' : '#b91c1c', cikisKarli ? '#dcfce7' : '#fee2e2', [6, 3]);
+
+  // Giriş ve Çıkış mum noktalarını işaretle
+  const enYakinX = (tarihIso, varsayilanIdx) => {
+    if (!tarihIso || !noktalar.some(n => n.t)) return noktalar[Math.min(noktalar.length - 1, Math.max(0, varsayilanIdx))]?.cx || mumBasX + mumAlanW / 2;
+    const hedefMs = new Date(tarihIso).getTime();
+    let best = noktalar[0], bestFark = Infinity;
+    noktalar.forEach(n => {
+      if (!n.t) return;
+      const fark = Math.abs(n.t - hedefMs);
+      if (fark < bestFark) { bestFark = fark; best = n; }
+    });
+    return best.cx;
+  };
+  const girisX = enYakinX(k.alisTarih, Math.floor(noktalar.length * 0.4));
+  const cikisX = enYakinX(k.satisTarih, noktalar.length - 1);
+  const girisY = toY(k.alisFiyat), cikisY = toY(k.satisFiyat);
+
+  // Giriş -> Çıkış bağlantı çizgisi
+  ctx.save();
+  ctx.strokeStyle = cikisKarli ? '#16a34a' : '#dc2626';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(girisX, girisY); ctx.lineTo(cikisX, cikisY); ctx.stroke();
+  ctx.restore();
+
+  // Daire işaretçiler
+  [[girisX, girisY, '#0284c7'], [cikisX, cikisY, cikisKarli ? '#16a34a' : '#dc2626']].forEach(([px, py, col]) => {
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+  });
+}
 
 window.demoStopuMaliyeteCek = (pozId) => {
   const p = demoYerelOku();
