@@ -2608,8 +2608,9 @@ function demoPortfoyCiz() {
           <thead>
             <tr>
               <th>Sembol & Yön</th>
-              <th class="sag">Adet</th>
+              <th class="sag">Adet / Teminat</th>
               <th class="sag">Giriş ➔ Çıkış</th>
+              <th class="orta">Kapanış Sebebi</th>
               <th class="sag">Net Sonuç</th>
               <th class="sag">Tarih</th>
             </tr>
@@ -2624,11 +2625,17 @@ function demoPortfoyCiz() {
               const yonRozet = isShort 
                 ? `<span style="background:#ef444422; color:#ef4444; border:1px solid #ef444466; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🔴 SHORT${kStr}</span>` 
                 : `<span style="background:#10b98122; color:#10b981; border:1px solid #10b98166; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:3px;">🟢 LONG${kStr}</span>`;
+              const sebepRozet = k.sebep === 'hedef'
+                ? '<span style="background:rgba(16,185,129,0.16); color:#34d399; border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px; font-size:10.5px; font-weight:700;">🎯 Hedef (TP)</span>'
+                : k.sebep === 'stop'
+                  ? '<span style="background:rgba(239,68,68,0.16); color:#f87171; border:1px solid rgba(239,68,68,0.35); padding:2px 7px; border-radius:6px; font-size:10.5px; font-weight:700;">🛑 Stop</span>'
+                  : '<span style="background:rgba(56,189,248,0.16); color:#38bdf8; border:1px solid rgba(56,189,248,0.35); padding:2px 7px; border-radius:6px; font-size:10.5px; font-weight:700;">✋ Manuel</span>';
               return `
-              <tr style="cursor:pointer;" title="Kapanış detayını ve giriş-çıkış grafiğini görmek için tıklayın" onclick="kapaliIslemDetayAc('${esc(k.id || '')}', ${idx})">
+              <tr style="cursor:pointer;" title="Kapanış detayını, tüm verilerini ve giriş-çıkış grafiğini görmek için tıklayın" onclick="kapaliIslemDetayAc('${esc(k.id || '')}', ${idx})">
                 <td><b>${esc(k.sembol.split(':')[1])}</b>${yonRozet} <span style="font-size:11px; color:#38bdf8; margin-left:4px;">🔍</span></td>
-                <td class="sag">${k.adet}</td>
+                <td class="sag">${k.adet}<br><span class="kucuk" style="color:#94a3b8;">${k.teminat ? sayi(k.teminat, 2) + ' ' + birim : '—'}</span></td>
                 <td class="sag">${sayi(k.alisFiyat)} ${birim} ➔ ${sayi(k.satisFiyat)} ${birim}</td>
+                <td class="orta">${sebepRozet}</td>
                 <td class="sag ${kz.renkSinifi}"><b>${kz.fiyatMetin}</b> <small style="font-weight:bold; margin-left:2px;">${kz.yuzdeMetin}</small></td>
                 <td class="sag kucuk">${new Date(k.satisTarih).toLocaleDateString('tr-TR')} ${new Date(k.satisTarih).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</td>
               </tr>`;
@@ -2822,6 +2829,17 @@ window.kapaliIslemDetayAc = async (id, idx) => {
     };
   }
 
+  const pozBuyukluk = +(Number(k.adet || 0) * Number(k.alisFiyat || 0)).toFixed(2);
+  const spotFarkPct = k.alisFiyat > 0
+    ? +(((isShort ? (k.alisFiyat - k.satisFiyat) : (k.satisFiyat - k.alisFiyat)) / k.alisFiyat) * 100).toFixed(2)
+    : 0;
+  let planRrMetin = '—';
+  if (k.stopFiyat && k.hedefFiyat && k.alisFiyat) {
+    const riskP = Math.abs(k.alisFiyat - k.stopFiyat);
+    const odulP = Math.abs(k.hedefFiyat - k.alisFiyat);
+    if (riskP > 0) planRrMetin = `1 : ${(odulP / riskP).toFixed(2)}`;
+  }
+
   $('#kapaliDetayIcerik').innerHTML = `
     <div class="tf-ozet" style="margin-bottom:12px;">
       <div class="kutu" style="margin:0;">
@@ -2842,14 +2860,26 @@ window.kapaliIslemDetayAc = async (id, idx) => {
       <div class="kutu" style="margin:0; border-left:3px solid ${kz.renkKodu};">
         <div class="kucuk">📊 Net Sonuç</div>
         <div style="font-size:17px; font-weight:800; color:${kz.renkKodu}; margin-top:3px;">${kz.fiyatMetin}</div>
-        <div class="kucuk" style="color:${kz.renkKodu}; font-weight:700; margin-top:2px;">${kz.yuzdeMetin}</div>
+        <div class="kucuk" style="color:${kz.renkKodu}; font-weight:700; margin-top:2px;">${kz.yuzdeMetin} (Spot: ${spotFarkPct >= 0 ? '+' : ''}%${spotFarkPct})</div>
       </div>
     </div>
 
     <div class="kutu" style="margin-bottom:12px; border-left:3px solid ${sebepRenk}; background:#0f172a;">
       <div style="font-size:13px; font-weight:700; color:${sebepRenk}; margin-bottom:4px;">💡 Ne Oldu? (İşlem Özeti)</div>
       <div style="font-size:13px; color:#e2e8f0; line-height:1.5;">${esc(sebepAciklama)}</div>
-      ${(k.stopFiyat || k.hedefFiyat) ? `<div style="margin-top:8px; font-size:12px; color:#94a3b8;">Kayıtlı Seviyeler: <b style="color:#f87171;">Stop: ${k.stopFiyat ? sayi(k.stopFiyat) + ' ' + birim : 'Yok'}</b> · <b style="color:#34d399;">Hedef: ${k.hedefFiyat ? sayi(k.hedefFiyat) + ' ' + birim : 'Yok'}</b></div>` : ''}
+    </div>
+
+    <div class="kutu" style="margin-bottom:12px;">
+      <h4 style="margin-bottom:8px;">📋 Detaylı İşlem & Parite Verileri</h4>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:8px; font-size:12.5px;">
+        <div class="seviye-satir" style="margin:0;"><span>Yön & Kaldıraç</span><b>${isShort ? '🔴 SHORT' : '🟢 LONG'}${kStr || ' (1x)'}</b></div>
+        <div class="seviye-satir" style="margin:0;"><span>Pozisyon Hacmi</span><b>${sayi(pozBuyukluk, 2)} ${birim}</b></div>
+        <div class="seviye-satir" style="margin:0;"><span>Planlanan R/R</span><b>${planRrMetin}</b></div>
+        <div class="seviye-satir" style="margin:0;"><span>🛑 Kayıtlı Stop</span><b style="color:#f87171;">${k.stopFiyat ? sayi(k.stopFiyat) + ' ' + birim : 'Yok'}</b></div>
+        <div class="seviye-satir" style="margin:0;"><span>🎯 Kayıtlı Hedef</span><b style="color:#34d399;">${k.hedefFiyat ? sayi(k.hedefFiyat) + ' ' + birim : 'Yok'}</b></div>
+        <div class="seviye-satir" style="margin:0;"><span>Kapanış Sebebi</span><b>${sebepBaslik}</b></div>
+      </div>
+      <div id="kapaliTeknikVeri" style="margin-top:10px; padding-top:10px; border-top:1px solid #1e293b; font-size:12px; color:#94a3b8;">⏳ Paritenin güncel teknik verileri (EMA, RSI, Hacim Akışı) yükleniyor...</div>
     </div>
 
     <div class="kutu" style="margin:0; background:#ffffff; border:1px solid #cbd5e1; padding:10px;">
@@ -2864,22 +2894,40 @@ window.kapaliIslemDetayAc = async (id, idx) => {
   try {
     const tf = k.planTf || 's1';
     const analiz = await api(`/api/analiz?sembol=${encodeURIComponent(k.sembol)}&tf=${encodeURIComponent(tf)}`);
-    const mumlar = analiz?.zamanDilimleri?.[tf]?.mumlar || analiz?.zamanDilimleri?.s1?.mumlar || analiz?.zamanDilimleri?.s4?.mumlar || [];
+    const zVeri = analiz?.zamanDilimleri?.[tf] || analiz?.zamanDilimleri?.s1 || analiz?.zamanDilimleri?.s4;
+    const mumlar = zVeri?.mumlar || [];
+    const teknikEl = $('#kapaliTeknikVeri');
+    if (teknikEl && zVeri) {
+      const ha = zVeri.hacimAkisi;
+      const ema = zVeri.ema || {};
+      teknikEl.innerHTML = `
+        <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; color:#cbd5e1;">
+          <span><b>Güncel Durum (${esc(zVeri.ad || tf)}):</b> <span style="color:${yonRenk(zVeri.yonKod)}; font-weight:700;">${esc(zVeri.yon)} (${zVeri.skor > 0 ? '+' : ''}${zVeri.skor})</span></span>
+          <span><b>RSI:</b> ${zVeri.rsi ?? '—'}</span>
+          ${ema.ema20 ? `<span><b style="color:#facc15;">EMA20:</b> ${sayi(ema.ema20)}</span>` : ''}
+          ${ema.ema50 ? `<span><b style="color:#38bdf8;">EMA50:</b> ${sayi(ema.ema50)}</span>` : ''}
+          ${ema.ema200 ? `<span><b style="color:#f472b6;">EMA200:</b> ${sayi(ema.ema200)}</span>` : ''}
+          ${ha ? `<span><b>Hacim Akışı:</b> <span style="color:#34d399;">Alış %${ha.alisYuzde}</span> / <span style="color:#f87171;">Satış %${ha.satisYuzde}</span></span>` : ''}
+        </div>
+      `;
+    } else if (teknikEl) {
+      teknikEl.textContent = 'Güncel teknik indikatör verisi alınamadı.';
+    }
     const durumEl = $('#kapaliGrafikDurum');
     if (durumEl) {
       durumEl.textContent = mumlar.length
-        ? `📈 ${sembolKodu} · Giriş (${sayi(k.alisFiyat)} ${birim}) ➔ Çıkış (${sayi(k.satisFiyat)} ${birim})`
+        ? `📈 ${sembolKodu} · Giriş (${sayi(k.alisFiyat)} ${birim}) ➔ Çıkış (${sayi(k.satisFiyat)} ${birim}) · EMA20 / EMA50`
         : '⚠️ Mum verisi alınamadı, giriş/çıkış seviyeleri gösteriliyor.';
     }
-    kapaliIslemGrafikCiz(k, mumlar);
+    kapaliIslemGrafikCiz(k, mumlar, zVeri?.ema || null);
   } catch (_) {
     const durumEl = $('#kapaliGrafikDurum');
     if (durumEl) durumEl.textContent = '⚠️ Canlı mum verisi alınamadı, giriş/çıkış seviyeleri gösteriliyor.';
-    kapaliIslemGrafikCiz(k, []);
+    kapaliIslemGrafikCiz(k, [], null);
   }
 };
 
-function kapaliIslemGrafikCiz(k, hamMumlar) {
+function kapaliIslemGrafikCiz(k, hamMumlar, emaData = null) {
   const canvas = document.getElementById('kapaliIslemCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -2945,6 +2993,46 @@ function kapaliIslemGrafikCiz(k, hamMumlar) {
     ctx.fillRect(x, Math.min(yO, yC), mG, Math.max(2.5, Math.abs(yC - yO)));
     noktalar.push({ cx, t: m.t ? m.t * 1000 : null });
   });
+
+  // EMA 20 / EMA 50 eğrileri (varsa)
+  if (emaData && noktalar.length >= 2) {
+    const emaMiniCiz = (seri, renk) => {
+      if (!seri || !seri.length) return;
+      ctx.save();
+      ctx.strokeStyle = renk;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      let bas = false;
+      const fark = seri.length - noktalar.length;
+      for (let i = 0; i < noktalar.length; i++) {
+        const val = seri[i + fark];
+        if (val == null || !isFinite(val) || val < minP || val > maxP) { bas = false; continue; }
+        const y = toY(val);
+        if (!bas) { ctx.moveTo(noktalar[i].cx, y); bas = true; }
+        else ctx.lineTo(noktalar[i].cx, y);
+      }
+      if (bas) ctx.stroke();
+      ctx.restore();
+    };
+    emaMiniCiz(emaData.seri50, '#2563eb');
+    emaMiniCiz(emaData.seri20, '#d97706');
+  }
+
+  // Alt eksen zaman etiketleri
+  if (noktalar.some(n => n.t)) {
+    ctx.save();
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10.5px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    [0, Math.floor(noktalar.length / 2), noktalar.length - 1].forEach(idx => {
+      const n = noktalar[idx];
+      if (!n || !n.t) return;
+      const dt = new Date(n.t);
+      const txt = `${dt.getDate()}.${dt.getMonth() + 1} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+      ctx.fillText(txt, n.cx, h - 6);
+    });
+    ctx.restore();
+  }
 
   // Giriş & Çıkış yatay çizgileri ve noktaları
   const solYler = [];
