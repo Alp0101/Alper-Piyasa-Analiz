@@ -426,9 +426,10 @@ async function mumSetleri(bilgi) {
     return { m5: saatlik, m15: saatlik, s1: saatlik, s2, s4, g1, h1: haftalik(g1), ay1: null, not: 'Pi Network IOU verisi Gate.io borsasından canlı çekilmektedir.' };
   }
   if (k.tip === 'binance') {
-    const [m5, m15, s1, s2, s4, g1, h1, ay1] = await Promise.all([
-      '5m', '15m', '1h', '2h', '4h', '1d', '1w', '1M'
+    const [m5, m15, s1, s4, g1, h1, ay1] = await Promise.all([
+      '5m', '15m', '1h', '4h', '1d', '1w', '1M'
     ].map(i => binanceMum(k.kod, i)));
+    const s2 = birlestir(s1, 2, 0, 24);
     return { m5, m15, s1, s2, s4, g1, h1, ay1, not: null };
   }
   if (k.tip === 'yahoo') {

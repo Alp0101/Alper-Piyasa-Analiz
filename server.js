@@ -233,7 +233,31 @@ async function xu100DegisimAl() {
   return satirlar.map(r => hizliDegerlendir({ ...r, ad: adlar[r.id] || r.ad }, benchDeg));
 }
 
+const analizOnbellek = new Map();
+
 async function sembolAnaliz(id, tf = 's4') {
+  const cacheKey = `${id}:${tf}`;
+  const simdi = Date.now();
+  const hit = analizOnbellek.get(cacheKey);
+  if (hit && (simdi - hit.ts) < 25_000) {
+    const taze = await V.canliTekFiyat(id).catch(() => null);
+    const kopya = JSON.parse(JSON.stringify(hit.veri));
+    if (taze && taze.fiyat > 0) {
+      kopya.canliFiyat = taze.fiyat;
+      if (taze.degisim != null) kopya.canliDegisim = taze.degisim;
+      Object.values(kopya.zamanDilimleri || {}).forEach(z => {
+        if (z && z.seviyeler) z.seviyeler.fiyat = taze.fiyat;
+        if (z && Array.isArray(z.mumlar) && z.mumlar.length > 0) {
+          const sonMum = z.mumlar[z.mumlar.length - 1];
+          sonMum.c = taze.fiyat;
+          if (taze.fiyat > sonMum.h) sonMum.h = taze.fiyat;
+          if (taze.fiyat < sonMum.l) sonMum.l = taze.fiyat;
+        }
+      });
+    }
+    return kopya;
+  }
+
   let adlar = {};
   if (id.startsWith('BIST:')) { try { adlar = await V.bistAdlari(); } catch (_) { /* ad olmadan devam */ } }
   const bilgi = sembolBilgisi(id, adlar);
@@ -251,7 +275,7 @@ async function sembolAnaliz(id, tf = 's4') {
 
   // Mumların en son fiyatını canlı scanner fiyatıyla %100 senkronize et
   if (canliSonFiyat && canliSonFiyat > 0) {
-    for (const key of ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1']) {
+    for (const key of ['m5', 'm15', 's1', 's2', 's4', 'g1', 'h1', 'ay1']) {
       const arr = setler[key];
       if (arr && arr.length > 0) {
         const sonMum = arr[arr.length - 1];
@@ -268,7 +292,13 @@ async function sembolAnaliz(id, tf = 's4') {
   const hedefMumlar = setler[tf] || setler.s4 || setler.g1;
   const backtestSonucu = geriyeTest(hedefMumlar, tf, null);
 
-  return { ...analizSonucu, backtest: backtestSonucu, canliFiyat: canliSonFiyat, canliDegisim };
+  const sonuc = { ...analizSonucu, backtest: backtestSonucu, canliFiyat: canliSonFiyat, canliDegisim };
+  analizOnbellek.set(cacheKey, { ts: simdi, veri: sonuc });
+  if (analizOnbellek.size > 60) {
+    const ilkKey = analizOnbellek.keys().next().value;
+    if (ilkKey) analizOnbellek.delete(ilkKey);
+  }
+  return sonuc;
 }
 
 // ---------------- HTTP ----------------

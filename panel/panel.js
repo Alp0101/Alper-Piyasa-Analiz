@@ -908,7 +908,34 @@ function girisKontrolKarti(v, z, anaSatir) {
     maddeler.push({ ikon: '🟡', ad: 'Trend Uyumu', durum: `Kararsız (${s4P} / ${g1P})`, renk: '#f59e0b' });
   }
 
-  // 5. Risk / Ödül
+  // 5. EMA50 / EMA200 Ana Trend
+  const ema50 = z.ema?.ema50;
+  const ema200 = z.ema?.ema200;
+  if (ema50 && s.fiyat) {
+    const e50Ust = s.fiyat >= ema50;
+    const e200Ust = !ema200 || s.fiyat >= ema200;
+    if (e50Ust && e200Ust) {
+      maddeler.push({ ikon: '🟢', ad: 'EMA 50/200', durum: 'Ana Trend Üstünde', renk: '#10b981' });
+    } else if (!e50Ust && (!ema200 || s.fiyat < ema200)) {
+      maddeler.push({ ikon: '🔴', ad: 'EMA 50/200', durum: 'Ana Trend Altında', renk: '#ef4444' });
+    } else {
+      maddeler.push({ ikon: '🟡', ad: 'EMA 50/200', durum: e50Ust ? 'EMA50 Üstü / EMA200 Altı' : 'EMA50 Altında', renk: '#f59e0b' });
+    }
+  }
+
+  // 6. Alış / Satış Hacim Baskısı
+  const ha = z.hacimAkisi;
+  if (ha) {
+    if (ha.alisYuzde >= 54) {
+      maddeler.push({ ikon: '🟢', ad: 'Emir Akışı', durum: `Alış Baskın (%${ha.alisYuzde})`, renk: '#10b981' });
+    } else if (ha.satisYuzde >= 54) {
+      maddeler.push({ ikon: '🔴', ad: 'Emir Akışı', durum: `Satış Baskın (%${ha.satisYuzde})`, renk: '#ef4444' });
+    } else {
+      maddeler.push({ ikon: '🟡', ad: 'Emir Akışı', durum: `Dengeli (%${ha.alisYuzde}/%${ha.satisYuzde})`, renk: '#f59e0b' });
+    }
+  }
+
+  // 7. Risk / Ödül
   if (rr >= 1.5) {
     maddeler.push({ ikon: '🟢', ad: 'Risk / Ödül', durum: `İyi (1 : ${rr.toFixed(2)})`, renk: '#10b981' });
   } else if (rr >= 1.1) {
@@ -919,24 +946,71 @@ function girisKontrolKarti(v, z, anaSatir) {
 
   const yesilSayisi = maddeler.filter(m => m.ikon === '🟢').length;
   const kirmiziSayisi = maddeler.filter(m => m.ikon === '🔴').length;
+  const birim = paraBirimiAl(v.sembol);
+  const isBist = v.sembol?.startsWith('BIST:');
 
-  let kararMetni = '🟡 DİKKATLİ GİR / ONAY BEKLE';
+  // Net Eylem ve Tetik Fiyatı Hesabı (Kararsızlığı ortadan kaldır)
+  const shortBaskin = !isBist && s4P <= -20 && g1P <= -15 && (ha ? ha.satisYuzde >= 52 : true) && tuzakSev !== 'Yüksek';
+  const longOnayli = yesilSayisi >= 5 && kirmiziSayisi === 0 && tuzakSev !== 'Yüksek' && (bench == null || bench > -1.8);
+  const tetikDestek = (ema50 && ema50 < s.fiyat * 0.996 && (!s.destek || ema50 > s.destek)) ? ema50 : s.destek;
+  const tetikDestekAd = (ema50 && tetikDestek === ema50) ? 'EMA50 Desteği' : '1. Teknik Destek';
+
+  let kararMetni = '⏳ BEKLE — TETİK FİYATINI İZLE';
   let kararRenk = '#f59e0b';
-  if (tuzakSev === 'Yüksek' || (bench != null && bench <= -2.0) || kirmiziSayisi >= 2) {
-    kararMetni = '🔴 BEKLE / GİRİŞ RİSKLİ';
-    kararRenk = '#ef4444';
-  } else if (yesilSayisi >= 4 && kirmiziSayisi === 0) {
-    kararMetni = '🟢 GİRİŞE UYGUN (KALİTELİ KURULUM)';
+  let eylemHtml = '';
+
+  if (longOnayli) {
+    kararMetni = '🟢 ŞİMDİ ALINABİLİR (LONG ONAYLI)';
     kararRenk = '#10b981';
+    eylemHtml = `
+      <div style="margin-top:10px; padding:10px 12px; border-radius:8px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.4); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:12.5px; color:#d1fae5;">
+          <b>🎯 Net Karar:</b> Tüm ana kriterler Long yönünü destekliyor. <b>Giriş:</b> ${sayi(s.fiyat)} ${birim} · <b style="color:#fca5a5;">Stop:</b> ${sayi(s.alimStop)} ${birim} · <b style="color:#6ee7b7;">TP1:</b> ${sayi(s.alimHedef)} ${birim}
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn" style="background:#10b981; color:#fff; font-size:11.5px; padding:6px 12px;" onclick="otomatikPlanUygula('LONG', 'tp1')">⚡ TP1 ile Hızlı Aç</button>
+          <button type="button" class="btn" style="background:#059669; color:#fef08a; font-size:11.5px; padding:6px 12px;" onclick="otomatikPlanUygula('LONG', 'tp2')">🚀 TP2 ile Aç</button>
+        </div>
+      </div>`;
+  } else if (shortBaskin) {
+    kararMetni = '🔴 SHORT BASKIN (DÜŞÜŞ TRENDİ)';
+    kararRenk = '#ef4444';
+    eylemHtml = `
+      <div style="margin-top:10px; padding:10px 12px; border-radius:8px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:12.5px; color:#fee2e2;">
+          <b>🎯 Net Karar:</b> 4S/1G düşüş trendinde ve satıcılar baskın. Long riskli! <b>Short Giriş:</b> ${sayi(s.fiyat)} ${birim} · <b>Stop:</b> ${sayi(s.satisStop)} ${birim} · <b>TP1:</b> ${sayi(s.satisHedef)} ${birim}
+        </div>
+        <button type="button" class="btn" style="background:#ef4444; color:#fff; font-size:11.5px; padding:6px 12px;" onclick="otomatikPlanUygula('SHORT', 'tp1')">⚡ Short TP1 Aç</button>
+      </div>`;
+  } else {
+    if (tuzakSev === 'Yüksek' || (bench != null && bench <= -2.0) || kirmiziSayisi >= 3) {
+      kararMetni = '🔴 GİRİŞ RİSKLİ — BEKLE';
+      kararRenk = '#ef4444';
+    }
+    const nedenParca = tuzakSev === 'Yüksek'
+      ? 'Yüksek tuzak/iğne riski var.'
+      : (kirmiziSayisi >= 2 ? 'Trend veya hacim baskısı henüz zayıf.' : 'Üst zaman dilimi ve hacim tam hizalanmadı.');
+    const destekBtn = (tetikDestek && tetikDestek > 0 && tetikDestek < s.fiyat * 0.998)
+      ? `<button type="button" class="btn ikincil" style="border-color:#38bdf8; color:#38bdf8; font-size:11.5px; padding:5px 11px;" onclick="tetikLimitEmirAc('LONG', ${tetikDestek}, ${s.alimStop || 0}, ${s.alimHedef || 0})">🎯 ${sayi(tetikDestek)} ${birim} Limit Long Koy</button>`
+      : '';
+    eylemHtml = `
+      <div style="margin-top:10px; padding:10px 12px; border-radius:8px; background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.35); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:12.5px; color:#fef3c7;">
+          <b>⏳ Net Karar (Bekle):</b> ${nedenParca}
+          ${tetikDestek ? ` Alım için <b>${tetikDestekAd} (${sayi(tetikDestek)} ${birim})</b> seviyesine çekilmeyi` : ''}
+          ${s.direnc ? ` veya <b>${sayi(s.direnc)} ${birim}</b> direncinin hacimli kırılımını bekle.` : '.'}
+        </div>
+        ${destekBtn}
+      </div>`;
   }
 
   return `
   <div class="kutu" style="background:rgba(15, 23, 42, 0.92); border:1px solid ${kararRenk}66; border-left:4px solid ${kararRenk}; margin-bottom:16px; padding:12px 16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-      <div style="font-size:13.5px; font-weight:bold; color:#e2e8f0;">🛡️ İşlem Öncesi Doğrulama Özeti</div>
+      <div style="font-size:13.5px; font-weight:bold; color:#e2e8f0;">🛡️ İşlem Öncesi Doğrulama & Net Karar</div>
       <span style="background:${kararRenk}22; color:${kararRenk}; border:1px solid ${kararRenk}66; padding:3px 10px; border-radius:14px; font-size:11.5px; font-weight:bold;">${kararMetni}</span>
     </div>
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap:8px;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:8px;">
       ${maddeler.map(m => `
         <div style="background:rgba(0,0,0,0.28); padding:7px 10px; border-radius:8px; border:1px solid #1e293b;">
           <div style="font-size:11px; color:#94a3b8;">${m.ikon} ${m.ad}</div>
@@ -944,8 +1018,17 @@ function girisKontrolKarti(v, z, anaSatir) {
         </div>
       `).join('')}
     </div>
+    ${eylemHtml}
   </div>`;
 }
+
+window.tetikLimitEmirAc = function(yon, tetikFiyat, stopFiyat, hedefFiyat) {
+  emirModaliAc(yon || 'LONG');
+  if (tetikFiyat > 0) $('#emirAlisFiyat').value = tetikFiyat;
+  if (stopFiyat > 0 && stopFiyat < tetikFiyat) $('#emirStopFiyat').value = stopFiyat;
+  if (hedefFiyat > 0 && hedefFiyat > tetikFiyat) $('#emirHedefFiyat').value = hedefFiyat;
+  emirHesapla();
+};
 
 // ================= Canlı Açık Pozisyon Risk Değerlendirmesi =================
 function pozisyonRiskKarti(poz, z, v) {
