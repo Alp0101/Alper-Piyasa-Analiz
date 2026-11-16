@@ -4,6 +4,7 @@ const G = require('./gostergeler');
 
 const AGIRLIK = { trend: 1.5, momentum: 1.2, oynaklik: 0.8, seviye: 1.0, hacim: 1.0, mum: 0.6, uyum: 1.2, ortam: 0.8 };
 const TF_ADI = {
+  m5: '5 Dakikalık',
   m15: '15 Dakikalık',
   s1: '1 Saatlik',
   s2: '2 Saatlik',
@@ -13,6 +14,7 @@ const TF_ADI = {
   ay1: 'Aylık'
 };
 const UST_TF = {
+  m5: ['m15', 's1'],
   m15: ['s1', 's4'],
   s1: ['s4', 'g1'],
   s2: ['s4', 'g1'],
@@ -440,7 +442,7 @@ function yonEtiketi(skor) {
 // Ana fonksiyon
 function analizEt(setler, benchSet, bilgi) {
   const hazir = {};
-  const tumTfler = ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1'];
+  const tumTfler = ['m5', 'm15', 's1', 's2', 's4', 'g1', 'h1', 'ay1'];
   for (const tf of tumTfler) if (setler[tf] && setler[tf].length >= 20) hazir[tf] = hazirla(setler[tf]);
   const benchHazir = {};
   if (benchSet) for (const tf of tumTfler) if (benchSet[tf] && benchSet[tf].length >= 20) benchHazir[tf] = hazirla(benchSet[tf]);

@@ -776,7 +776,7 @@ async function detayYukle(zorla = false) {
 
 const yonRenk = k => k >= 2 ? '#34d399' : k === 1 ? '#6ee7b7' : k === 0 ? '#cbd5e1' : k === -1 ? '#f87171' : '#ef4444';
 const ikon = k => k >= 1 ? '🟢' : k <= -1 ? '🔴' : '🟠';
-const TF_ADI_HARITA = { m15: '15 Dakika', s1: '1 Saat', s2: '2 Saat', s4: '4 Saat', g1: 'Günlük (24S)', h1: 'Haftalık', ay1: 'Aylık' };
+const TF_ADI_HARITA = { m5: '5 Dakika', m15: '15 Dakika', s1: '1 Saat', s2: '2 Saat', s4: '4 Saat', g1: 'Günlük (24S)', h1: 'Haftalık', ay1: 'Aylık' };
 
 function kisaOzet(z) {
   if (z.hata) return z.hata;
@@ -1143,7 +1143,7 @@ function pozisyonRiskKarti(poz, z, v) {
 
 function detayCiz() {
   const v = D.detayVeri; if (!v) return;
-  const tfler = ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1'];
+  const tfler = ['m5', 'm15', 's1', 's2', 's4', 'g1', 'h1', 'ay1'];
   const ozet = tfler.map(tf => {
     const z = v.zamanDilimleri[tf];
     if (!z || z.hata) {
@@ -1404,10 +1404,10 @@ function gorselStratejiGrafikHtml(z, s, v) {
   let formasyonDetay = `${sayi(s.direnc)} ₺ direnci üzerinde BOS kırılımı ve bayrak tamamlanması.`;
 
   if (s.yon > 0) {
-    if (z.tf === 'm15') {
+    if (z.tf === 'm5' || z.tf === 'm15') {
       formasyonAd = 'Hızlı Bayrak / Flama Kırılımı';
       formasyonIkon = '🚩';
-      formasyonDetay = `${sayi(s.direnc)} ₺ direnci üzerinde BOS kırılımı ve bayrak tamamlanması.`;
+      formasyonDetay = `${sayi(s.direnc)} direnci üzerinde BOS kırılımı ve bayrak tamamlanması.`;
     } else if (z.tf === 's1' || z.tf === 's2') {
       formasyonAd = 'Kurumsal FVG Likidite Boşluğu';
       formasyonIkon = '🧲';
@@ -1435,7 +1435,7 @@ function gorselStratejiGrafikHtml(z, s, v) {
           <h4 style="margin:0; font-size:14px; color:#f8fafc;">${esc(v.kod || v.sembol)} · ${esc(tfAd)} Görsel Strateji & Formasyon</h4>
           <span style="font-size:11px; padding:2px 7px; background:${yonRenk}20; color:${yonRenk}; border:1px solid ${yonRenk}40; border-radius:10px; font-weight:800;">${yonMetin}</span>
           <div style="display:inline-flex; gap:3px; background:#0a0e17; padding:2px 4px; border-radius:7px; border:1px solid #1e293b; margin-left:4px;">
-            ${[['m15','15dk'],['s1','1s'],['s2','2s'],['s4','4s'],['g1','1G'],['h1','1H']].map(([tfK, tfEt]) => {
+            ${[['m5','5dk'],['m15','15dk'],['s1','1s'],['s2','2s'],['s4','4s'],['g1','1G'],['h1','1H']].map(([tfK, tfEt]) => {
               const aktif = D.detayTf === tfK;
               return `<button type="button" onclick="grafikTfDegistir('${tfK}')" style="border:none; cursor:pointer; padding:2px 7px; border-radius:5px; font-size:11px; font-weight:700; background:${aktif ? '#0284c7' : 'transparent'}; color:${aktif ? '#fff' : '#94a3b8'};">${tfEt}</button>`;
             }).join('')}
@@ -3054,7 +3054,7 @@ window.kapaliIslemDetayAc = async (id, idx) => {
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
         <div id="kapaliGrafikDurum" style="font-size:12px; color:#334155; font-weight:700;">📈 Giriş & Çıkış Grafiği yükleniyor...</div>
         <div id="kapaliTfBar" style="display:inline-flex; gap:3px; background:#f1f5f9; padding:3px 5px; border-radius:7px; border:1px solid #cbd5e1;">
-          ${[['m15','15dk'],['s1','1s'],['s2','2s'],['s4','4s'],['g1','1G'],['h1','1H']].map(([tfK, tfEt]) => {
+          ${[['m5','5dk'],['m15','15dk'],['s1','1s'],['s2','2s'],['s4','4s'],['g1','1G'],['h1','1H']].map(([tfK, tfEt]) => {
             const aktif = (k.planTf || 's1') === tfK;
             return `<button type="button" data-ktf="${tfK}" onclick="kapaliGrafikTfDegistir('${tfK}')" style="border:none; cursor:pointer; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:700; background:${aktif ? '#0284c7' : 'transparent'}; color:${aktif ? '#fff' : '#475569'};">${tfEt}</button>`;
           }).join('')}

@@ -372,10 +372,11 @@ function gunlukTamamla(gunluk, saatlik) {
   return out;
 }
 
-// Yahoo kaynağı için 15dk / 1s / 2s / 4s / 1g / 1h / 1ay mumları
+// Yahoo kaynağı için 5dk / 15dk / 1s / 2s / 4s / 1g / 1h / 1ay mumları
 async function yahooSetleri(kod, bist) {
-  // Paralel hızlı çekim: 15m, saatlik, günlük ve 5 yıllık aylık (toplam sadece 60 mum, çok hafiftir)
-  const [m15, saatlik, gunluk, aylik] = await Promise.all([
+  // Paralel hızlı çekim: 5m, 15m, saatlik, günlük ve 5 yıllık aylık
+  const [m5, m15, saatlik, gunluk, aylik] = await Promise.all([
+    yahooMum(kod, '5m', '5d').catch(() => []),
     yahooMum(kod, '15m', '5d').catch(() => []),
     yahooMum(kod, '60m', '90d'),
     yahooMum(kod, '1d', '2y'),
@@ -384,6 +385,7 @@ async function yahooSetleri(kod, bist) {
   const bas = bist ? 10 : 0, bit = bist ? 18 : 24;
   const g1 = gunlukTamamla(gunluk, saatlik);
   return {
+    m5: m5.length ? m5 : null,
     m15: m15.length ? m15 : null,
     s1: saatlik,
     s2: birlestir(saatlik, 2, bas, bit),
@@ -421,13 +423,13 @@ async function mumSetleri(bilgi) {
     const s2 = birlestir(saatlik, 2, 0, 24);
     const s4 = birlestir(saatlik, 4, 0, 24);
     const g1 = birlestir(saatlik, 24, 0, 24);
-    return { m15: saatlik, s1: saatlik, s2, s4, g1, h1: haftalik(g1), ay1: null, not: 'Pi Network IOU verisi Gate.io borsasından canlı çekilmektedir.' };
+    return { m5: saatlik, m15: saatlik, s1: saatlik, s2, s4, g1, h1: haftalik(g1), ay1: null, not: 'Pi Network IOU verisi Gate.io borsasından canlı çekilmektedir.' };
   }
   if (k.tip === 'binance') {
-    const [m15, s1, s2, s4, g1, h1, ay1] = await Promise.all([
-      '15m', '1h', '2h', '4h', '1d', '1w', '1M'
+    const [m5, m15, s1, s2, s4, g1, h1, ay1] = await Promise.all([
+      '5m', '15m', '1h', '2h', '4h', '1d', '1w', '1M'
     ].map(i => binanceMum(k.kod, i)));
-    return { m15, s1, s2, s4, g1, h1, ay1, not: null };
+    return { m5, m15, s1, s2, s4, g1, h1, ay1, not: null };
   }
   if (k.tip === 'yahoo') {
     const set = await yahooSetleri(k.kod, bilgi.tur === 'bist' || k.kod.endsWith('.IS'));
@@ -437,7 +439,7 @@ async function mumSetleri(bilgi) {
     const [altin, dolar] = await Promise.all([yahooSetleri('GC=F', false), yahooSetleri('USDTRY=X', false)]);
     const olcek = 1 / 31.1035;
     const set = {};
-    for (const tf of ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1']) {
+    for (const tf of ['m5', 'm15', 's1', 's2', 's4', 'g1', 'h1', 'ay1']) {
       if (altin[tf] && dolar[tf]) set[tf] = carpSetleri(altin[tf], dolar[tf], olcek);
     }
     // Sertifika fiyatına ölçekle (TradingView'deki son fiyata göre)
@@ -445,7 +447,7 @@ async function mumSetleri(bilgi) {
       const [satir] = await sembolleriTara([bilgi.id]);
       if (satir && satir.fiyat) {
         const oran = satir.fiyat / set.s2[set.s2.length - 1].c;
-        for (const tf of ['m15', 's1', 's2', 's4', 'g1', 'h1', 'ay1']) {
+        for (const tf of ['m5', 'm15', 's1', 's2', 's4', 'g1', 'h1', 'ay1']) {
           if (set[tf]) set[tf] = set[tf].map(m => ({ ...m, o: m.o * oran, h: m.h * oran, l: m.l * oran, c: m.c * oran }));
         }
       }
