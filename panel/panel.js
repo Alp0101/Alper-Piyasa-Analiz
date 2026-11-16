@@ -2217,13 +2217,27 @@ async function demoPortfoyYukle() {
       }
     } catch (_) {}
 
-    // Piyasa açıldığında Bekleyen Emirleri otomatik aktif pozisyona çevir
+    // Piyasa açıldığında veya Limit fiyat koşulu sağlandığında Bekleyen Emirleri otomatik aktif pozisyona çevir
     let otomatikDegisiklikVar = false;
     for (let i = (yerel.bekleyenEmirler || []).length - 1; i >= 0; i--) {
       const emir = yerel.bekleyenEmirler[i];
       if (!piyasaDurumu(emir.sembol).acik) continue;
-      const acilisFiyati = fiyatHaritasi[emir.sembol] || emir.emirFiyat;
-      if (!acilisFiyati || acilisFiyati <= 0) continue;
+      const canliFiyat = fiyatHaritasi[emir.sembol];
+      if (!canliFiyat || canliFiyat <= 0) continue;
+
+      let acilisFiyati = canliFiyat;
+      if (emir.emirTipi === 'LIMIT') {
+        const hedefGiris = Number(emir.emirFiyat || 0);
+        if (!hedefGiris) continue;
+        if (emir.yon === 'SHORT') {
+          if (canliFiyat < hedefGiris) continue;
+          acilisFiyati = Math.max(canliFiyat, hedefGiris);
+        } else {
+          if (canliFiyat > hedefGiris) continue;
+          acilisFiyati = Math.min(canliFiyat, hedefGiris);
+        }
+      }
+
       otomatikDegisiklikVar = true;
       yerel.bekleyenEmirler.splice(i, 1);
       yerel.acikPozisyonlar = yerel.acikPozisyonlar || [];
@@ -2244,7 +2258,8 @@ async function demoPortfoyYukle() {
         planTf: emir.planTf
       });
       sesCal('kar');
-      bildir(`🚀 Piyasa açıldı! Bekleyen ${emir.sembol.split(':')[1] || emir.sembol} ${emir.yon} emri ${sayi(acilisFiyati)} fiyatından aktifleşti!`, 6000);
+      const sebepTxt = emir.emirTipi === 'LIMIT' ? '🎯 Limit emriniz tetiklendi!' : '🚀 Piyasa açıldı!';
+      bildir(`${sebepTxt} ${emir.sembol.split(':')[1] || emir.sembol} ${emir.yon} pozisyonu ${sayi(acilisFiyati)} fiyatından açıldı!`, 6000);
     }
 
     // Otomatik Stop / Hedef Kontrolü (SADECE bu kullanıcının kendi açık pozisyonları için - İzole)
@@ -2433,7 +2448,9 @@ function demoPortfoyCiz() {
                   <td class="sag">${sayi(em.teminat, 2)} ${birim}</td>
                   <td class="sag" style="color:#ef4444;">${em.stopFiyat ? sayi(em.stopFiyat) + ' ' + birim : '—'}</td>
                   <td class="sag" style="color:#10b981;">${em.hedefFiyat ? sayi(em.hedefFiyat) + ' ' + birim : '—'}</td>
-                  <td class="orta"><span style="background:rgba(245,158,11,0.16); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">⏳ Piyasa Bekleniyor</span></td>
+                  <td class="orta">${em.emirTipi === 'LIMIT'
+                    ? `<span style="background:rgba(56,189,248,0.16); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">🎯 Limit (${em.yon === 'SHORT' ? '≥' : '≤'} ${sayi(em.emirFiyat)})</span>`
+                    : `<span style="background:rgba(245,158,11,0.16); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">⏳ Piyasa Bekleniyor</span>`}</td>
                   <td class="orta"><button class="btn ikincil" style="padding:4px 10px; font-size:11px; border-color:#ef4444; color:#f87171;" onclick="bekleyenEmirIptal('${esc(em.id)}')">❌ İptal Et</button></td>
                 </tr>`;
               }).join('')}
@@ -3428,7 +3445,21 @@ $('#emirOnaylaBtn').onclick = async () => {
   const pdModal = piyasaDurumu(v.sembol);
   const yonIsim = yon === 'SHORT' ? '🔴 SHORT (Açığa Satış)' : '🟢 LONG';
 
-  if (!pdModal.acik) {
+  // Gerçek güncel piyasa fiyatını al (hileyi / sahte düşük girişi önle)
+  let piyasaFiyat = parseFloat($('#emirCanliFiyatKutu')?.dataset?.fiyat) || sonDetayFiyat || v.canliFiyat || f;
+  if (pdModal.acik) {
+    try {
+      const taze = await api(`/api/fiyat?sembol=${encodeURIComponent(v.sembol)}`);
+      if (taze && taze.fiyat > 0) piyasaFiyat = taze.fiyat;
+    } catch (_) {}
+  }
+
+  // Standart borsa kuralı: Long'da piyasanın altı, Short'ta piyasanın üstü girildiyse Limit Bekleyen Emri olur!
+  const limitLongMu = (yon === 'LONG' && piyasaFiyat > 0 && f < piyasaFiyat * 0.9995);
+  const limitShortMu = (yon === 'SHORT' && piyasaFiyat > 0 && f > piyasaFiyat * 1.0005);
+  const limitEmriMi = limitLongMu || limitShortMu;
+
+  if (!pdModal.acik || limitEmriMi) {
     p.bekleyenEmirler.push({
       id: 'emr-' + Date.now(),
       sembol: v.sembol,
@@ -3437,6 +3468,8 @@ $('#emirOnaylaBtn').onclick = async () => {
       kaldirac,
       adet: adet,
       emirFiyat: f,
+      emirTipi: limitEmriMi ? 'LIMIT' : 'PIYASA',
+      emirKosul: limitShortMu ? 'USTU' : (limitLongMu ? 'ALTI' : 'PIYASA'),
       paraBirimi: birim,
       emirTarih: new Date().toISOString(),
       stopFiyat: stop,
@@ -3445,12 +3478,18 @@ $('#emirOnaylaBtn').onclick = async () => {
       tutar
     });
     demoYerelKaydet(p);
-    bildir(`⏳ ${pdModal.etiket} — ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} emri "Bekleyen Emirler" listesine alındı!`, 6500);
+    const sebepMesaj = limitEmriMi
+      ? `🎯 Limit Emri Kaydedildi! Güncel fiyat (${sayi(piyasaFiyat)} ${birim}) henüz ${sayi(f)} ${birim} seviyesine gelmediği için "Bekleyen Emirler" listesine alındı.`
+      : `⏳ ${pdModal.etiket} — ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} emri "Bekleyen Emirler" listesine alındı!`;
+    bildir(sebepMesaj, 7000);
     $('#demoEmirModal').classList.add('gizli');
     await demoPortfoyYukle();
     return;
   }
 
+  // Piyasa emri doğrudan güncel canlı fiyattan (piyasaFiyat) gerçekleşir
+  const gercekGiris = piyasaFiyat > 0 ? piyasaFiyat : f;
+  const gercekTutar = +(gercekGiris * adet).toFixed(2);
   p.acikPozisyonlar.push({
     id: 'poz-' + Date.now(),
     sembol: v.sembol,
@@ -3458,17 +3497,17 @@ $('#emirOnaylaBtn').onclick = async () => {
     yon,
     kaldirac,
     adet: adet,
-    alisFiyat: f,
+    alisFiyat: gercekGiris,
     paraBirimi: birim,
     alisTarih: new Date().toISOString(),
     stopFiyat: stop,
     hedefFiyat: hedef,
     teminat,
-    tutar
+    tutar: gercekTutar
   });
   demoYerelKaydet(p);
 
-  bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} pozisyonu ${sayi(f)} ${birim} seviyesinden açıldı!`);
+  bildir(`✅ ${adet} adet ${v.sembol.split(':')[1]} ${yonIsim} pozisyonu güncel ${sayi(gercekGiris)} ${birim} fiyatından açıldı!`);
   $('#demoEmirModal').classList.add('gizli');
   await demoPortfoyYukle();
 };
