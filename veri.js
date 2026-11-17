@@ -86,8 +86,8 @@ function hacimBaskiHesapla(o, h, l, c) {
 
 const TARAMA_KOLONLARI = [
   'name', 'description', 'close', 'change', 'volume', 'relative_volume_10d_calc',
-  'Recommend.All|120', 'Recommend.All|240', 'Recommend.All',
-  'RSI|120', 'RSI|240', 'RSI', 'High.1M', 'Low.1M', 'ATR', 'EMA50', 'EMA200', 'market_cap_basic',
+  'Recommend.All|15', 'Recommend.All|60', 'Recommend.All|120', 'Recommend.All|240', 'Recommend.All',
+  'RSI|60', 'RSI|120', 'RSI|240', 'RSI', 'High.1M', 'Low.1M', 'ATR', 'EMA50', 'EMA200', 'market_cap_basic',
   'open', 'high', 'low'
 ];
 
@@ -102,8 +102,8 @@ function satirCoz(item) {
     degisim: d.change,
     hacim: d.volume,
     goreceliHacim: d.relative_volume_10d_calc,
-    tv: { s2: d['Recommend.All|120'], s4: d['Recommend.All|240'], g1: d['Recommend.All'] },
-    rsi: { s2: d['RSI|120'], s4: d['RSI|240'], g1: d.RSI },
+    tv: { s15: d['Recommend.All|15'], s1: d['Recommend.All|60'], s2: d['Recommend.All|120'], s4: d['Recommend.All|240'], g1: d['Recommend.All'] },
+    rsi: { s1: d['RSI|60'], s2: d['RSI|120'], s4: d['RSI|240'], g1: d.RSI },
     ayYuksek: d['High.1M'], ayDusuk: d['Low.1M'],
     atr: d.ATR, ema50: d.EMA50, ema200: d.EMA200,
     piyasaDegeri: d.market_cap_basic,

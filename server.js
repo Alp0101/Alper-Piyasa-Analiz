@@ -749,8 +749,8 @@ async function taramaVeSinyalIsle(listeId) {
         (r.rsi?.s4 || 50) <= 52 && (r.rsi?.s4 || 50) >= 32 &&
         (r.hizliPuan || 0) <= -70 && gh >= 1.2;
       const isKombo = longIzin && trendLongUygun && fomoYok && alisPct >= 52 && !tuzakVar &&
-        r.isaretler?.some(i => i.tip === 'kombo') &&
-        t.s4 > 0.1 && t.g1 > 0 && gh >= 1.1 && (r.rsi?.s4 || 50) <= 68;
+        r.isaretler?.some(i => i.tip === 'kombo' || i.tip === 'firsat') &&
+        t.s4 > 0 && t.g1 > 0 && gh >= 1.1 && (r.rsi?.s4 || 50) <= 68;
 
       // 4. ERKEN SİNYAL YÖNTEMLERİ (2S/4S/1G tamamen dönmeden ilk kıvılcımı ve EMA50 tepkisini yakala)
       const rsi1h = r.rsi?.s1 ?? r.rsi?.s4 ?? 50;

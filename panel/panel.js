@@ -4461,6 +4461,12 @@ async function yeniBildirimEkle(baslik, mesaj, tur, sembolId, fiyat = 0, yon = '
 }
 
 function radarVeSniperDegisimKontrol(satirlar) {
+  // Bildirimler ve Günlük Sinyal Raporu yalnızca sunucu arka plan motoru (server.js) tarafından
+  // gerçek saatinde üretilir; tarayıcı açıldığında gecikmeli/rapordan kopuk bildirim basılmaz.
+  return;
+}
+
+function _eskiTarayiciBildirimKontrol(satirlar) {
   if (!satirlar || !satirlar.length) return;
 
   const listeId = D.aktifId || 'varsayilan';
