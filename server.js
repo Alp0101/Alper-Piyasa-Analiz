@@ -332,6 +332,7 @@ const sunucu = http.createServer(async (req, res) => {
       return gonder(res, 200, { zaman: new Date().toISOString(), satirlar });
     }
     if (p === '/api/analiz') return gonder(res, 200, await sembolAnaliz(url.searchParams.get('sembol') || '', url.searchParams.get('tf') || 's4'));
+    if (p === '/api/ping') return gonder(res, 200, { ok: true, zaman: new Date().toISOString(), bistAcik: bistSeansAcikMi() });
     if (p === '/api/fiyat') {
       const sem = url.searchParams.get('sembol') || '';
       const veri = await V.canliTekFiyat(sem).catch(() => null);
@@ -771,8 +772,10 @@ async function taramaVeSinyalIsle(listeId) {
         rsi1h >= 36 && rsi1h <= 55;
 
       const uygunFiyat = (r.fiyat >= 4.0 || r.id?.startsWith('BINANCE:') || r.id?.startsWith('OKX:') || r.id?.startsWith('GATE:'));
+      // BIST seansı kapalıyken (gece/hafta sonu) site açıldığında sahte BIST sinyali kaydetme
+      const piyasaKaydaAcik = !isBist || bistSeansAcikMi();
 
-      if ((isSniper || isKombo || isErkenLong || isEma50Tepki) && uygunFiyat) {
+      if (piyasaKaydaAcik && (isSniper || isKombo || isErkenLong || isEma50Tepki) && uygunFiyat) {
         const sTipi = isSniper
           ? '🎯 Sniper Long'
           : isKombo
@@ -854,13 +857,22 @@ function arkaPlanTakipBaslat() {
           Alarm.kontrolEt(harita);
         }
       }
-      // 2. Kripto 7/24, BIST ise seans saatlerinde otomatik taranır
+      // 2. Kripto 7/24, Emtia/Forex ve BIST (seans saatlerinde) arka planda otomatik taranır
       await taramaVeSinyalIsle('kripto').catch(() => {});
+      await taramaVeSinyalIsle('emtia').catch(() => {});
       if (bistSeansAcikMi()) {
         await taramaVeSinyalIsle('tum-bist').catch(() => {});
       }
     } catch (_) {}
   };
-  setTimeout(turCalistir, 20 * 1000);
+  setTimeout(turCalistir, 5 * 1000);
   setInterval(turCalistir, 2 * 60 * 1000);
+
+  // Bulut ortamında (Render vb.) uyanık kalma desteği
+  const disUrl = process.env.RENDER_EXTERNAL_URL || process.env.KEEPALIVE_URL;
+  if (disUrl) {
+    setInterval(() => {
+      fetch(`${disUrl.replace(/\/$/, '')}/api/ping`).catch(() => {});
+    }, 9 * 60 * 1000);
+  }
 }

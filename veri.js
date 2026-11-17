@@ -147,7 +147,7 @@ async function tumKriptoTara() {
       filter: [
         { left: 'exchange', operation: 'equal', right: 'BINANCE' },
         { left: 'name', operation: 'match', right: 'USDT$' },
-        { left: 'name', operation: 'nmatch', right: '^(USDC|USD1|FDUSD|TUSD|EUR|USDP|RLUSD|DAI|AEUR|BFUSD|USDE|WBETH|BNSOL|PAXG|XAUT|RWUSD|NVDAB|TSLAB|SOXSB|SOXLB|SNDKB|ORCLB|MSTRB|AMZNB|AAPLB|GOOGB|COINB)USDT$' }
+        { left: 'name', operation: 'nmatch', right: '^(USDC|USD1|FDUSD|TUSD|EUR|USDP|RLUSD|DAI|AEUR|BFUSD|USDE|WBETH|BNSOL|PAXG|XAUT|RWUSD|NVDAB|TSLAB|SOXSB|SOXLB|SNDKB|ORCLB|MSTRB|AMZNB|AAPLB|GOOGB|COINB|QQQB|AVGOB|SPCXB|METAB|MSFTB|TSMB|NFLXB|AMDB|INTCB|PLTRB|HOOD)USDT$' }
       ],
       columns: [
         'name', 'description', 'close', 'change', 'volume', 'relative_volume_10d_calc',
