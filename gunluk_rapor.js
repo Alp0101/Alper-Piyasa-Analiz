@@ -147,6 +147,8 @@ function sinyalKaydet(sinyal) {
     degisimYuzde: 0,
     maxKarYuzde: 0,
     olusturmaZamani: Date.now(),
+    sonuc15dk: null,
+    sonuc1s: null,
     sonuc2s: null,
     sonuc4s: null,
     sonuc24s: null,
@@ -193,9 +195,15 @@ function fiyatlariGuncelle(fiyatHaritasi = {}) {
           s.maxKarYuzde = +(((s.girisFiyat - s.gunDusuk) / s.girisFiyat) * 100).toFixed(2);
         }
 
-        // 2 saatlik, 4 saatlik ve 24 saatlik (günlük) kontrol noktalarını kilitle
+        // 15dk, 1 saat, 2 saat, 4 saat ve 24 saat (günlük) kontrol noktalarını kilitle
         const baslangic = s.olusturmaZamani || Date.parse(`${s.tarih}T${s.saat || '00:00'}:00+03:00`) || simdi;
         const gecenMs = simdi - baslangic;
+        if (gecenMs >= 15 * 60 * 1000 && !s.sonuc15dk) {
+          s.sonuc15dk = { fiyat: +yeniFiyat, yuzde: s.degisimYuzde };
+        }
+        if (gecenMs >= 1 * 3600 * 1000 && !s.sonuc1s) {
+          s.sonuc1s = { fiyat: +yeniFiyat, yuzde: s.degisimYuzde };
+        }
         if (gecenMs >= 2 * 3600 * 1000 && !s.sonuc2s) {
           s.sonuc2s = { fiyat: +yeniFiyat, yuzde: s.degisimYuzde };
         }

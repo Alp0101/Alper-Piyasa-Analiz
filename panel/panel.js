@@ -5356,7 +5356,7 @@ function raporArayuzunuCiz() {
         const c = obj.yuzde > 0 ? '#10b981' : obj.yuzde < 0 ? '#ef4444' : '#94a3b8';
         return `<span style="font-size:10.5px; font-weight:bold; padding:2px 5px; border-radius:4px; background:${c}18; color:${c}; border:1px solid ${c}33;" title="${etiket} Fiyat: ${sayi(obj.fiyat)}">${etiket}: ${obj.yuzde >= 0 ? '+' : ''}%${obj.yuzde}</span>`;
       };
-      const zamanDilimiHtml = `<div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">${dilimRozet('2S', s.sonuc2s)}${dilimRozet('4S', s.sonuc4s)}${dilimRozet('24S', s.sonuc24s)}</div>`;
+      const zamanDilimiHtml = `<div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">${dilimRozet('15dk', s.sonuc15dk)}${dilimRozet('1S', s.sonuc1s)}${dilimRozet('2S', s.sonuc2s)}${dilimRozet('4S', s.sonuc4s)}${dilimRozet('24S', s.sonuc24s)}</div>`;
 
       // 1. Masaüstü Tablo Satırı (Kompakt ve taşmasız)
       tabloHtml += `
