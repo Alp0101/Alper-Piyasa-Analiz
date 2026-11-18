@@ -585,12 +585,16 @@ $('#aramaInput').addEventListener('input', e => { D.arama = e.target.value.trim(
 $('#hacimFiltre').addEventListener('change', tablo);
 $('#dahaBtn').onclick = () => { D.gosterilen += 150; tablo(); };
 $('#yenileBtn').onclick = () => { tara(); if (D.detaySembol) detayYukle(true); };
-// Canlı Piyasa Akışı: 5 saniyede bir otomatik yenile (TradingView gibi akıcı)
+// Akıllı Piyasa Akışı: Kripto/Forex 20sn, BIST 30sn (bant genişliği tasarrufu; detay penceresindeki fiyat hâlâ 3sn'de bir canlı güncellenir)
+let sonOtoTaramaMs = 0;
 setInterval(() => {
-  if ($('#otoYenile').checked && !document.hidden) {
-    tara();
-    demoPortfoyYukle();
-  }
+  if (!$('#otoYenile').checked || document.hidden) return;
+  const simdi = Date.now();
+  const aralikMs = (D.aktifId === 'tum-bist') ? 30_000 : 20_000;
+  if (simdi - sonOtoTaramaMs < aralikMs) return;
+  sonOtoTaramaMs = simdi;
+  tara();
+  demoPortfoyYukle();
 }, 5000);
 
 // ================= Ayrıntılı analiz =================

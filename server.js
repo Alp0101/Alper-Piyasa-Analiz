@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { exec } = require('child_process');
 const V = require('./veri');
 const { sembolBilgisi, varsayilanListeler } = require('./semboller');
@@ -305,8 +306,21 @@ async function sembolAnaliz(id, tf = 's4') {
 const TIPLER = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 function gonder(res, kod, veri) {
+  const jsonBuf = Buffer.from(JSON.stringify(veri), 'utf8');
+  const ae = res.req?.headers?.['accept-encoding'] || '';
+  if (jsonBuf.length > 1024 && ae.includes('gzip')) {
+    zlib.gzip(jsonBuf, (err, gz) => {
+      if (err) {
+        res.writeHead(kod, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(jsonBuf);
+      }
+      res.writeHead(kod, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Encoding': 'gzip', 'Cache-Control': 'no-store' });
+      res.end(gz);
+    });
+    return;
+  }
   res.writeHead(kod, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(veri));
+  res.end(jsonBuf);
 }
 function govdeOku(req) {
   return new Promise((ok, red) => {
