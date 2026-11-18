@@ -1905,14 +1905,16 @@ function gorselStratejiGrafikCiz(z, s, v, hoverPos = null) {
 
     if (s.fiyat) {
       const gY = toY(s.fiyat);
+      ctx.save();
       ctx.strokeStyle = '#0284c7';
-      ctx.lineWidth = 1.3;
-      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(padSol, gY);
       ctx.lineTo(padSol + cizimW, gY);
       ctx.stroke();
-      etiketKuyrugu.push({ metin: `📍 Giriş: ${sayi(s.fiyat)} ${birim}`, x: padSol + 6, y: musaitY(gY, solYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
+      ctx.restore();
+      etiketKuyrugu.push({ metin: `📍 Güncel: ${sayi(s.fiyat)} ${birim}`, x: padSol + 6, y: musaitY(gY, solYler), renk: '#0369a1', hiza: 'left', bg: '#f0f9ff' });
     }
 
     if (s.alimStop) {
@@ -3485,15 +3487,15 @@ function kapaliIslemGrafikCiz() {
     ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
   });
 
-  // Canlı güncel fiyat çizgisi + sağ eksen rozeti
+  // Canlı güncel fiyat çizgisi (düz ve net) + sağ eksen rozeti
   if (canliFiyat > 0) {
     const cy = toY(canliFiyat);
     ctx.save();
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 1.1;
-    ctx.setLineDash([2, 3]);
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(padSol, cy); ctx.lineTo(padSol + cizimW, cy); ctx.stroke();
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#0284c7';
     ctx.fillRect(padSol + cizimW + 3, cy - 11, padSag - 6, 22);
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 11.5px ui-monospace, monospace';
