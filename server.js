@@ -43,6 +43,14 @@ function listeleriOku() {
       endeksListesi.semboller.push('BIST:XBANK');
       degisti = true;
     }
+    if (!v.listeler.some(l => l.id === 'takibe-alinabilir')) {
+      const takip = varsayilanListeler().listeler.find(l => l.id === 'takibe-alinabilir');
+      if (takip) {
+        const kIdx = v.listeler.findIndex(l => l.id === 'kripto');
+        v.listeler.splice(kIdx >= 0 ? kIdx + 1 : v.listeler.length, 0, takip);
+        degisti = true;
+      }
+    }
     if (degisti) {
       listeleriYaz(v);
     }
@@ -81,6 +89,14 @@ async function buluttanListeleriYukle() {
     if (endeksListesi && Array.isArray(endeksListesi.semboller) && !endeksListesi.semboller.includes('BIST:XBANK')) {
       endeksListesi.semboller.push('BIST:XBANK');
       degisti = true;
+    }
+    if (!veri.listeler.some(l => l.id === 'takibe-alinabilir')) {
+      const takip = varsayilanListeler().listeler.find(l => l.id === 'takibe-alinabilir');
+      if (takip) {
+        const kIdx = veri.listeler.findIndex(l => l.id === 'kripto');
+        veri.listeler.splice(kIdx >= 0 ? kIdx + 1 : veri.listeler.length, 0, takip);
+        degisti = true;
+      }
     }
     if (degisti) {
       Bulut.kaydet(BULUT_LISTE_ANAHTAR, veri).catch(() => {});
@@ -202,6 +218,52 @@ async function listeTara(listeId) {
       } catch (_) {}
     }
     satirlar = kriptolar.filter(r => !cik.has(r.id));
+  } else if (liste.dinamik === 'takip' || liste.id === 'takibe-alinabilir') {
+    const cik = new Set(liste.cikarilanlar || []);
+    const fxListe = v.listeler.find(l => l.id === 'forex')?.semboller || [];
+    const [kriptolar, bistler, fxler, xuDeg] = await Promise.all([
+      V.tumKriptoTara().catch(() => []),
+      V.tumBistTara().catch(() => []),
+      fxListe.length ? V.sembolleriTara(fxListe).catch(() => []) : [],
+      xu100DegisimAl().catch(() => 0)
+    ]);
+    const btcDeg = kriptolar.find(x => x.id === 'BINANCE:BTCUSDT' || x.kod === 'BTC')?.degisim ?? 0;
+    const tumDegerli = [
+      ...kriptolar.map(r => hizliDegerlendir(r, btcDeg)),
+      ...bistler.map(r => hizliDegerlendir(r, xuDeg)),
+      ...fxler.map(r => {
+        const b = sembolBilgisi(r.id);
+        return hizliDegerlendir({ ...r, ad: (b && b.ad) || r.ad }, 0);
+      })
+    ].filter(r => r && r.fiyat > 0 && !cik.has(r.id));
+
+    const adaylar = tumDegerli.filter(r => {
+      const gh = r.goreceliHacim || 0;
+      const alis = r.hacimAkisi?.alisYuzde ?? 50;
+      const satis = r.hacimAkisi?.satisYuzde ?? 50;
+      const p = r.hizliPuan || 0;
+      const t = r.tv || {};
+      const tuzakVar = r.isaretler?.some(i => i.tip === 'tuzak');
+      const ozelSayi = (r.ozelTaktikler || []).length;
+      const onemliIsaret = r.isaretler?.some(i =>
+        i.metin?.includes('Uyumsuzluk') || i.metin?.includes('Sıkışma') || i.metin?.includes('Stop Avı') || i.tip === 'kombo' || i.tip === 'firsat'
+      );
+      if (tuzakVar) return false;
+      if (ozelSayi >= 2 && (gh >= 1.1 || alis >= 55 || satis >= 55)) return true;
+      if (p >= 45 && gh >= 1.2 && alis >= 54) return true;
+      if (!r.id?.startsWith('BIST:') && p <= -50 && gh >= 1.2 && satis >= 55) return true;
+      if (gh >= 2.0 && (alis >= 60 || onemliIsaret)) return true;
+      if ((t.s15 ?? 0) > 0.2 && (t.s1 ?? 0) > 0.15 && alis >= 55 && gh >= 1.2) return true;
+      return false;
+    });
+
+    adaylar.sort((a, b) => {
+      const skorA = ((a.ozelTaktikler || []).length * 30) + Math.abs(a.hizliPuan || 0) + ((a.goreceliHacim || 0) * 10);
+      const skorB = ((b.ozelTaktikler || []).length * 30) + Math.abs(b.hizliPuan || 0) + ((b.goreceliHacim || 0) * 10);
+      return skorB - skorA;
+    });
+
+    return adaylar.slice(0, 60);
   } else {
     const gelen = await V.sembolleriTara(liste.semboller);
     const m = new Map(gelen.map(r => [r.id, r]));

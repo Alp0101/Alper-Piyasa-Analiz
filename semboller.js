@@ -76,6 +76,7 @@ function varsayilanListeler() {
       { id: 'emtia-doviz', ad: 'Altın, Petrol ve Döviz', semboller: ['OANDA:XAUUSD', 'BIST:ALTIN', 'TVC:SILVER', 'FX:UKOIL', 'FX:USOIL', 'FX:USDTRY', 'FX:EURTRY', 'FX:EURUSD', 'TVC:DXY'] },
       { id: 'endeksler', ad: 'Endeksler', semboller: ['BIST:XU100', 'BIST:XU030', 'BIST:XBANK', 'TVC:DXY'] },
       { id: 'kripto', ad: 'Kripto Paralar', dinamik: 'kripto', semboller: [] },
+      { id: 'takibe-alinabilir', ad: '👀 Takibe Alınabilir', dinamik: 'takip', cikarilanlar: [] },
       { id: 'favoriler', ad: '⭐ Favorilerim', semboller: ['OANDA:XAUUSD', 'FX:USDJPY', 'FX:EURUSD', 'BIST:ALTIN', 'FX:UKOIL', 'BIST:THYAO', 'BIST:TUPRS', 'BIST:ASELS', 'BINANCE:BTCUSDT', 'GATE:PIUSDT'] },
     ],
   };
