@@ -492,8 +492,17 @@ function tablo() {
     const deg = r.degisim;
     const konum = r.ayKonum == null ? '—' : `<span class="konum" title="%${r.ayKonum}"><i style="left:calc(${Math.max(0, Math.min(100, r.ayKonum))}% - 2px)"></i></span>`;
     const puanRenk = r.hizliPuan == null ? '' : r.hizliPuan > 15 ? 'art' : r.hizliPuan < -15 ? 'eks' : '';
+    const borsaRozetleri = (r.borsalar && r.borsalar.length)
+      ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:3px;">${r.borsalar.map(b => {
+          const isBin = b === 'Binance';
+          const bg = isBin ? 'rgba(245,158,11,0.16)' : 'rgba(56,189,248,0.16)';
+          const col = isBin ? '#fbbf24' : '#38bdf8';
+          const brd = isBin ? 'rgba(245,158,11,0.4)' : 'rgba(56,189,248,0.4)';
+          return `<span style="background:${bg}; color:${col}; border:1px solid ${brd}; border-radius:4px; padding:0px 5px; font-size:9.5px; font-weight:700;">${b}</span>`;
+        }).join('')}</div>`
+      : '';
     return `<tr data-id="${esc(r.id)}">
-      <td><span class="kod">${esc(r.kod)}</span>${piyasaRozetHtml(r.id, true)}<span class="ad">${esc(r.ad)}</span></td>
+      <td><span class="kod">${esc(r.kod)}</span>${piyasaRozetHtml(r.id, true)}<span class="ad">${esc(r.ad)}</span>${borsaRozetleri}</td>
       <td class="sag">${r.veriYok ? '<small class="kucuk">veri yok</small>' : sayi(r.fiyat)}</td>
       <td class="sag ${deg > 0 ? 'art' : deg < 0 ? 'eks' : ''}">${deg == null ? '—' : (deg > 0 ? '+' : '') + sayi(deg, 2) + '%'}</td>
       <td class="orta">${rozet(r.yon?.s2)}</td><td class="orta">${rozet(r.yon?.s4)}</td><td class="orta">${rozet(r.yon?.g1)}</td>
@@ -1462,8 +1471,15 @@ function detayCiz() {
   const poz = (demoPortfoyVerisi?.acikPozisyonlar || []).find(x => x.sembol === v.sembol);
   const bekleyen = (demoPortfoyVerisi?.bekleyenEmirler || []).find(x => x.sembol === v.sembol);
   const pdDetay = piyasaDurumu(v.sembol);
+  const detayBorsalar = anaSatir?.borsalar || (v.sembol?.startsWith('BINANCE:') ? ['Binance'] : v.sembol?.startsWith('OKX:') ? ['OKX'] : null);
+  const detayBorsaHtml = (detayBorsalar && detayBorsalar.length)
+    ? detayBorsalar.map(b => `<span style="font-size:11px; background:${b === 'Binance' ? 'rgba(245,158,11,0.18)' : 'rgba(56,189,248,0.18)'}; color:${b === 'Binance' ? '#fbbf24' : '#38bdf8'}; border:1px solid ${b === 'Binance' ? 'rgba(245,158,11,0.4)' : 'rgba(56,189,248,0.4)'}; padding:2px 8px; border-radius:6px; font-weight:700;">${b}</span>`).join(' ')
+    : '';
   const piyasaBannerHtml = `<div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; padding:8px 12px; border-radius:8px; background:${pdDetay.acik ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.09)'}; border:1px solid ${pdDetay.acik ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.35)'};">
-    <span style="font-size:12.5px; font-weight:700; color:${pdDetay.acik ? '#34d399' : '#f87171'};">${pdDetay.etiket}${!pdDetay.acik ? ' — Şimdi verilen emirler "Bekleyen Emirler" listesine alınır' : ''}</span>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span style="font-size:12.5px; font-weight:700; color:${pdDetay.acik ? '#34d399' : '#f87171'};">${pdDetay.etiket}${!pdDetay.acik ? ' — Şimdi verilen emirler "Bekleyen Emirler" listesine alınır' : ''}</span>
+      ${detayBorsaHtml}
+    </div>
     ${bekleyen ? `<span style="font-size:12px; background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); padding:2px 9px; border-radius:8px; font-weight:700;">⏳ Bekleyen ${bekleyen.yon} Emriniz Var (${sayi(bekleyen.emirFiyat)} ${paraBirimiAl(v.sembol)})</span>` : ''}
   </div>`;
   const riskKartiHtml = poz ? pozisyonRiskKarti(poz, z, v) : girisKontrolKarti(v, z, anaSatir);

@@ -138,9 +138,48 @@ async function usdTryKuru() {
   });
 }
 
+// Binance & OKX'te listeli USDT paritelerinin hızlı haritası (10 dakika önbellek)
+async function kriptoBorsaHaritasi() {
+  return onbellekli('kripto:borsa_haritasi', 10 * 60_000, async () => {
+    const taraBorsa = async (borsa) => {
+      try {
+        const body = {
+          markets: ['crypto'],
+          filter: [
+            { left: 'exchange', operation: 'equal', right: borsa },
+            { left: 'name', operation: 'match', right: 'USDT$' }
+          ],
+          columns: ['name'],
+          sort: { sortBy: '24h_vol|5', sortOrder: 'desc' },
+          range: [0, 400]
+        };
+        const j = await getJson('https://scanner.tradingview.com/crypto/scan', {
+          method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' }
+        });
+        return new Set((j?.data || []).map(x => String(x?.d?.[0] || '').toUpperCase()).filter(Boolean));
+      } catch (_) {
+        return new Set();
+      }
+    };
+    const [binanceSet, okxSet] = await Promise.all([taraBorsa('BINANCE'), taraBorsa('OKX')]);
+    return { binanceSet, okxSet };
+  });
+}
+
+function borsalarBul(id, kod, harita) {
+  const s = String(id || '').toUpperCase();
+  const isKripto = s.startsWith('BINANCE:') || s.startsWith('OKX:') || s.startsWith('GATE:') || s.startsWith('BYBIT:');
+  if (!isKripto) return null;
+  const baz = String(kod || s.split(':')[1] || '').toUpperCase().replace(/USDT$/, '') + 'USDT';
+  const sonuc = [];
+  if (s.startsWith('BINANCE:') || harita?.binanceSet?.has(baz)) sonuc.push('Binance');
+  if (s.startsWith('OKX:') || harita?.okxSet?.has(baz)) sonuc.push('OKX');
+  return sonuc.length ? sonuc : null;
+}
+
 // En yüksek hacimli ilk 80 Binance & OKX Kripto Varlığını Gerçek Zamanlı Tarar (Sentetik hisseler ve stabil coinler hariç)
 async function tumKriptoTara() {
-  const kur = await usdTryKuru();
+  const [kur, harita] = await Promise.all([usdTryKuru(), kriptoBorsaHaritasi().catch(() => null)]);
   return onbellekli('tarama:kripto_tum', 7_000, async () => {
     const body = {
       markets: ['crypto'],
@@ -179,6 +218,7 @@ async function tumKriptoTara() {
         atr: d[17], ema50: d[18], ema200: d[19],
         tlHacim: usdHacim ? usdHacim * kur : null,
         usdHacim,
+        borsalar: borsalarBul(item.s, kod, harita),
         hacimAkisi: hacimBaskiHesapla(d[21], d[22], d[23], d[2])
       };
     });
@@ -188,6 +228,8 @@ async function tumKriptoTara() {
 async function sembolleriTara(idler) {
   const tvIdler = idler.filter(id => !id.startsWith('YAHOO:'));
   if (!tvIdler.length) return [];
+  const kriptoVar = tvIdler.some(id => id.startsWith('BINANCE:') || id.startsWith('OKX:') || id.startsWith('GATE:') || id.startsWith('BYBIT:'));
+  const harita = kriptoVar ? await kriptoBorsaHaritasi().catch(() => null) : null;
   const anahtar = 'tarama:' + [...tvIdler].sort().join(',');
   // Sunucu ve ziyaretçi sayısı arttığında 429 yememek için 7 saniye önbellek + kesintisiz fallback
   return onbellekli(anahtar, 7_000, async () => {
@@ -195,7 +237,14 @@ async function sembolleriTara(idler) {
     const j = await getJson('https://scanner.tradingview.com/global/scan', {
       method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' },
     });
-    return j.data.map(satirCoz);
+    return j.data.map(item => {
+      const s = satirCoz(item);
+      if (harita) {
+        const b = borsalarBul(s.id, s.kod, harita);
+        if (b) s.borsalar = b;
+      }
+      return s;
+    });
   });
 }
 
