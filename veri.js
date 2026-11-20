@@ -248,9 +248,28 @@ async function sembolleriTara(idler) {
   });
 }
 
-// Tek bir sembolün anlık canlı fiyat ve % değişimini ultra hafif şekilde getirir (2.5 sn önbellek)
+// Tek bir sembolün anlık canlı fiyat ve % değişimini ultra hafif şekilde getirir
 async function canliTekFiyat(id) {
   if (!id || id.startsWith('YAHOO:')) return null;
+  // Binance kripto paritelerinde TradingView gecikmesini aşmak için doğrudan Binance canlı ticker çek (1.5 sn önbellek)
+  if (id.startsWith('BINANCE:')) {
+    const sym = id.split(':')[1];
+    return onbellekli('fiyat:' + id, 1_500, async () => {
+      try {
+        const j = await getJson(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${encodeURIComponent(sym)}`);
+        if (j && j.lastPrice != null) {
+          return { sembol: id, fiyat: +j.lastPrice, degisim: j.priceChangePercent != null ? +j.priceChangePercent : null, zaman: Date.now() };
+        }
+      } catch (_) {}
+      const body = { symbols: { tickers: [id], query: { types: [] } }, columns: ['close', 'change'] };
+      const j = await getJson('https://scanner.tradingview.com/global/scan', {
+        method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' },
+      });
+      const item = j?.data?.[0];
+      if (!item || !item.d) return null;
+      return { sembol: id, fiyat: item.d[0], degisim: item.d[1], zaman: Date.now() };
+    });
+  }
   return onbellekli('fiyat:' + id, 2_500, async () => {
     const body = { symbols: { tickers: [id], query: { types: [] } }, columns: ['close', 'change'] };
     const j = await getJson('https://scanner.tradingview.com/global/scan', {

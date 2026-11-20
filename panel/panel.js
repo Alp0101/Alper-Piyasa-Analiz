@@ -654,17 +654,20 @@ if ($('#takipPiyasaBar')) {
 }
 $('#dahaBtn').onclick = () => { D.gosterilen += 150; tablo(); };
 $('#yenileBtn').onclick = () => { tara(); if (D.detaySembol) detayYukle(true); };
-// Akıllı Piyasa Akışı: Kripto/Forex 20sn, BIST 30sn (bant genişliği tasarrufu; detay penceresindeki fiyat hâlâ 3sn'de bir canlı güncellenir)
+// Akıllı Piyasa Akışı: Localhost'ta kotasız hızlı (5sn Kripto/Forex, 15sn BIST); bulutta bant genişliği tasarruflu (20sn / 30sn)
 let sonOtoTaramaMs = 0;
+const YEREL_SUNUCU_MU = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 setInterval(() => {
   if (!$('#otoYenile').checked || document.hidden) return;
   const simdi = Date.now();
-  const aralikMs = (D.aktifId === 'tum-bist') ? 30_000 : 20_000;
+  const aralikMs = YEREL_SUNUCU_MU
+    ? (D.aktifId === 'tum-bist' ? 15_000 : 5_000)
+    : (D.aktifId === 'tum-bist' ? 30_000 : 20_000);
   if (simdi - sonOtoTaramaMs < aralikMs) return;
   sonOtoTaramaMs = simdi;
   tara();
   demoPortfoyYukle();
-}, 5000);
+}, 3000);
 
 // ================= Ayrıntılı analiz =================
 let detayFiyatTimer = null;
