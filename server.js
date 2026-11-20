@@ -257,13 +257,11 @@ async function listeTara(listeId) {
       return false;
     });
 
-    adaylar.sort((a, b) => {
-      const skorA = ((a.ozelTaktikler || []).length * 30) + Math.abs(a.hizliPuan || 0) + ((a.goreceliHacim || 0) * 10);
-      const skorB = ((b.ozelTaktikler || []).length * 30) + Math.abs(b.hizliPuan || 0) + ((b.goreceliHacim || 0) * 10);
-      return skorB - skorA;
-    });
-
-    return adaylar.slice(0, 60);
+    const skorHesap = x => ((x.ozelTaktikler || []).length * 30) + Math.abs(x.hizliPuan || 0) + ((x.goreceliHacim || 0) * 10);
+    const kriptoAday = adaylar.filter(x => x.id?.startsWith('BINANCE:') || x.id?.startsWith('OKX:') || x.id?.startsWith('GATE:') || x.id?.startsWith('BYBIT:')).sort((a, b) => skorHesap(b) - skorHesap(a)).slice(0, 40);
+    const bistAday = adaylar.filter(x => x.id?.startsWith('BIST:')).sort((a, b) => skorHesap(b) - skorHesap(a)).slice(0, 40);
+    const fxAday = adaylar.filter(x => !x.id?.startsWith('BIST:') && !x.id?.startsWith('BINANCE:') && !x.id?.startsWith('OKX:') && !x.id?.startsWith('GATE:') && !x.id?.startsWith('BYBIT:')).sort((a, b) => skorHesap(b) - skorHesap(a)).slice(0, 15);
+    return [...kriptoAday, ...bistAday, ...fxAday].sort((a, b) => skorHesap(b) - skorHesap(a));
   } else {
     const gelen = await V.sembolleriTara(liste.semboller);
     const m = new Map(gelen.map(r => [r.id, r]));

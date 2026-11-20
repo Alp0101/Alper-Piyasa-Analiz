@@ -4,6 +4,8 @@ const D = {
   listeler: null, aktifId: localStorage.getItem('aktifListe') || 'favoriler',
   satirlar: [], filtre: 'hepsi', arama: '', sirala: { alan: null, artan: false },
   gosterilen: 150, detaySembol: null, detayTf: 's4', detayVeri: null,
+  takipPiyasa: 'kripto',
+  borsaFiltre: localStorage.getItem('alper_borsa_filtre') || 'hepsi',
 };
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -180,6 +182,14 @@ function listeMenuCiz() {
   const l = aktifListe();
   $('#listeBaslik').textContent = l ? l.ad : '—';
   $('#hacimFiltre').classList.toggle('gizli', !(l && l.dinamik === 'bist'));
+  const takipMi = !!(l && (l.dinamik === 'takip' || l.id === 'takibe-alinabilir'));
+  const kriptoListesiMi = !!(l && (l.dinamik === 'kripto' || l.id === 'kripto'));
+  if ($('#takipPiyasaBar')) $('#takipPiyasaBar').classList.toggle('gizli', !takipMi);
+  if ($('#borsaFiltre')) {
+    const borsaGoster = kriptoListesiMi || (takipMi && (D.takipPiyasa === 'kripto' || D.takipPiyasa === 'hepsi'));
+    $('#borsaFiltre').classList.toggle('gizli', !borsaGoster);
+    $('#borsaFiltre').value = D.borsaFiltre || 'hepsi';
+  }
   bildirimSayisiGuncelle();
 }
 
@@ -450,9 +460,39 @@ window.listeGec = function(listeId, aramaKelimesi = '') {
 function filtreliSatirlar() {
   const q = norm(D.arama);
   const l = aktifListe();
+  const takipMi = !!(l && (l.dinamik === 'takip' || l.id === 'takibe-alinabilir'));
+  const kriptoListesiMi = !!(l && (l.dinamik === 'kripto' || l.id === 'kripto'));
+  const isKriptoId = (id) => {
+    const u = String(id || '').toUpperCase();
+    return u.startsWith('BINANCE:') || u.startsWith('OKX:') || u.startsWith('GATE:') || u.startsWith('BYBIT:');
+  };
+  const isBistId = (id) => String(id || '').toUpperCase().startsWith('BIST:');
+
+  // Takibe Alınabilir sekme sayaçlarını güncelle
+  if (takipMi) {
+    const kSay = D.satirlar.filter(r => isKriptoId(r.id)).length;
+    const bSay = D.satirlar.filter(r => isBistId(r.id)).length;
+    const fSay = D.satirlar.filter(r => !isKriptoId(r.id) && !isBistId(r.id)).length;
+    if ($('#tpSayiKripto')) $('#tpSayiKripto').textContent = kSay;
+    if ($('#tpSayiBist')) $('#tpSayiBist').textContent = bSay;
+    if ($('#tpSayiForex')) $('#tpSayiForex').textContent = fSay;
+    if ($('#tpSayiHepsi')) $('#tpSayiHepsi').textContent = D.satirlar.length;
+  }
+
   // Hacim filtresi sadece BIST listesinde ve arama yapılmıyorken geçerlidir
   const minHacim = (l && l.dinamik === 'bist' && !q) ? +$('#hacimFiltre').value : 0;
   let s = D.satirlar.filter(r => {
+    if (takipMi && !q) {
+      if (D.takipPiyasa === 'kripto' && !isKriptoId(r.id)) return false;
+      if (D.takipPiyasa === 'bist' && !isBistId(r.id)) return false;
+      if (D.takipPiyasa === 'forex' && (isKriptoId(r.id) || isBistId(r.id))) return false;
+    }
+    if ((kriptoListesiMi || (takipMi && isKriptoId(r.id))) && D.borsaFiltre && D.borsaFiltre !== 'hepsi') {
+      const bl = r.borsalar || (String(r.id || '').startsWith('BINANCE:') ? ['Binance'] : String(r.id || '').startsWith('OKX:') ? ['OKX'] : []);
+      if (D.borsaFiltre === 'okx' && !bl.includes('OKX')) return false;
+      if (D.borsaFiltre === 'binance' && !bl.includes('Binance')) return false;
+      if (D.borsaFiltre === 'ikisi' && !(bl.includes('OKX') && bl.includes('Binance'))) return false;
+    }
     if (q) {
       const kod = norm(r.kod);
       const ad = norm(r.ad);
@@ -592,6 +632,26 @@ $('#firsatRadarBtn').onclick = () => {
 };
 $('#aramaInput').addEventListener('input', e => { D.arama = e.target.value.trim(); D.gosterilen = 150; tablo(); });
 $('#hacimFiltre').addEventListener('change', tablo);
+if ($('#borsaFiltre')) {
+  $('#borsaFiltre').value = D.borsaFiltre || 'hepsi';
+  $('#borsaFiltre').addEventListener('change', e => {
+    D.borsaFiltre = e.target.value || 'hepsi';
+    localStorage.setItem('alper_borsa_filtre', D.borsaFiltre);
+    tablo();
+  });
+}
+if ($('#takipPiyasaBar')) {
+  $('#takipPiyasaBar').addEventListener('click', e => {
+    const btn = e.target.closest('[data-tp]');
+    if (!btn) return;
+    D.takipPiyasa = btn.dataset.tp;
+    document.querySelectorAll('#takipPiyasaBar [data-tp]').forEach(b => b.classList.toggle('aktif', b === btn));
+    if ($('#borsaFiltre')) {
+      $('#borsaFiltre').classList.toggle('gizli', !(D.takipPiyasa === 'kripto' || D.takipPiyasa === 'hepsi'));
+    }
+    tablo();
+  });
+}
 $('#dahaBtn').onclick = () => { D.gosterilen += 150; tablo(); };
 $('#yenileBtn').onclick = () => { tara(); if (D.detaySembol) detayYukle(true); };
 // Akıllı Piyasa Akışı: Kripto/Forex 20sn, BIST 30sn (bant genişliği tasarrufu; detay penceresindeki fiyat hâlâ 3sn'de bir canlı güncellenir)

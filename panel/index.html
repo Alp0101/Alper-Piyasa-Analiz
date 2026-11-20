@@ -74,12 +74,26 @@
         <button class="cip" data-f="yukselis">▲ Tüm zamanlarda yükselişte</button>
         <button class="cip" data-f="dusus">▼ Tüm zamanlarda düşüşte</button>
       </div>
+      <select id="borsaFiltre" class="gizli" title="Kripto borsa filtresi (OKX / Binance)" style="border-color:#38bdf866; color:#e2e8f0; font-weight:700;">
+        <option value="hepsi">🏦 Tüm Borsalar</option>
+        <option value="okx">🔵 Sadece OKX</option>
+        <option value="binance">🟡 Sadece Binance</option>
+        <option value="ikisi">⚡ Binance + OKX</option>
+      </select>
       <select id="hacimFiltre" title="Düşük işlem hacimli (sığ) hisseleri gizler">
         <option value="0">Tüm hacimler</option>
         <option value="10000000">Günlük hacim &gt; 10 milyon TL</option>
         <option value="50000000" selected>Günlük hacim &gt; 50 milyon TL</option>
         <option value="250000000">Günlük hacim &gt; 250 milyon TL</option>
       </select>
+    </div>
+    <!-- Takibe Alınabilir Alt Sekmeleri (Kripto / BIST / Forex ayrı görünüm) -->
+    <div id="takipPiyasaBar" class="gizli" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:8px 14px; background:#0d1322; border-bottom:1px solid #1e293b;">
+      <span class="kucuk" style="color:#94a3b8; font-weight:700;">👀 Piyasa Seç:</span>
+      <button type="button" class="cip aktif" data-tp="kripto" id="tpKriptoBtn">🪙 Kripto (<span id="tpSayiKripto">0</span>)</button>
+      <button type="button" class="cip" data-tp="bist" id="tpBistBtn">🇹🇷 BIST (<span id="tpSayiBist">0</span>)</button>
+      <button type="button" class="cip" data-tp="forex" id="tpForexBtn">🌍 Forex / Emtia (<span id="tpSayiForex">0</span>)</button>
+      <button type="button" class="cip" data-tp="hepsi" id="tpHepsiBtn">🌐 Tümü (<span id="tpSayiHepsi">0</span>)</button>
     </div>
     <div class="tablo-kap">
       <!-- 1. Piyasa Röntgeni (Isı Haritası) Görünümü -->
@@ -703,7 +717,7 @@
 </section>
 
 <div id="bildirim" class="bildirim gizli"></div>
-<script src="panel.js?v=2.46"></script>
+<script src="panel.js?v=2.48"></script>
 </body>
 </html>
 
