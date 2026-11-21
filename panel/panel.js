@@ -525,6 +525,44 @@ function filtreliSatirlar() {
   return s;
 }
 
+function hizliYonOnerisi(r) {
+  if (!r || r.veriYok || r.fiyat == null) return '';
+  const p = r.hizliPuan ?? 0;
+  const y = r.yon || {};
+  const t = r.tv || {};
+  const gh = r.goreceliHacim || 0;
+  const alis = r.hacimAkisi?.alisYuzde ?? 50;
+  const satis = r.hacimAkisi?.satisYuzde ?? 50;
+  const isBist = String(r.id || '').startsWith('BIST:');
+  const tuzak = r.isaretler?.some(i => i.tip === 'tuzak');
+  const dipIsareti = r.isaretler?.some(i =>
+    i.metin?.includes('Stop Avı') || i.metin?.includes('Uyumsuzluk') || i.metin?.includes('Gizli Toplama') || i.metin?.includes('Dipten dönüş')
+  );
+
+  const pill = (txt, bg, col, brd, tip) =>
+    `<span title="${esc(tip)}" style="display:inline-block; background:${bg}; color:${col}; border:1px solid ${brd}; border-radius:6px; padding:2px 8px; font-size:11px; font-weight:800; margin-right:6px; white-space:nowrap; vertical-align:middle;">${txt}</span>`;
+
+  if (tuzak) {
+    return pill('⚠️ BEKLE (TUZAK)', 'rgba(239,68,68,0.16)', '#fca5a5', 'rgba(239,68,68,0.45)', 'Tuzak / hacimsiz hareket uyarısı var, acele etme');
+  }
+  if ((p >= 40 && y.s4 > 0 && y.g1 >= 0 && alis >= 53 && gh >= 1.1) || ((t.s15 ?? 0) > 0.25 && (t.s1 ?? 0) > 0.18 && alis >= 56 && gh >= 1.4 && p >= 0)) {
+    return pill('🟢 LONG AÇ', 'rgba(16,185,129,0.22)', '#34d399', '#10b981', 'Trend, hacim ve alış baskısı Long yönünü onaylıyor');
+  }
+  if (!isBist && p <= -40 && y.s4 < 0 && y.g1 <= 0 && satis >= 55 && gh >= 1.1 && !dipIsareti) {
+    return pill('🔴 SHORT AÇ', 'rgba(239,68,68,0.22)', '#f87171', '#ef4444', 'Düşüş trendi, hacim ve satış baskısı Short yönünü onaylıyor');
+  }
+  if (dipIsareti && alis >= 58 && gh >= 1.2) {
+    return pill('🟢 DİP LONG ADAYI', 'rgba(16,185,129,0.14)', '#6ee7b7', 'rgba(16,185,129,0.5)', 'Dipte güçlü alıcı girişi ve dönüş işareti var — Short açma, 5dk/15dk onayıyla Long bak');
+  }
+  if (p >= 15 || (y.s2 > 0 && alis >= 54)) {
+    return pill('🟡 LONG İZLE', 'rgba(245,158,11,0.14)', '#fde047', 'rgba(245,158,11,0.45)', 'Yükseliş eğilimi başlıyor, hacim/kırılım teyidi bekle');
+  }
+  if (!isBist && p <= -20 && satis >= 54 && !dipIsareti) {
+    return pill('🟠 SHORT İZLE', 'rgba(249,115,22,0.14)', '#fdba74', 'rgba(249,115,22,0.45)', 'Satış baskısı var, kırılım teyidiyle Short bakılabilir');
+  }
+  return pill('⏸️ BEKLE', 'rgba(148,163,184,0.12)', '#94a3b8', 'rgba(148,163,184,0.3)', 'Net yön oluşmadı, kararsız bölge');
+}
+
 function tablo() {
   const s = filtreliSatirlar();
   const goster = s.slice(0, D.gosterilen);
@@ -562,7 +600,7 @@ function tablo() {
       </td>
       <td>${konum}</td>
       <td class="sag ${puanRenk}"><b>${r.hizliPuan ?? '—'}</b></td>
-      <td>${(r.isaretler || []).map(i => `<span class="isaret ${i.tip}">${esc(i.metin)}</span>`).join('')}</td>
+      <td>${hizliYonOnerisi(r)}${(r.isaretler || []).map(i => `<span class="isaret ${i.tip}">${esc(i.metin)}</span>`).join('')}</td>
       <td><button class="sil" data-sil="${esc(r.id)}" title="Listeden kaldır">✖</button></td>
     </tr>`;
   }).join('');
