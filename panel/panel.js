@@ -1386,8 +1386,8 @@ function detayCiz() {
     if (fib) {
       fibHtml = `
       <div class="kutu" style="border-left: 3px solid #8b5cf6;">
-        <h4>🌀 Fibonacci Düzeltme Seviyeleri (${fib.yon === 'yukalis' ? 'Yükseliş Dalgası' : 'Son Dalga'})</h4>
-        <div class="seviye-satir"><span>Referans Tepe / Dip</span><b>${sayi(fib.tepe)} / ${sayi(fib.dip)}</b></div>
+        <h4>🌀 Fibonacci Düzeltme Seviyeleri (${fib.yon === 'yukselis' ? '📈 Yükseliş Dalgası · Dipten Tepeye' : '📉 Düşüş Dalgası · Tepeden Dibe'})</h4>
+        <div class="seviye-satir"><span>${fib.yon === 'yukselis' ? 'Fib 0 (Tepe) / Fib 1 (Dip)' : 'Fib 0 (Dip) / Fib 1 (Tepe)'}</span><b>${fib.yon === 'yukselis' ? `${sayi(fib.tepe)} / ${sayi(fib.dip)}` : `${sayi(fib.dip)} / ${sayi(fib.tepe)}`}</b></div>
         <div class="seviye-satir"><span>Fib 0.236 (İlk Destek/Direnç)</span><b>${sayi(fib.f0236)}</b></div>
         <div class="seviye-satir"><span>Fib 0.382 (Sığ Düzeltme)</span><b>${sayi(fib.f0382)}</b></div>
         <div class="seviye-satir" style="background:#8b5cf622; padding:4px 6px; border-radius:4px;"><span>⭐ Fib 0.500 (Denge / Tepki Seviyesi)</span><b style="color:#a78bfa">${sayi(fib.f0500)}</b></div>

@@ -189,39 +189,26 @@ function seviyeleriBul(d) {
   const direncler = seviyeler.filter(s => s.fiyat > c + a * 0.15).sort((x, y) => x.fiyat - y.fiyat);
   const dip50 = Math.min(...d.l.slice(-50)), tepe50 = Math.max(...d.h.slice(-50));
 
-  // Fibonacci Düzeltme Seviyeleri (Grafiğin o periyottaki gerçek dalga dip ve tepesine göre)
-  // Sabit yıla/muma takılmadan, fiyatın içinde hareket ettiği son majör swing (dalga) dip ve tepesini bulur
-  const pl = d.piv.pl;
-  const ph = d.piv.ph;
-  let minF, maxF, minIdx, maxIdx;
-
-  if (pl.length >= 1 && ph.length >= 1) {
-    // Son belirgin pivotları incele
-    const sonPl = pl.slice(-3);
-    const sonPh = ph.slice(-3);
-    let enUygunDip = d.l[sonPl[sonPl.length - 1]], enUygunDipIdx = sonPl[sonPl.length - 1];
-    let enUygunTepe = d.h[sonPh[sonPh.length - 1]], enUygunTepeIdx = sonPh[sonPh.length - 1];
-
-    sonPl.forEach(i => { if (d.l[i] < enUygunDip) { enUygunDip = d.l[i]; enUygunDipIdx = i; } });
-    sonPh.forEach(i => { if (d.h[i] > enUygunTepe) { enUygunTepe = d.h[i]; enUygunTepeIdx = i; } });
-
-    minF = enUygunDip; maxF = enUygunTepe;
-    minIdx = enUygunDipIdx; maxIdx = enUygunTepeIdx;
-  } else {
-    // Pivot yetersizse son 30 mumun dip ve tepesi
-    const n = Math.min(30, d.c.length);
-    const lows = d.l.slice(-n), highs = d.h.slice(-n);
-    minF = Math.min(...lows); maxF = Math.max(...highs);
-    minIdx = lows.lastIndexOf(minF); maxIdx = highs.lastIndexOf(maxF);
+  // Fibonacci Düzeltme Seviyeleri (Son 100 mumun gerçek en yüksek tepesi ve en düşük dibine göre)
+  // 3 bar gecikmeli pivot yerine son mumlar dahil gerçek dip/tepe ve tam zaman sırasını (minIdx vs maxIdx) kullanır
+  const fibN = Math.min(100, d.c.length);
+  const fibBas = d.c.length - fibN;
+  let minF = Infinity, maxF = -Infinity, minIdx = fibBas, maxIdx = fibBas;
+  for (let i = fibBas; i < d.c.length; i++) {
+    if (d.l[i] <= minF) { minF = d.l[i]; minIdx = i; }
+    if (d.h[i] >= maxF) { maxF = d.h[i]; maxIdx = i; }
   }
 
-  // Dalga yönü: dip mi önce geldi tepe mi?
+  // Dalga yönü: Dip önce, Tepe sonra geldiyse Yükseliş Dalgası (0=Tepe, 1=Dip);
+  // Tepe önce, Dip sonra geldiyse Düşüş Dalgası (0=Dip, 1=Tepe)
   const fibYukselisDalgasi = minIdx < maxIdx;
   const fibFark = Math.max(maxF - minF, c * 0.001);
   const fib = {
     dip: minF,
     tepe: maxF,
     yon: fibYukselisDalgasi ? 'yukselis' : 'dusus',
+    f0: fibYukselisDalgasi ? maxF : minF,
+    f1: fibYukselisDalgasi ? minF : maxF,
     f0236: fibYukselisDalgasi ? maxF - fibFark * 0.236 : minF + fibFark * 0.236,
     f0382: fibYukselisDalgasi ? maxF - fibFark * 0.382 : minF + fibFark * 0.382,
     f0500: fibYukselisDalgasi ? maxF - fibFark * 0.500 : minF + fibFark * 0.500,
