@@ -256,7 +256,8 @@ async function canliTekFiyat(id) {
     const sym = id.split(':')[1];
     return onbellekli('fiyat:' + id, 1_500, async () => {
       try {
-        const j = await getJson(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${encodeURIComponent(sym)}`);
+        // tradingDay = 00:00 UTC gün açılışına göre günlük % (TradingView ve ana tablo ile birebir tutarlı; 24hr kayan pencere zıplamasını önler)
+        const j = await getJson(`https://data-api.binance.vision/api/v3/ticker/tradingDay?symbol=${encodeURIComponent(sym)}`);
         if (j && j.lastPrice != null) {
           return { sembol: id, fiyat: +j.lastPrice, degisim: j.priceChangePercent != null ? +j.priceChangePercent : null, zaman: Date.now() };
         }
