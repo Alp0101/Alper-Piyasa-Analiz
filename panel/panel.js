@@ -845,7 +845,7 @@ $('#perde').onclick = () => {
   }
   detayKapat();
   demoPortfoyKapat();
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#btcRadarModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
     const el = $(sel);
     if (el) el.classList.add('gizli');
   });
@@ -5021,6 +5021,127 @@ $('#balinaKapatBtn').onclick = () => {
   $('#balinaModal').classList.add('gizli');
 };
 
+// ================= ⚡ BTC Tepki & Vadeli (OKX OI + Funding) Kısa Al-Sat Radarı =================
+let btcRadarSonVeri = null;
+let btcRadarAktifFiltre = 'hepsi';
+
+function btcRadarCiz() {
+  const listeEl = $('#btcRadarListesi');
+  if (!listeEl || !btcRadarSonVeri) return;
+  const sadeceOkx = $('#btcRadarOkxChk')?.checked;
+  const tum = btcRadarSonVeri.sonuclar || [];
+  const suzulen = tum.filter(x => {
+    if (sadeceOkx && !x.okxVar) return false;
+    if (btcRadarAktifFiltre !== 'hepsi' && x.kategori !== btcRadarAktifFiltre) return false;
+    return true;
+  });
+
+  if (!suzulen.length) {
+    listeEl.innerHTML = '<div style="padding:18px; text-align:center; color:#94a3b8;">Bu filtrede şu an öne çıkan coin yok. "Tümü" sekmesine bakabilir veya OKX filtresini kaldırabilirsiniz.</div>';
+    return;
+  }
+
+  const renkMap = { direnen: '#10b981', squeeze: '#a855f7', kirilan: '#ef4444', tuzak: '#f59e0b' };
+  const oiYaz = v => v == null || v <= 0 ? '—' : (v >= 1e9 ? (v / 1e9).toFixed(2) + ' Mr $' : (v >= 1e6 ? (v / 1e6).toFixed(1) + ' Mn $' : Math.round(v / 1e3) + ' B $'));
+  const tvOk = v => v == null ? '·' : (v > 0.15 ? '<span style="color:#34d399;">▲</span>' : (v < -0.15 ? '<span style="color:#f87171;">▼</span>' : '<span style="color:#94a3b8;">•</span>'));
+
+  listeEl.innerHTML = suzulen.slice(0, 35).map(r => {
+    const renk = renkMap[r.kategori] || '#38bdf8';
+    const farkRenk = r.btcFark >= 0 ? '#34d399' : '#f87171';
+    const degRenk = r.degisim >= 0 ? '#34d399' : '#f87171';
+    const frMetin = r.fundingPct == null ? '—' : `${r.fundingPct >= 0 ? '+' : ''}${r.fundingPct.toFixed(3)}%`;
+    const frRenk = r.fundingPct == null ? '#94a3b8' : (r.fundingPct <= -0.015 ? '#c084fc' : (r.fundingPct >= 0.04 ? '#fbbf24' : '#cbd5e1'));
+    const oiDeg = r.oiDegisimPct != null && r.oiDegisimPct !== 0 ? ` <span style="color:${r.oiDegisimPct > 0 ? '#34d399' : '#f87171'};">(${r.oiDegisimPct > 0 ? '+' : ''}${r.oiDegisimPct}%)</span>` : '';
+    return `
+      <div class="radar-satir" onclick="document.getElementById('btcRadarModal').classList.add('gizli'); detayAc('${esc(r.id)}');" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 14px; margin-bottom:8px; background:#0d1322; border:1px solid #1e293b; border-left:4px solid ${renk}; border-radius:10px; cursor:pointer;">
+        <div style="min-width:220px; flex:1.4;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <b style="font-size:15px; color:#f8fafc;">${esc(r.kod)}</b>
+            <span style="font-size:11px; padding:2px 8px; border-radius:999px; background:${renk}22; color:${renk}; border:1px solid ${renk}55; font-weight:700;">${esc(r.etiket)}</span>
+            ${r.okxVar ? '<span style="font-size:10px; padding:2px 6px; border-radius:6px; background:#0284c722; color:#38bdf8; border:1px solid #38bdf855; font-weight:700;">OKX</span>' : ''}
+          </div>
+          <div style="font-size:12px; color:#94a3b8; margin-top:4px;">${esc(r.aciklama)}</div>
+        </div>
+        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:12px;">
+          <div style="text-align:right;">
+            <div style="color:#f8fafc; font-weight:700;">${sayi(r.fiyat)} $</div>
+            <div style="color:${degRenk}; font-weight:700;">${r.degisim >= 0 ? '+' : ''}%${r.degisim.toFixed(2)}</div>
+          </div>
+          <div style="text-align:center; padding:4px 8px; background:#111827; border-radius:8px; border:1px solid #1e293b;">
+            <div style="font-size:10px; color:#94a3b8;">BTC Farkı</div>
+            <div style="font-weight:800; color:${farkRenk};">${r.btcFark >= 0 ? '+' : ''}%${r.btcFark.toFixed(2)}</div>
+          </div>
+          <div style="text-align:center; padding:4px 8px; background:#111827; border-radius:8px; border:1px solid #1e293b;">
+            <div style="font-size:10px; color:#94a3b8;">Fonlama / OKX OI</div>
+            <div style="font-weight:700; color:${frRenk};">${frMetin} · <span style="color:#cbd5e1;">${oiYaz(r.oiUsd)}</span>${oiDeg}</div>
+          </div>
+          <div style="text-align:center; padding:4px 8px; background:#111827; border-radius:8px; border:1px solid #1e293b;">
+            <div style="font-size:10px; color:#94a3b8;">15d·1s·4s / Alış</div>
+            <div style="font-weight:700;">${tvOk(r.tv?.s15)} ${tvOk(r.tv?.s1)} ${tvOk(r.tv?.s4)} · <span style="color:${r.alisPct >= 55 ? '#34d399' : '#f87171'};">A:%${r.alisPct}</span></div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function btcRadarYukle() {
+  const listeEl = $('#btcRadarListesi');
+  const ustEl = $('#btcRadarUstBilgi');
+  if (listeEl) listeEl.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">⚡ BTC hareketi, OKX açık pozisyonlar ve vadeli fonlama oranları taranıyor...</div>';
+  try {
+    const v = await api(`/api/btc-radar?t=${Date.now()}`);
+    btcRadarSonVeri = v;
+    const b = v.btc || {};
+    const bRenk = (b.degisim ?? 0) >= 0 ? '#34d399' : '#f87171';
+    const modMetin = b.durum === 'dusuyor'
+      ? '🔴 BTC Düşüşte — Aşağıda BTC\'ye Direnen Liderler ve Short Adayları Öne Çıkarıldı'
+      : (b.durum === 'yukseliyor' ? '🟢 BTC Yükselişte — BTC\'yi Sollayan Liderler Öne Çıkarıldı' : '⚪ BTC Yatay — Kendi Hacmiyle Kopanlar ve Short Squeeze Adayları');
+    if (ustEl) {
+      ustEl.innerHTML = `
+        <div>
+          <span style="font-size:12px; color:#94a3b8;">CANLI BTC REFERANSI</span>
+          <div style="font-size:19px; font-weight:800; color:#f8fafc; margin-top:2px;">
+            BTC/USDT: ${b.fiyat ? sayi(b.fiyat) + ' $' : '—'}
+            <span style="color:${bRenk}; margin-left:8px;">${(b.degisim ?? 0) >= 0 ? '+' : ''}%${(b.degisim ?? 0).toFixed(2)}</span>
+          </div>
+        </div>
+        <div style="font-size:12px; font-weight:700; color:#e2e8f0; background:#0f172a; padding:8px 12px; border-radius:8px; border:1px solid #334155;">${modMetin}</div>
+      `;
+    }
+    if ($('#btcRadDirenenSayi')) $('#btcRadDirenenSayi').textContent = `${v.ozet?.direnen ?? 0} Coin`;
+    if ($('#btcRadSqueezeSayi')) $('#btcRadSqueezeSayi').textContent = `${v.ozet?.squeeze ?? 0} Coin`;
+    if ($('#btcRadKirilanSayi')) $('#btcRadKirilanSayi').textContent = `${v.ozet?.kirilan ?? 0} Coin`;
+    if ($('#btcRadTuzakSayi')) $('#btcRadTuzakSayi').textContent = `${v.ozet?.tuzak ?? 0} Coin`;
+    btcRadarCiz();
+  } catch (e) {
+    if (listeEl) listeEl.innerHTML = `<div style="padding:18px; color:#f87171;">⚠️ Radar yüklenemedi: ${esc(e.message)}</div>`;
+  }
+}
+
+if ($('#btcRadarBtn')) {
+  $('#btcRadarBtn').onclick = () => {
+    $('#perde').classList.remove('gizli');
+    $('#btcRadarModal').classList.remove('gizli');
+    btcRadarYukle();
+  };
+}
+if ($('#btcRadarKapatBtn')) {
+  $('#btcRadarKapatBtn').onclick = () => {
+    $('#perde').classList.add('gizli');
+    $('#btcRadarModal').classList.add('gizli');
+  };
+}
+if ($('#btcRadarYenileBtn')) $('#btcRadarYenileBtn').onclick = () => btcRadarYukle();
+if ($('#btcRadarOkxChk')) $('#btcRadarOkxChk').onchange = () => btcRadarCiz();
+document.querySelectorAll('#btcRadarFiltreler .cip').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#btcRadarFiltreler .cip').forEach(x => x.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    btcRadarAktifFiltre = btn.dataset.bf || 'hepsi';
+    btcRadarCiz();
+  };
+});
+
 // ================= 👑 Kurumsal VIP (%80+ Elit Masa) =================
 let seciliKurumsalFiltre = 'hepsi';
 
@@ -5292,7 +5413,7 @@ window.addEventListener('popstate', () => {
     return;
   }
   // 4. Diğer açık pencereler
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#btcRadarModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
     const el = $(sel);
     if (el && !el.classList.contains('gizli')) el.classList.add('gizli');
   });

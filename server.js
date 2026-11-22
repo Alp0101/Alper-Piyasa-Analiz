@@ -412,6 +412,108 @@ const sunucu = http.createServer(async (req, res) => {
       const veri = await V.canliTekFiyat(sem).catch(() => null);
       return gonder(res, 200, veri || { sembol: sem, fiyat: null, degisim: null });
     }
+    if (p === '/api/btc-radar') {
+      const [kriptolar, btcCanli, vadeli] = await Promise.all([
+        V.tumKriptoTara(),
+        V.canliTekFiyat('BINANCE:BTCUSDT').catch(() => null),
+        V.vadeliPiyasaHaritasi().catch(() => ({}))
+      ]);
+
+      const btcSatir = (kriptolar || []).find(x => x.kod === 'BTC' || x.id === 'BINANCE:BTCUSDT');
+      const btcFiyat = btcCanli?.fiyat ?? btcSatir?.fiyat ?? null;
+      const btcDegisim = btcCanli?.degisim ?? btcSatir?.degisim ?? 0;
+      const btcTv = btcSatir?.tv || {};
+      const btcDurum = btcDegisim <= -0.35 ? 'dusuyor' : (btcDegisim >= 0.35 ? 'yukseliyor' : 'yatay');
+
+      const sonuclar = [];
+      for (const r of (kriptolar || [])) {
+        if (!r || r.kod === 'BTC' || r.id === 'BINANCE:BTCUSDT') continue;
+        const sym = (r.kod + 'USDT').toUpperCase();
+        const vInfo = vadeli?.[sym] || {};
+        const deg = r.degisim ?? 0;
+        const btcFark = +(deg - btcDegisim).toFixed(2);
+        const gh = r.goreceliHacim ?? 1;
+        const alis = r.hacimAkisi?.alisPct ?? 50;
+        const satis = r.hacimAkisi?.satisPct ?? 50;
+        const fundingPct = vInfo.fundingPct ?? null;
+        const oiUsd = vInfo.oiUsd ?? null;
+        const oiDegisimPct = vInfo.oiDegisimPct ?? null;
+        const okxVar = (r.borsalar || []).includes('OKX') || !!vInfo.okxSwap;
+        const tv = r.tv || {};
+
+        let kategori = null;
+        let etiket = '';
+        let aciklama = '';
+        let skor = 0;
+
+        // 1. Short Squeeze Adayı (Negatif fonlama + fiyat tutunuyor/alıcılı)
+        if (fundingPct != null && fundingPct <= -0.015 && (btcFark >= -0.3 || alis >= 53)) {
+          kategori = 'squeeze';
+          etiket = '💥 Short Squeeze Adayı';
+          aciklama = `Fonlama %${fundingPct.toFixed(3)} negatif (short yığılması). BTC farkı ${btcFark >= 0 ? '+' : ''}%${btcFark}, alış baskısı %${alis}.`;
+          skor = Math.round(Math.abs(fundingPct) * 1200 + Math.max(0, btcFark) * 8 + (alis - 50) + (gh * 8));
+        }
+        // 2. BTC'ye Direnen / Ayrışan Lider (BTC düşerken/yatayken güçlü kalan veya yükselişte lider)
+        else if (btcFark >= 1.2 && alis >= 52 && gh >= 0.95 && (r.rsi?.s4 ?? 50) <= 74) {
+          kategori = 'direnen';
+          if (btcDurum === 'dusuyor' && deg >= 0) {
+            etiket = '🔥 BTC Düşerken Yeşil Lider';
+            aciklama = `BTC %${btcDegisim.toFixed(2)} eksideyken +%${deg.toFixed(2)} ile direniyor (Fark +%${btcFark}). BTC nefes aldığında ilk tepki adayı.`;
+            skor = Math.round(65 + btcFark * 7 + (alis - 50) + gh * 8);
+          } else if (btcDurum === 'dusuyor') {
+            etiket = '🛡️ BTC Düşüşünde Sağlam';
+            aciklama = `BTC'den +%${btcFark} daha güçlü tutunuyor, alış baskısı %${alis}, hacim ${gh.toFixed(1)}x.`;
+            skor = Math.round(45 + btcFark * 6 + (alis - 50) + gh * 6);
+          } else {
+            etiket = '🚀 BTC\'den Hızlı Kopan Lider';
+            aciklama = `BTC'yi +%${btcFark} farkla solluyor. Hacim ${gh.toFixed(1)}x, alış baskısı %${alis}.`;
+            skor = Math.round(50 + btcFark * 6 + (alis - 50) + gh * 7);
+          }
+        }
+        // 3. BTC'den Sert Kırılanlar (Short Adayı)
+        else if (btcFark <= -1.8 && satis >= 54 && (tv.s15 ?? 0) <= 0) {
+          kategori = 'kirilan';
+          etiket = '🩸 BTC\'den Sert Kırılan (Short)';
+          aciklama = `BTC'ye göre %${btcFark} zayıf kalıyor. Satış baskısı %${satis}, 15dk/1S zayıf.`;
+          skor = Math.round(40 + Math.abs(btcFark) * 6 + (satis - 50) + gh * 5);
+        }
+        // 4. Sahte Yükseliş / Aşırı Long FOMO Uyarısı
+        else if ((fundingPct != null && fundingPct >= 0.04) || (deg >= 4.5 && gh < 0.85)) {
+          kategori = 'tuzak';
+          etiket = fundingPct >= 0.04 ? '⚠️ Aşırı Long Sıkışması' : '⚠️ Hacimsiz Yükseliş (Tuzak)';
+          aciklama = fundingPct >= 0.04
+            ? `Fonlama +%${fundingPct.toFixed(3)} ile aşırı şişmiş; long likidasyon riski yüksek.`
+            : `Fiyat +%${deg.toFixed(2)} yükselmiş ama hacim zayıf (${gh.toFixed(1)}x); FOMO riski.`;
+          skor = Math.round(35 + (fundingPct ? fundingPct * 500 : 0) + Math.abs(deg) * 3);
+        }
+
+        if (kategori) {
+          sonuclar.push({
+            id: r.id, kod: r.kod, ad: r.ad, fiyat: r.fiyat, degisim: deg,
+            btcFark, gh: +gh.toFixed(2), alisPct: alis, satisPct: satis,
+            rsi4s: r.rsi?.s4 != null ? Math.round(r.rsi.s4) : null,
+            tv, borsalar: r.borsalar || [], okxVar,
+            fundingPct, oiUsd, oiDegisimPct,
+            kategori, etiket, aciklama, skor
+          });
+        }
+      }
+
+      sonuclar.sort((a, b) => b.skor - a.skor);
+      const ozet = {
+        direnen: sonuclar.filter(x => x.kategori === 'direnen').length,
+        squeeze: sonuclar.filter(x => x.kategori === 'squeeze').length,
+        kirilan: sonuclar.filter(x => x.kategori === 'kirilan').length,
+        tuzak: sonuclar.filter(x => x.kategori === 'tuzak').length
+      };
+
+      return gonder(res, 200, {
+        zaman: new Date().toISOString(),
+        btc: { fiyat: btcFiyat, degisim: +btcDegisim.toFixed(2), durum: btcDurum, tv: btcTv },
+        ozet,
+        sonuclar
+      });
+    }
     if (p === '/api/ara') return gonder(res, 200, await V.ara(url.searchParams.get('q') || ''));
 
     // Demo Al-Sat Uç Noktaları (Canlı Piyasa Fiyat Beslemesi)

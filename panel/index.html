@@ -21,6 +21,7 @@
     <button id="kurumsalVipBtn" class="btn" style="background: linear-gradient(135deg, #d97706, #b45309); font-size:12px; font-weight:bold; box-shadow:0 0 12px rgba(217,119,6,0.45); border:1px solid #f59e0b;">👑 Kurumsal VIP (%80+)</button>
     <button id="sniperRadarBtn" class="btn" style="background: linear-gradient(135deg, #0284c7, #0369a1); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(2,132,199,0.35);">🎯 Sniper Avcısı</button>
     <button id="balinaRadarBtn" class="btn" style="background: linear-gradient(135deg, #059669, #047857); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(16,185,129,0.3);">🧲 Balina Radarı</button>
+    <button id="btcRadarBtn" class="btn" style="background: linear-gradient(135deg, #7c3aed, #db2777); font-size:12px; font-weight:bold; box-shadow:0 0 12px rgba(219,39,119,0.4); border:1px solid #f472b6;">⚡ BTC & Vadeli Radar</button>
     <button id="alarmListesiBtn" class="btn ikincil" style="font-size:12px;" title="Kurulan Fiyat Alarmları">🔔 Alarmlar (<span id="ustAlarmSayisi">0</span>)</button>
     <button id="ziyaretciSayacBtn" class="btn ikincil" style="font-size:12px;" title="Siteyi kullanan kişi sayısı">👥 Ziyaretçi: <b id="ustTekilKisi">1</b></button>
     <button id="demoPortfoyBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: bold;">💼 Demo Kasa: <span id="ustKasaBakiye">1.000.000 TL</span></button>
@@ -463,6 +464,65 @@
     <div class="kutu">
       <h4>🎯 Tespit Edilen Akıllı Para Hareketleri</h4>
       <div id="balinaRadarListesi"></div>
+    </div>
+  </div>
+</section>
+
+<!-- BTC Tepki, Ayrışma & Vadeli (OI / Funding) Radarı Modal -->
+<section id="btcRadarModal" class="detay gizli" style="max-width: 1160px; width: min(1160px, 96vw); border: 1px solid #a855f7; box-shadow: 0 0 40px rgba(168, 85, 247, 0.28);">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">⚡ BTC Tepki & Vadeli (OKX OI + Fonlama) Kısa Al-Sat Radarı</div>
+      <div class="d-alt">BTC hareketine göre en güçlü direnen/ayrışan coinler, Short Squeeze adayları ve vadeli sıkışma radarı</div>
+    </div>
+    <div class="detay-butonlar">
+      <button id="btcRadarYenileBtn" class="btn ikincil">⟳ Yenile</button>
+      <button id="btcRadarKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div id="btcRadarUstBilgi" class="kutu" style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg,#111827,#1e1b4b); border:1px solid #6366f155;">
+      <div style="font-size:13px; color:#cbd5e1;">⏳ BTC ve vadeli piyasa verileri yükleniyor...</div>
+    </div>
+
+    <div class="tf-ozet" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 14px;">
+      <div class="kutu" style="margin:0; border-left:3px solid #10b981;">
+        <div class="kucuk">🔥 BTC'ye Direnen / Lider</div>
+        <div id="btcRadDirenenSayi" style="font-size: 20px; font-weight: bold; color:#34d399; margin-top:4px;">0 Coin</div>
+        <div class="kucuk" style="margin-top:2px;">BTC'den pozitif ayrışan alıcılılar</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #a855f7;">
+        <div class="kucuk">💥 Short Squeeze Adayı</div>
+        <div id="btcRadSqueezeSayi" style="font-size: 20px; font-weight: bold; color:#c084fc; margin-top:4px;">0 Coin</div>
+        <div class="kucuk" style="margin-top:2px;">Negatif fonlama + short yığılması</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #ef4444;">
+        <div class="kucuk">🩸 BTC'den Sert Kırılan</div>
+        <div id="btcRadKirilanSayi" style="font-size: 20px; font-weight: bold; color:#f87171; margin-top:4px;">0 Coin</div>
+        <div class="kucuk" style="margin-top:2px;">Zayıf kalan kısa short adayları</div>
+      </div>
+      <div class="kutu" style="margin:0; border-left:3px solid #f59e0b;">
+        <div class="kucuk">⚠️ Aşırı Long / FOMO</div>
+        <div id="btcRadTuzakSayi" style="font-size: 20px; font-weight: bold; color:#fbbf24; margin-top:4px;">0 Coin</div>
+        <div class="kucuk" style="margin-top:2px;">Şişmiş fonlama veya hacimsiz çıkış</div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+      <div id="btcRadarFiltreler" style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button type="button" class="cip aktif" data-bf="hepsi">📋 Tümü</button>
+        <button type="button" class="cip" data-bf="direnen">🔥 BTC'ye Direnenler</button>
+        <button type="button" class="cip" data-bf="squeeze">💥 Short Squeeze</button>
+        <button type="button" class="cip" data-bf="kirilan">🩸 Short Adayı</button>
+        <button type="button" class="cip" data-bf="tuzak">⚠️ FOMO / Tuzak</button>
+      </div>
+      <label class="anahtar" style="background:#0f172a; padding:6px 12px; border-radius:999px; border:1px solid #38bdf866;">
+        <input type="checkbox" id="btcRadarOkxChk" checked> 🔵 Sadece OKX
+      </label>
+    </div>
+
+    <div class="kutu">
+      <div id="btcRadarListesi"></div>
     </div>
   </div>
 </section>

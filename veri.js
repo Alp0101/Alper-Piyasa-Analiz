@@ -608,4 +608,45 @@ async function ara(q) {
   return sonuc.slice(0, 45);
 }
 
-module.exports = { tumBistTara, tumKriptoTara, sembolleriTara, canliTekFiyat, bistAdlari, mumSetleri, benchSetleri, ara };
+// OKX Açık Pozisyon (Open Interest) + Binance Vadeli Fonlama Oranı (Funding Rate) Toplu Haritası
+const _oiBazHarita = new Map();
+async function vadeliPiyasaHaritasi() {
+  return onbellekli('vadeli:piyasa_harita', 25_000, async () => {
+    const harita = {};
+    const [okxOi, binancePi] = await Promise.all([
+      getJson('https://www.okx.com/api/v5/public/open-interest?instType=SWAP').catch(() => null),
+      getJson('https://fapi.binance.com/fapi/v1/premiumIndex').catch(() => null)
+    ]);
+
+    const simdi = Date.now();
+    if (okxOi && Array.isArray(okxOi.data)) {
+      for (const item of okxOi.data) {
+        if (!item.instId || !item.instId.endsWith('-USDT-SWAP')) continue;
+        const sym = item.instId.replace('-USDT-SWAP', 'USDT').toUpperCase();
+        const oiUsd = item.oiUsd != null ? +item.oiUsd : 0;
+        let oiDegisimPct = null;
+        const baz = _oiBazHarita.get(sym);
+        if (baz && baz.oiUsd > 0) {
+          oiDegisimPct = +(((oiUsd - baz.oiUsd) / baz.oiUsd) * 100).toFixed(2);
+          if (simdi - baz.ts > 15 * 60_000) _oiBazHarita.set(sym, { oiUsd, ts: simdi });
+        } else if (oiUsd > 0) {
+          _oiBazHarita.set(sym, { oiUsd, ts: simdi });
+        }
+        harita[sym] = { ...(harita[sym] || {}), oiUsd, oiDegisimPct, okxSwap: true };
+      }
+    }
+
+    if (Array.isArray(binancePi)) {
+      for (const item of binancePi) {
+        if (!item.symbol || !item.symbol.endsWith('USDT')) continue;
+        const sym = item.symbol.toUpperCase();
+        const fundingPct = item.lastFundingRate != null ? +(+item.lastFundingRate * 100).toFixed(4) : null;
+        harita[sym] = { ...(harita[sym] || {}), fundingPct };
+      }
+    }
+
+    return harita;
+  });
+}
+
+module.exports = { tumBistTara, tumKriptoTara, sembolleriTara, canliTekFiyat, vadeliPiyasaHaritasi, bistAdlari, mumSetleri, benchSetleri, ara };
