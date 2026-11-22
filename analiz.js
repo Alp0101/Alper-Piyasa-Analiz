@@ -189,19 +189,73 @@ function seviyeleriBul(d) {
   const direncler = seviyeler.filter(s => s.fiyat > c + a * 0.15).sort((x, y) => x.fiyat - y.fiyat);
   const dip50 = Math.min(...d.l.slice(-50)), tepe50 = Math.max(...d.h.slice(-50));
 
-  // Fibonacci Düzeltme Seviyeleri (Son 100 mumun gerçek en yüksek tepesi ve en düşük dibine göre)
-  // 3 bar gecikmeli pivot yerine son mumlar dahil gerçek dip/tepe ve tam zaman sırasını (minIdx vs maxIdx) kullanır
-  const fibN = Math.min(100, d.c.length);
-  const fibBas = d.c.length - fibN;
-  let minF = Infinity, maxF = -Infinity, minIdx = fibBas, maxIdx = fibBas;
-  for (let i = fibBas; i < d.c.length; i++) {
-    if (d.l[i] <= minF) { minF = d.l[i]; minIdx = i; }
-    if (d.h[i] >= maxF) { maxF = d.h[i]; maxIdx = i; }
+  // Fibonacci Düzeltme Seviyeleri (ALPro-FuLL ile birebir aynı ZigZag Hassas Son Dalga algoritması)
+  // Çok eski 100 mumluk tepelere takılmadan en güncel onaylı Dip <-> Tepe dalgasını canlı uzamayla yakalar
+  const fibDerinlik = 6;
+  let zzYon = 0, zzP1 = null, zzB1 = -1, zzP2 = null, zzB2 = -1;
+  let zzCanliYuk = null, zzCanliYukBar = -1, zzCanliDus = null, zzCanliDusBar = -1;
+
+  for (let i = 0; i < d.c.length; i++) {
+    if (i >= fibDerinlik * 2) {
+      const pIdx = i - fibDerinlik;
+      let isPh = true, isPl = true;
+      for (let k = pIdx - fibDerinlik; k <= pIdx + fibDerinlik; k++) {
+        if (k !== pIdx) {
+          if (d.h[k] > d.h[pIdx]) isPh = false;
+          if (d.l[k] < d.l[pIdx]) isPl = false;
+        }
+        if (!isPh && !isPl) break;
+      }
+      if (isPh) {
+        if (zzYon === 1) {
+          if (d.h[pIdx] >= zzP1) { zzP1 = d.h[pIdx]; zzB1 = pIdx; }
+        } else {
+          zzP2 = zzP1; zzB2 = zzB1;
+          zzP1 = d.h[pIdx]; zzB1 = pIdx;
+          zzYon = 1;
+        }
+        zzCanliYuk = d.h[i]; zzCanliYukBar = i;
+        zzCanliDus = d.l[i]; zzCanliDusBar = i;
+      }
+      if (isPl) {
+        if (zzYon === -1) {
+          if (d.l[pIdx] <= zzP1) { zzP1 = d.l[pIdx]; zzB1 = pIdx; }
+        } else {
+          zzP2 = zzP1; zzB2 = zzB1;
+          zzP1 = d.l[pIdx]; zzB1 = pIdx;
+          zzYon = -1;
+        }
+        zzCanliYuk = d.h[i]; zzCanliYukBar = i;
+        zzCanliDus = d.l[i]; zzCanliDusBar = i;
+      }
+    }
+    if (zzCanliYuk == null || d.h[i] >= zzCanliYuk) { zzCanliYuk = d.h[i]; zzCanliYukBar = i; }
+    if (zzCanliDus == null || d.l[i] <= zzCanliDus) { zzCanliDus = d.l[i]; zzCanliDusBar = i; }
   }
 
-  // Dalga yönü: Dip önce, Tepe sonra geldiyse Yükseliş Dalgası (0=Tepe, 1=Dip);
-  // Tepe önce, Dip sonra geldiyse Düşüş Dalgası (0=Dip, 1=Tepe)
-  const fibYukselisDalgasi = minIdx < maxIdx;
+  let minF = Infinity, maxF = -Infinity, minIdx = 0, maxIdx = 0;
+  if (zzP1 != null && zzP2 != null) {
+    if (zzYon === 1) {
+      minF = zzP2; minIdx = zzB2;
+      maxF = zzCanliYuk > zzP1 ? zzCanliYuk : zzP1;
+      maxIdx = zzCanliYuk > zzP1 ? zzCanliYukBar : zzB1;
+    } else {
+      maxF = zzP2; maxIdx = zzB2;
+      minF = zzCanliDus < zzP1 ? zzCanliDus : zzP1;
+      minIdx = zzCanliDus < zzP1 ? zzCanliDusBar : zzB1;
+    }
+  } else {
+    const fibN = Math.min(60, d.c.length);
+    const fibBas = d.c.length - fibN;
+    for (let i = fibBas; i < d.c.length; i++) {
+      if (d.l[i] <= minF) { minF = d.l[i]; minIdx = i; }
+      if (d.h[i] >= maxF) { maxF = d.h[i]; maxIdx = i; }
+    }
+  }
+
+  // Dalga yönü: Tepe dipten daha yeniyse Yükseliş Dalgası (0=Tepe, 1=Dip);
+  // Dip tepeden daha yeniyse Düşüş Dalgası (0=Dip, 1=Tepe)
+  const fibYukselisDalgasi = maxIdx > minIdx;
   const fibFark = Math.max(maxF - minF, c * 0.001);
   const fib = {
     dip: minF,

@@ -1983,29 +1983,32 @@ function gorselStratejiGrafikCiz(z, s, v, hoverPos = null) {
     etiketKuyrugu.push({ metin: '🧲 FVG Bölgesi', x: fvgX + 6, y: musaitY(yUst + 12, solYler), renk: '#b45309', hiza: 'left', bg: '#fffbeb' });
   }
 
-  // 0. FİBONACCİ ÇİZGİLERİ
+  // 0. FİBONACCİ ÇİZGİLERİ (ALPro-FuLL ile birebir aynı ZigZag Son Dalga)
   if (chkFib && z?.fibonacci) {
     const fib = z.fibonacci;
+    const yuk = fib.yon === 'yukselis';
     const fibSeviyeler = [
-      { ad: 'Fib 0.236', val: fib.f0236, altin: false },
-      { ad: 'Fib 0.382', val: fib.f0382, altin: false },
-      { ad: 'Fib 0.500', val: fib.f0500, altin: true },
-      { ad: '⭐ Fib 0.618', val: fib.f0618, altin: true },
-      { ad: 'Fib 0.786', val: fib.f0786, altin: false }
+      { ad: yuk ? 'Fib 0 (Tepe)' : 'Fib 0 (Dip)', val: yuk ? fib.tepe : fib.dip, altin: false, uc: true },
+      { ad: 'Fib 0.236', val: fib.f0236, altin: false, uc: false },
+      { ad: 'Fib 0.382', val: fib.f0382, altin: false, uc: false },
+      { ad: 'Fib 0.500', val: fib.f0500, altin: true, uc: false },
+      { ad: '⭐ Fib 0.618', val: fib.f0618, altin: true, uc: false },
+      { ad: 'Fib 0.786', val: fib.f0786, altin: false, uc: false },
+      { ad: yuk ? 'Fib 1 (Dip)' : 'Fib 1 (Tepe)', val: yuk ? fib.dip : fib.tepe, altin: false, uc: true }
     ];
     ctx.save();
     fibSeviyeler.forEach(lv => {
       if (lv.val == null || lv.val < minP || lv.val > maxP) return;
       const y = toY(lv.val);
-      ctx.strokeStyle = lv.altin ? 'rgba(124, 58, 237, 0.65)' : 'rgba(100, 116, 139, 0.38)';
-      ctx.lineWidth = lv.altin ? 1.3 : 0.9;
-      ctx.setLineDash(lv.altin ? [5, 3] : [2, 4]);
+      ctx.strokeStyle = lv.uc ? 'rgba(30, 41, 59, 0.55)' : (lv.altin ? 'rgba(124, 58, 237, 0.65)' : 'rgba(100, 116, 139, 0.38)');
+      ctx.lineWidth = lv.altin ? 1.3 : (lv.uc ? 1.1 : 0.9);
+      ctx.setLineDash(lv.uc ? [] : (lv.altin ? [5, 3] : [2, 4]));
       ctx.beginPath();
       ctx.moveTo(padSol, y);
       ctx.lineTo(padSol + cizimW, y);
       ctx.stroke();
       const labelY = musaitY(y, sagYler);
-      etiketKuyrugu.push({ metin: `${lv.ad}: ${sayi(lv.val)}`, x: padSol + cizimW - 6, y: labelY, renk: lv.altin ? '#6d28d9' : '#334155', hiza: 'right', bg: lv.altin ? '#f5f3ff' : '#ffffff' });
+      etiketKuyrugu.push({ metin: `${lv.ad}: ${sayi(lv.val)}`, x: padSol + cizimW - 6, y: labelY, renk: lv.uc ? '#0f172a' : (lv.altin ? '#6d28d9' : '#334155'), hiza: 'right', bg: lv.uc ? '#e2e8f0' : (lv.altin ? '#f5f3ff' : '#ffffff') });
     });
     ctx.restore();
   }
