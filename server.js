@@ -433,8 +433,8 @@ const sunucu = http.createServer(async (req, res) => {
         const deg = r.degisim ?? 0;
         const btcFark = +(deg - btcDegisim).toFixed(2);
         const gh = r.goreceliHacim ?? 1;
-        const alis = r.hacimAkisi?.alisPct ?? 50;
-        const satis = r.hacimAkisi?.satisPct ?? 50;
+        const alis = r.hacimAkisi?.alisYuzde ?? r.hacimAkisi?.alisPct ?? 50;
+        const satis = r.hacimAkisi?.satisYuzde ?? r.hacimAkisi?.satisPct ?? 50;
         const fundingPct = vInfo.fundingPct ?? null;
         const oiUsd = vInfo.oiUsd ?? null;
         const oiDegisimPct = vInfo.oiDegisimPct ?? null;
