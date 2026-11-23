@@ -845,7 +845,7 @@ $('#perde').onclick = () => {
   }
   detayKapat();
   demoPortfoyKapat();
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#btcRadarModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#btcRadarModal', '#hazirIslemModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
     const el = $(sel);
     if (el) el.classList.add('gizli');
   });
@@ -5135,6 +5135,117 @@ if ($('#btcRadarKapatBtn')) {
   };
 }
 if ($('#btcRadarYenileBtn')) $('#btcRadarYenileBtn').onclick = () => btcRadarYukle();
+
+// ================= 🎯 Hazır İşlemler (Otomatik Net Karar Motoru) =================
+async function hazirIslemlerYukle(zorla = false) {
+  const listeEl = $('#hazirIslemListesi');
+  const ozetEl = $('#hazirIslemOzetBar');
+  const sadeceOkx = $('#hazirIslemOkxChk')?.checked !== false;
+  if (listeEl) {
+    listeEl.innerHTML = '<div style="padding:28px; text-align:center; color:#94a3b8; font-size:14px;">🎯 80 kripto taranıyor → En iyi 12 adayın 15dk + 1S gerçek mumları (EMA, VWAP, Fisher, Testere, OKX Vadeli) analiz ediliyor...</div>';
+  }
+  try {
+    const v = await api(`/api/hazir-islemler?okx=${sadeceOkx ? 1 : 0}&zorla=${zorla ? 1 : 0}&t=${Date.now()}`);
+    const b = v.btc || {};
+    const bRenk = (b.degisim ?? 0) >= 0 ? '#34d399' : '#f87171';
+    if (ozetEl) {
+      ozetEl.innerHTML = `
+        <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+          <span style="font-size:13px; color:#e2e8f0;"><b>BTC:</b> ${b.fiyat ? sayi(b.fiyat) + ' $' : '—'} <b style="color:${bRenk};">${(b.degisim ?? 0) >= 0 ? '+' : ''}%${(b.degisim ?? 0).toFixed(2)}</b></span>
+          <span style="font-size:12px; color:#a7f3d0;">🔍 ${v.tarananCoin || 0} Coin Tarandı → ${v.derinIncelenen || 0} Derin İncelendi → <b>${v.netSayi || 0} NET İŞLEM</b></span>
+        </div>
+        <div style="font-size:11px; color:#94a3b8;">Kural: TP1'de %50 kapat & Stop'u girişe çek · Kasanın max %1-2'sini riske at (Y.T.D)</div>
+      `;
+    }
+    const islemler = v.islemler || [];
+    if (!islemler.length) {
+      listeEl.innerHTML = `
+        <div class="kutu" style="text-align:center; padding:28px; border:1px solid #f59e0b55; background:#1c1917;">
+          <div style="font-size:20px; font-weight:800; color:#fbbf24;">⏸️ Şu An Yüksek Kaliteli Net İşlem Yok</div>
+          <div style="font-size:13px; color:#cbd5e1; margin-top:8px;">Piyasa şu an testere veya aşırı uzamış (FOMO) bölgede. Sistem seni korumak için zorla sinyal üretmedi — 5-10 dakika sonra tekrar tara.</div>
+        </div>`;
+      return;
+    }
+
+    listeEl.innerHTML = islemler.map(it => {
+      const isLong = it.yon === 'LONG';
+      const anaRenk = isLong ? '#10b981' : '#ef4444';
+      const bgUst = isLong ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
+      const frYaz = it.fundingPct == null ? '—' : `${it.fundingPct >= 0 ? '+' : ''}${it.fundingPct.toFixed(3)}%`;
+      const nedenHtml = (it.nedenler || []).map(n => `<span style="font-size:11px; padding:3px 8px; border-radius:999px; background:#1e293b; color:#e2e8f0; border:1px solid #334155;">✅ ${esc(n)}</span>`).join(' ');
+      const girisAralik = it.girisAlt !== it.girisUst ? `${sayi(it.girisAlt)} – ${sayi(it.girisUst)} $` : `${sayi(it.fiyat)} $`;
+      const demoYon = isLong ? 'LONG' : 'SHORT';
+
+      return `
+        <div class="kutu" style="margin-bottom:14px; border:1px solid ${anaRenk}66; border-left:5px solid ${anaRenk}; background:#0b1120;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding-bottom:10px; border-bottom:1px solid #1e293b;">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <span style="font-size:13px; font-weight:900; padding:4px 12px; border-radius:8px; background:${bgUst}; color:${anaRenk}; border:1px solid ${anaRenk};">${isLong ? '🟢 NET LONG' : '🔴 NET SHORT'}</span>
+              <b style="font-size:18px; color:#f8fafc;">${esc(it.kod)} / USDT</b>
+              <span style="font-size:13px; font-weight:800; padding:3px 10px; border-radius:999px; background:#f59e0b22; color:#fbbf24; border:1px solid #f59e0b55;">⭐ ${it.puan}/100</span>
+              ${it.okxVar ? '<span style="font-size:11px; padding:2px 7px; border-radius:6px; background:#0284c722; color:#38bdf8; border:1px solid #38bdf866; font-weight:700;">OKX</span>' : ''}
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <span style="font-size:12px; font-weight:700; color:#38bdf8; background:#0f172a; padding:4px 10px; border-radius:8px; border:1px solid #38bdf844;">⚖️ Güvenli Kaldıraç: Max ${it.guvenliKaldirac}x</span>
+              <button type="button" class="btn ikincil" style="font-size:12px; padding:5px 10px;" onclick="document.getElementById('hazirIslemModal').classList.add('gizli'); detayAc('${esc(it.id)}');">📊 Grafiği Gör</button>
+              <button type="button" class="btn" style="font-size:12px; padding:5px 10px; background:${anaRenk};" onclick="document.getElementById('hazirIslemModal').classList.add('gizli'); demoEmirAc('${esc(it.id)}', '${esc(it.ad)}', ${it.fiyat}, '${demoYon}', ${it.stop}, ${it.tp1});">💼 Demo'da Aç</button>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-top:12px;">
+            <div style="background:#0f172a; border:1px solid #38bdf844; border-radius:10px; padding:10px 12px;">
+              <div style="font-size:11px; color:#94a3b8;">📥 GİRİŞ BÖLGESİ</div>
+              <div style="font-size:16px; font-weight:800; color:#38bdf8; margin-top:3px;">${girisAralik}</div>
+              <div style="font-size:11px; color:#cbd5e1; margin-top:2px;">${esc(it.girisNot)}</div>
+            </div>
+            <div style="background:#0f172a; border:1px solid #ef444455; border-radius:10px; padding:10px 12px;">
+              <div style="font-size:11px; color:#fca5a5;">🛑 STOP-LOSS (Kesin Çıkış)</div>
+              <div style="font-size:16px; font-weight:800; color:#f87171; margin-top:3px;">${sayi(it.stop)} $</div>
+              <div style="font-size:11px; color:#fca5a5; margin-top:2px;">Risk Mesafesi: -%${it.riskPct}</div>
+            </div>
+            <div style="background:#0f172a; border:1px solid #10b98155; border-radius:10px; padding:10px 12px;">
+              <div style="font-size:11px; color:#6ee7b7;">🎯 TP1 (%50 Kapat + Stop Girişe)</div>
+              <div style="font-size:16px; font-weight:800; color:#34d399; margin-top:3px;">${sayi(it.tp1)} $</div>
+              <div style="font-size:11px; color:#6ee7b7; margin-top:2px;">+%${it.tp1Pct} (1.6R)</div>
+            </div>
+            <div style="background:#0f172a; border:1px solid #eab30855; border-radius:10px; padding:10px 12px;">
+              <div style="font-size:11px; color:#fde047;">🚀 TP2 (Ana Hedef · 2.6R)</div>
+              <div style="font-size:16px; font-weight:800; color:#facc15; margin-top:3px;">${sayi(it.tp2)} $</div>
+              <div style="font-size:11px; color:#fde047; margin-top:2px;">+%${it.tp2Pct} (R:R 1:2.6)</div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:8px; border-top:1px dashed #1e293b;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">${nedenHtml}</div>
+            <div style="font-size:11px; color:#94a3b8;">
+              BTC Farkı: <b style="color:${it.btcFark >= 0 ? '#34d399' : '#f87171'};">${it.btcFark >= 0 ? '+' : ''}%${it.btcFark}</b> ·
+              Fisher(15d): <b style="color:#e2e8f0;">${it.fisher15?.fish}/${it.fisher15?.tetik}</b> ·
+              ADX: <b style="color:#e2e8f0;">${it.adx15}</b> ·
+              Fonlama: <b style="color:#c084fc;">${frYaz}</b>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    if (listeEl) listeEl.innerHTML = `<div style="padding:18px; color:#f87171;">⚠️ Hazır işlemler hesaplanamadı: ${esc(e.message)}</div>`;
+  }
+}
+
+if ($('#hazirIslemBtn')) {
+  $('#hazirIslemBtn').onclick = () => {
+    $('#perde').classList.remove('gizli');
+    $('#hazirIslemModal').classList.remove('gizli');
+    hazirIslemlerYukle(false);
+  };
+}
+if ($('#hazirIslemKapatBtn')) {
+  $('#hazirIslemKapatBtn').onclick = () => {
+    $('#perde').classList.add('gizli');
+    $('#hazirIslemModal').classList.add('gizli');
+  };
+}
+if ($('#hazirIslemYenileBtn')) $('#hazirIslemYenileBtn').onclick = () => hazirIslemlerYukle(true);
+if ($('#hazirIslemOkxChk')) $('#hazirIslemOkxChk').onchange = () => hazirIslemlerYukle(false);
 if ($('#btcRadarOkxChk')) $('#btcRadarOkxChk').onchange = () => btcRadarCiz();
 document.querySelectorAll('#btcRadarFiltreler .cip').forEach(btn => {
   btn.onclick = () => {
@@ -5416,7 +5527,7 @@ window.addEventListener('popstate', () => {
     return;
   }
   // 4. Diğer açık pencereler
-  ['#bildirimModal', '#sniperModal', '#balinaModal', '#btcRadarModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
+  ['#bildirimModal', '#sniperModal', '#balinaModal', '#btcRadarModal', '#hazirIslemModal', '#alarmModal', '#ziyaretModal', '#kurumsalModal', '#raporSifreModal', '#gunlukRaporModal'].forEach(sel => {
     const el = $(sel);
     if (el && !el.classList.contains('gizli')) el.classList.add('gizli');
   });

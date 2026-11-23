@@ -18,6 +18,7 @@
       📬 Bildirimler (<span id="ustBildirimSayisi">0</span>)
       <span id="bildirimRozetNokta" class="gizli" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:#ef4444; border-radius:50%; box-shadow:0 0 8px #ef4444;"></span>
     </button>
+    <button id="hazirIslemBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #0284c7); font-size:12px; font-weight:800; box-shadow:0 0 14px rgba(16,185,129,0.45); border:1px solid #34d399;">🎯 Hazır İşlemler</button>
     <button id="kurumsalVipBtn" class="btn" style="background: linear-gradient(135deg, #d97706, #b45309); font-size:12px; font-weight:bold; box-shadow:0 0 12px rgba(217,119,6,0.45); border:1px solid #f59e0b;">👑 Kurumsal VIP (%80+)</button>
     <button id="sniperRadarBtn" class="btn" style="background: linear-gradient(135deg, #0284c7, #0369a1); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(2,132,199,0.35);">🎯 Sniper Avcısı</button>
     <button id="balinaRadarBtn" class="btn" style="background: linear-gradient(135deg, #059669, #047857); font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(16,185,129,0.3);">🧲 Balina Radarı</button>
@@ -465,6 +466,29 @@
       <h4>🎯 Tespit Edilen Akıllı Para Hareketleri</h4>
       <div id="balinaRadarListesi"></div>
     </div>
+  </div>
+</section>
+
+<!-- Hazır İşlemler (Otomatik Net Karar Motoru) Modal -->
+<section id="hazirIslemModal" class="detay gizli" style="max-width: 1180px; width: min(1180px, 96vw); border: 1px solid #10b981; box-shadow: 0 0 42px rgba(16, 185, 129, 0.28);">
+  <div class="detay-ust">
+    <div>
+      <div class="d-ad">🎯 Hazır İşlemler (Otomatik Net Karar Motoru)</div>
+      <div class="d-alt">Tüm kriptolar 15dk + 1S gerçek mumlarla (EMA · VWAP · Fisher · Testere Kilidi · OKX Vadeli) taranır — sadece net Giriş / Stop / TP1 / TP2 planları listelenir</div>
+    </div>
+    <div class="detay-butonlar">
+      <label class="anahtar" style="background:#0f172a; padding:5px 10px; border-radius:999px; border:1px solid #38bdf866; font-size:12px;">
+        <input type="checkbox" id="hazirIslemOkxChk" checked> 🔵 Sadece OKX
+      </label>
+      <button id="hazirIslemYenileBtn" class="btn ikincil">⟳ Yeniden Tara</button>
+      <button id="hazirIslemKapatBtn" class="btn">✖ Kapat</button>
+    </div>
+  </div>
+  <div class="detay-icerik">
+    <div id="hazirIslemOzetBar" class="kutu" style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg,#0f172a,#064e3b); border:1px solid #10b98155;">
+      <div style="font-size:13px; color:#d1fae5;">⏳ Gerçek 15dk ve 1S mum verileri taranıyor, testere ve FOMO coinleri eleniyor...</div>
+    </div>
+    <div id="hazirIslemListesi"></div>
   </div>
 </section>
 

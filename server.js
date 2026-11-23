@@ -6,6 +6,7 @@ const path = require('path');
 const zlib = require('zlib');
 const { exec } = require('child_process');
 const V = require('./veri');
+const KararMotoru = require('./karar_motoru');
 const { sembolBilgisi, varsayilanListeler } = require('./semboller');
 const { analizEt } = require('./analiz');
 const { geriyeTest } = require('./backtest');
@@ -411,6 +412,12 @@ const sunucu = http.createServer(async (req, res) => {
       const sem = url.searchParams.get('sembol') || '';
       const veri = await V.canliTekFiyat(sem).catch(() => null);
       return gonder(res, 200, veri || { sembol: sem, fiyat: null, degisim: null });
+    }
+    if (p === '/api/hazir-islemler') {
+      const sadeceOkx = url.searchParams.get('okx') !== '0';
+      const zorla = url.searchParams.get('zorla') === '1';
+      const sonuc = await KararMotoru.hazirIslemleriBul({ sadeceOkx, zorla });
+      return gonder(res, 200, sonuc);
     }
     if (p === '/api/btc-radar') {
       const [kriptolar, btcCanli, vadeli] = await Promise.all([
