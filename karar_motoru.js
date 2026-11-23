@@ -66,6 +66,34 @@ function choppinessHesapla(mumlar, len = 14) {
   return Number.isFinite(chop) ? +chop.toFixed(1) : 50;
 }
 
+function adxHesapla(mumlar, len = 14) {
+  if (mumlar.length < len * 2 + 2) return 18;
+  const trs = [], pDms = [], mDms = [];
+  for (let i = 1; i < mumlar.length; i++) {
+    const m = mumlar[i], p = mumlar[i - 1];
+    trs.push(Math.max(m.h - m.l, Math.abs(m.h - p.c), Math.abs(m.l - p.c)));
+    const up = m.h - p.h, dn = p.l - m.l;
+    pDms.push(up > dn && up > 0 ? up : 0);
+    mDms.push(dn > up && dn > 0 ? dn : 0);
+  }
+  let atrS = 0, pS = 0, mS = 0;
+  for (let i = 0; i < len; i++) { atrS += trs[i]; pS += pDms[i]; mS += mDms[i]; }
+  const dxs = [];
+  for (let i = len; i < trs.length; i++) {
+    atrS = atrS - atrS / len + trs[i];
+    pS = pS - pS / len + pDms[i];
+    mS = mS - mS / len + mDms[i];
+    const pDi = atrS > 0 ? (100 * pS / atrS) : 0;
+    const mDi = atrS > 0 ? (100 * mS / atrS) : 0;
+    const sum = pDi + mDi;
+    dxs.push(sum > 0 ? (100 * Math.abs(pDi - mDi) / sum) : 0);
+  }
+  if (dxs.length < len) return 18;
+  let adxVal = dxs.slice(0, len).reduce((a, b) => a + b, 0) / len;
+  for (let i = len; i < dxs.length; i++) adxVal = (adxVal * (len - 1) + dxs[i]) / len;
+  return Number.isFinite(adxVal) ? +adxVal.toFixed(1) : 18;
+}
+
 function gunlukVwapHesapla(mumlar) {
   if (!mumlar.length) return null;
   const sonGun = Math.floor(mumlar[mumlar.length - 1].t / 86400);
@@ -104,8 +132,7 @@ async function adayiDerinAnalizEt(aday, btcDegisim, btcDurum, vadeliInfo) {
   const e50_1s = G.ema(c1s, 50).at(-1);
   const rsi15 = G.rsi(c15, 14).at(-1) ?? 50;
   const atr15 = G.atr(h15, l15, c15, 14).at(-1) ?? (fiyat * 0.01);
-  const adxObj = G.adx(h15, l15, c15, 14);
-  const adx15 = adxObj?.adx?.at(-1) ?? 18;
+  const adx15 = adxHesapla(m15, 14);
   const chop15 = choppinessHesapla(m15, 14);
   const vwap15 = gunlukVwapHesapla(m15) ?? fiyat;
   const fish15 = fisherHesapla(m15, 9);
