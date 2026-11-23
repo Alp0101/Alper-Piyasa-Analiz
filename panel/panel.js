@@ -5188,7 +5188,7 @@ async function hazirIslemlerYukle(zorla = false) {
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <span style="font-size:12px; font-weight:700; color:#38bdf8; background:#0f172a; padding:4px 10px; border-radius:8px; border:1px solid #38bdf844;">⚖️ Güvenli Kaldıraç: Max ${it.guvenliKaldirac}x</span>
               <button type="button" class="btn ikincil" style="font-size:12px; padding:5px 10px;" onclick="document.getElementById('hazirIslemModal').classList.add('gizli'); detayAc('${esc(it.id)}');">📊 Grafiği Gör</button>
-              <button type="button" class="btn" style="font-size:12px; padding:5px 10px; background:${anaRenk};" onclick="document.getElementById('hazirIslemModal').classList.add('gizli'); demoEmirAc('${esc(it.id)}', '${esc(it.ad)}', ${it.fiyat}, '${demoYon}', ${it.stop}, ${it.tp1});">💼 Demo'da Aç</button>
+              <button type="button" class="btn" style="font-size:12px; padding:5px 10px; background:${anaRenk};" onclick="hazirIslemDemodaAc('${esc(it.id)}', '${esc(it.ad)}', ${it.fiyat}, '${demoYon}', ${it.stop}, ${it.tp1}, ${it.guvenliKaldirac});">💼 Demo'da Aç</button>
             </div>
           </div>
 
@@ -5246,6 +5246,53 @@ if ($('#hazirIslemKapatBtn')) {
 }
 if ($('#hazirIslemYenileBtn')) $('#hazirIslemYenileBtn').onclick = () => hazirIslemlerYukle(true);
 if ($('#hazirIslemOkxChk')) $('#hazirIslemOkxChk').onchange = () => hazirIslemlerYukle(false);
+
+window.hazirIslemDemodaAc = async (id, ad, fiyat, yon, stop, tp1, kaldirac = 5) => {
+  const p = demoYerelOku();
+  const mevcutUsd = p.bakiyeUSD ?? VARSAYILAN_USD_KASA;
+  const varsayilanTeminat = Math.min(100, Math.max(10, Math.floor(mevcutUsd * 0.05)));
+  const girdi = prompt(
+    `${yon === 'LONG' ? '🟢 LONG' : '🔴 SHORT'} Demo İşlem Aç — ${id.split(':')[1]}\n` +
+    `Fiyat: ${sayi(fiyat)} $ · Kaldıraç: ${kaldirac}x\n` +
+    `Stop: ${sayi(stop)} $ · Hedef (TP1): ${sayi(tp1)} $\n` +
+    `Mevcut Kasa: ${sayi(mevcutUsd)} $\n\n` +
+    `Yatırılacak Teminat ($):`,
+    String(varsayilanTeminat)
+  );
+  if (girdi === null) return;
+  const teminat = parseFloat(girdi.replace(',', '.'));
+  if (!teminat || teminat <= 0) return bildir('⚠️ Geçerli bir teminat tutarı girin.');
+  if (teminat > mevcutUsd) return bildir(`⚠️ Yetersiz USD Demo bakiyesi (Mevcut: ${sayi(mevcutUsd)} $).`);
+
+  // En güncel anlık fiyatı çek (hata olursa karttaki fiyatı kullan)
+  let gercekGiris = fiyat;
+  try {
+    const taze = await api(`/api/fiyat?sembol=${encodeURIComponent(id)}`);
+    if (taze && taze.fiyat > 0) gercekGiris = taze.fiyat;
+  } catch (_) {}
+
+  const pozisyonDegeri = +(teminat * kaldirac).toFixed(2);
+  const adet = +(pozisyonDegeri / gercekGiris).toFixed(gercekGiris >= 100 ? 4 : 2);
+  p.bakiyeUSD = +(mevcutUsd - teminat).toFixed(2);
+  p.acikPozisyonlar.push({
+    id: 'poz-' + Date.now(),
+    sembol: id,
+    ad,
+    yon,
+    kaldirac,
+    adet,
+    alisFiyat: gercekGiris,
+    paraBirimi: '$',
+    alisTarih: new Date().toISOString(),
+    stopFiyat: stop,
+    hedefFiyat: tp1,
+    teminat,
+    tutar: pozisyonDegeri
+  });
+  demoYerelKaydet(p);
+  bildir(`✅ Demo ${yon} açıldı: ${id.split(':')[1]} · ${sayi(teminat)} $ (${kaldirac}x) · Giriş: ${sayi(gercekGiris)} $ · Stop: ${sayi(stop)} $ · TP1: ${sayi(tp1)} $`);
+  await demoPortfoyYukle();
+};
 if ($('#btcRadarOkxChk')) $('#btcRadarOkxChk').onchange = () => btcRadarCiz();
 document.querySelectorAll('#btcRadarFiltreler .cip').forEach(btn => {
   btn.onclick = () => {
