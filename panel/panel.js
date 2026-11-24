@@ -5158,16 +5158,21 @@ if ($('#btcRadarKapatBtn')) {
 }
 if ($('#btcRadarYenileBtn')) $('#btcRadarYenileBtn').onclick = () => btcRadarYukle();
 
-// ================= 🎯 Hazır İşlemler (Otomatik Net Karar Motoru) =================
+// ================= 🎯 Hazır İşlemler (Otomatik Net Karar Motoru: Trend + Likidite Avı) =================
+let hazirIslemAktifMod = 'trend';
+
 async function hazirIslemlerYukle(zorla = false) {
   const listeEl = $('#hazirIslemListesi');
   const ozetEl = $('#hazirIslemOzetBar');
   const sadeceOkx = $('#hazirIslemOkxChk')?.checked !== false;
+  const mod = hazirIslemAktifMod || 'trend';
   if (listeEl) {
-    listeEl.innerHTML = '<div style="padding:28px; text-align:center; color:#94a3b8; font-size:14px;">🎯 80 kripto taranıyor → En iyi 12 adayın 15dk + 1S gerçek mumları (EMA, VWAP, Fisher, Testere, OKX Vadeli) analiz ediliyor...</div>';
+    listeEl.innerHTML = mod === 'likidite'
+      ? '<div style="padding:28px; text-align:center; color:#94a3b8; font-size:14px;">💧 BTC\'den bağımsız 24S Dip/Tepe Likidite Süpürme (SWEEP) + Aşırı Fisher + Fonlama sıkışması taranıyor...</div>'
+      : '<div style="padding:28px; text-align:center; color:#94a3b8; font-size:14px;">📈 4S Trend + BTC 4S Kalkanı + 1S EMA20 Geri Çekilme + Fisher analiz ediliyor...</div>';
   }
   try {
-    const v = await api(`/api/hazir-islemler?okx=${sadeceOkx ? 1 : 0}&zorla=${zorla ? 1 : 0}&t=${Date.now()}`);
+    const v = await api(`/api/hazir-islemler?mod=${encodeURIComponent(mod)}&okx=${sadeceOkx ? 1 : 0}&zorla=${zorla ? 1 : 0}&t=${Date.now()}`);
     const b = v.btc || {};
     const bRenk = (b.degisim ?? 0) >= 0 ? '#34d399' : '#f87171';
     if (ozetEl) {
@@ -5269,6 +5274,14 @@ if ($('#hazirIslemKapatBtn')) {
 }
 if ($('#hazirIslemYenileBtn')) $('#hazirIslemYenileBtn').onclick = () => hazirIslemlerYukle(true);
 if ($('#hazirIslemOkxChk')) $('#hazirIslemOkxChk').onchange = () => hazirIslemlerYukle(false);
+document.querySelectorAll('#hazirIslemModBar .cip').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#hazirIslemModBar .cip').forEach(x => x.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    hazirIslemAktifMod = btn.dataset.hmod || 'trend';
+    hazirIslemlerYukle(false);
+  };
+});
 
 window.hazirIslemDemodaAc = async (id, ad, fiyat, yon, stop, tp1, kaldirac = 5) => {
   const p = demoYerelOku();

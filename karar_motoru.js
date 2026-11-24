@@ -429,4 +429,225 @@ async function demoGecmisStopTpKontrol(pozisyonlar = []) {
   return { tetiklenenler };
 }
 
-module.exports = { hazirIslemleriBul, demoGecmisStopTpKontrol };
+// ============================================================================
+// 💧 LİKİDİTE AVI / DİP-TEPE DÖNÜŞ MODU (MMT Tarzı · BTC'den Bağımsız)
+// Son 24 saatlik dip/tepe stoplarını fitille süpürüp (SWEEP) içeri dönen,
+// aşırı Fisher (-1.2 / +1.2) dönüşü veren ve fonlaması ters yığılmış coinleri yakalar.
+// ============================================================================
+const _likiditeOnbellek = new Map();
+
+async function likiditeAdayAnalizEt(aday, btcDegisim, vadeliInfo) {
+  const sym = (aday.kod + 'USDT').toUpperCase();
+  const [m15, m1s] = await Promise.all([
+    binanceHizliMum(sym, '15m', 110),
+    binanceHizliMum(sym, '1h', 60)
+  ]);
+  if (!m15 || m15.length < 60 || !m1s || m1s.length < 30) return null;
+
+  const c15 = m15.map(x => x.c), h15 = m15.map(x => x.h), l15 = m15.map(x => x.l), v15 = m15.map(x => x.v);
+  const fiyat = c15.at(-1);
+  const rsi15 = G.rsi(c15, 14);
+  const sonRsi15 = rsi15.at(-1) ?? 50;
+  const atr15 = G.atr(h15, l15, c15, 14).at(-1) ?? (fiyat * 0.01);
+  const fish15 = fisherHesapla(m15, 9);
+  const fish1s = fisherHesapla(m1s, 9);
+
+  // Son 4 mum (son 1 saat) öncesi ~24 saatlik gerçek dip ve tepe
+  const oncekiDip = Math.min(...l15.slice(-96, -4));
+  const oncekiTepe = Math.max(...h15.slice(-96, -4));
+  const son4 = m15.slice(-4);
+  const son4Min = Math.min(...son4.map(x => x.l));
+  const son4Max = Math.max(...son4.map(x => x.h));
+
+  const ortHacim = v15.slice(-24, -4).reduce((a, b) => a + b, 0) / 20;
+  const son4MaxHacim = Math.max(...son4.map(x => x.v));
+  const hacimPatlama = ortHacim > 0 ? +(son4MaxHacim / ortHacim).toFixed(2) : 1;
+
+  // Son 4 mum içinde güçlü alt/üst fitil reddi var mı?
+  const altFitilVar = son4.some(m => (Math.min(m.o, m.c) - m.l) > Math.max(Math.abs(m.c - m.o), fiyat * 0.0005) * 0.85);
+  const ustFitilVar = son4.some(m => (m.h - Math.max(m.o, m.c)) > Math.max(Math.abs(m.c - m.o), fiyat * 0.0005) * 0.85);
+
+  const deg = aday.degisim ?? 0;
+  const btcFark = +(deg - btcDegisim).toFixed(2);
+  const alis = aday.hacimAkisi?.alisYuzde ?? 50;
+  const satis = aday.hacimAkisi?.satisYuzde ?? 50;
+  const fundingPct = vadeliInfo?.fundingPct ?? null;
+  const oiUsd = vadeliInfo?.oiUsd ?? null;
+  const oiDegisimPct = vadeliInfo?.oiDegisimPct ?? null;
+
+  // --- DİP LİKİDİTE AVI (LONG) ---
+  let longPuan = 0;
+  const longNeden = [];
+  const dipSweep = son4Min <= oncekiDip * 1.003 && fiyat > oncekiDip;
+  const dipYakin = fiyat <= oncekiDip * 1.022;
+  const fishDipDonus = (fish15.fish > fish15.tetik && fish15.tetik <= -1.0) || (fish1s.fish > fish1s.tetik && fish1s.tetik <= -1.1);
+
+  if (dipSweep) { longPuan += 34; longNeden.push('💧 24S Dip Likidite Süpürme (SWEEP)'); }
+  else if (dipYakin && altFitilVar) { longPuan += 20; longNeden.push('💧 24S Dip Bölgesi Alt Fitil Tepkisi'); }
+
+  if (fishDipDonus) { longPuan += 24; longNeden.push(`🎣 Aşırı Dip Fisher Dönüşü (${fish15.fish}/${fish15.tetik})`); }
+  else if (fish15.fish > fish15.tetik && fish15.tetik <= -0.3) { longPuan += 12; longNeden.push('🎣 15dk Fisher Yukarı'); }
+
+  if (altFitilVar) { longPuan += 10; longNeden.push('Alıcı Fitil Reddi'); }
+  if (hacimPatlama >= 1.4 && (dipSweep || dipYakin)) { longPuan += 12; longNeden.push(`Hacimli Toplama (${hacimPatlama}x)`); }
+  if (fundingPct != null && fundingPct <= -0.01) { longPuan += 12; longNeden.push(`Short Yığılması (%${fundingPct.toFixed(3)})`); }
+  if (sonRsi15 <= 42 && m15.at(-1).c > m15.at(-1).o) { longPuan += 8; longNeden.push(`Dipten Yeşil Dönüş (RSI ${Math.round(sonRsi15)})`); }
+
+  // --- TEPE LİKİDİTE AVI (SHORT) ---
+  let shortPuan = 0;
+  const shortNeden = [];
+  const tepeSweep = son4Max >= oncekiTepe * 0.997 && fiyat < oncekiTepe;
+  const tepeYakin = fiyat >= oncekiTepe * 0.978;
+  const fishTepeDonus = (fish15.fish < fish15.tetik && fish15.tetik >= 1.0) || (fish1s.fish < fish1s.tetik && fish1s.tetik >= 1.1);
+
+  if (tepeSweep) { shortPuan += 34; shortNeden.push('💧 24S Tepe Likidite Süpürme (SWEEP)'); }
+  else if (tepeYakin && ustFitilVar) { shortPuan += 20; shortNeden.push('💧 24S Tepe Bölgesi Üst Fitil Reddi'); }
+
+  if (fishTepeDonus) { shortPuan += 24; shortNeden.push(`🎣 Aşırı Tepe Fisher Dönüşü (${fish15.fish}/${fish15.tetik})`); }
+  else if (fish15.fish < fish15.tetik && fish15.tetik >= 0.3) { shortPuan += 12; shortNeden.push('🎣 15dk Fisher Aşağı'); }
+
+  if (ustFitilVar) { shortPuan += 10; shortNeden.push('Satıcı Fitil Reddi'); }
+  if (hacimPatlama >= 1.4 && (tepeSweep || tepeYakin)) { shortPuan += 12; shortNeden.push(`Tepede Hacimli Satış (${hacimPatlama}x)`); }
+  if (fundingPct != null && fundingPct >= 0.02) { shortPuan += 12; shortNeden.push(`Long Yığılması (+%${fundingPct.toFixed(3)})`); }
+  if (sonRsi15 >= 58 && m15.at(-1).c < m15.at(-1).o) { shortPuan += 8; shortNeden.push(`Tepeden Kırmızı Dönüş (RSI ${Math.round(sonRsi15)})`); }
+
+  // En azından gerçek bir sweep veya aşırı dip/tepe Fisher dönüşü şart (orta bölgedeki rastgele coinleri alma)
+  const gecerliLong = longPuan >= 60 && (dipSweep || (dipYakin && fishDipDonus));
+  const gecerliShort = shortPuan >= 60 && (tepeSweep || (tepeYakin && fishTepeDonus));
+  if (!gecerliLong && !gecerliShort) return null;
+
+  const yon = gecerliLong && (!gecerliShort || longPuan >= shortPuan) ? 'LONG' : 'SHORT';
+  const puan = Math.min(100, Math.round(yon === 'LONG' ? longPuan : shortPuan));
+  const nedenler = (yon === 'LONG' ? longNeden : shortNeden).slice(0, 5);
+
+  // Likidite Avı Dar Stop (Süpürülen fitilin hemen dışı — yüksek 1:3 R:R!)
+  const minRisk = fiyat * 0.009;
+  const maxRisk = fiyat * 0.038;
+  let stop, tp1, tp2, girisAlt, girisUst, girisNot;
+  if (yon === 'LONG') {
+    const fitilStop = son4Min * 0.996;
+    const risk = Math.max(minRisk, Math.min(maxRisk, Math.max(fiyat - fitilStop, atr15 * 1.4)));
+    stop = fiyat - risk;
+    tp1 = fiyat + risk * 1.8;
+    tp2 = fiyat + risk * 3.0;
+    girisAlt = Math.max(stop + risk * 0.25, oncekiDip);
+    girisUst = fiyat;
+    girisNot = 'Dip süpürme sonrası dar stoplu tepki girişi';
+  } else {
+    const fitilStop = son4Max * 1.004;
+    const risk = Math.max(minRisk, Math.min(maxRisk, Math.max(fitilStop - fiyat, atr15 * 1.4)));
+    stop = fiyat + risk;
+    tp1 = fiyat - risk * 1.8;
+    tp2 = fiyat - risk * 3.0;
+    girisAlt = fiyat;
+    girisUst = Math.min(stop - risk * 0.25, oncekiTepe);
+    girisNot = 'Tepe süpürme sonrası dar stoplu dönüş girişi';
+  }
+
+  const riskPct = +((Math.abs(fiyat - stop) / fiyat) * 100).toFixed(2);
+  const tp1Pct = +((Math.abs(tp1 - fiyat) / fiyat) * 100).toFixed(2);
+  const tp2Pct = +((Math.abs(tp2 - fiyat) / fiyat) * 100).toFixed(2);
+  const guvenliKaldirac = Math.max(2, Math.min(10, Math.floor(15 / Math.max(riskPct, 0.9))));
+
+  return {
+    id: aday.id,
+    kod: aday.kod,
+    ad: aday.ad,
+    yon,
+    puan,
+    mod: 'likidite',
+    okxVar: (aday.borsalar || []).includes('OKX') || !!vadeliInfo?.okxSwap,
+    fiyat: yuvarlaHassas(fiyat, fiyat),
+    girisAlt: yuvarlaHassas(girisAlt, fiyat),
+    girisUst: yuvarlaHassas(girisUst, fiyat),
+    girisNot,
+    stop: yuvarlaHassas(stop, fiyat),
+    tp1: yuvarlaHassas(tp1, fiyat),
+    tp2: yuvarlaHassas(tp2, fiyat),
+    riskPct,
+    tp1Pct,
+    tp2Pct,
+    rr: 3.0,
+    guvenliKaldirac,
+    degisim: +deg.toFixed(2),
+    btcFark,
+    alisPct: alis,
+    satisPct: satis,
+    gh: hacimPatlama,
+    rsi15: Math.round(sonRsi15),
+    adx15: Math.round(adxHesapla(m15, 14)),
+    chop15: choppinessHesapla(m15, 14),
+    fisher15: fish15,
+    fundingPct,
+    oiUsd,
+    oiDegisimPct,
+    nedenler
+  };
+}
+
+async function likiditeAviIslemleriBul({ sadeceOkx = true, zorla = false } = {}) {
+  const key = sadeceOkx ? 'okx' : 'hepsi';
+  const hit = _likiditeOnbellek.get(key);
+  if (!zorla && hit && (Date.now() - hit.ts) < 75_000) {
+    return { ...hit.data, onbellekten: true };
+  }
+
+  const [kriptolar, btcCanli, vadeli] = await Promise.all([
+    V.tumKriptoTara(),
+    V.canliTekFiyat('BINANCE:BTCUSDT').catch(() => null),
+    V.vadeliPiyasaHaritasi().catch(() => ({}))
+  ]);
+
+  const btcSatir = (kriptolar || []).find(x => x.kod === 'BTC' || x.id === 'BINANCE:BTCUSDT');
+  const btcFiyat = btcCanli?.fiyat ?? btcSatir?.fiyat ?? null;
+  const btcDegisim = btcCanli?.degisim ?? btcSatir?.degisim ?? 0;
+
+  const havuz = (kriptolar || []).filter(r => {
+    if (!r || r.kod === 'BTC' || r.id === 'BINANCE:BTCUSDT') return false;
+    if ((r.usdHacim || 0) < 1_500_000) return false;
+    const sym = (r.kod + 'USDT').toUpperCase();
+    const okxVar = (r.borsalar || []).includes('OKX') || !!vadeli?.[sym]?.okxSwap;
+    if (sadeceOkx && !okxVar) return false;
+    return true;
+  });
+
+  // Uç bölgelerde (dip/tepe), yüksek hacimli veya fonlaması ters yığılmış en iyi 16 adayı seç
+  const adaySkorla = r => {
+    const sym = (r.kod + 'USDT').toUpperCase();
+    const fr = Math.abs(vadeli?.[sym]?.fundingPct ?? 0);
+    const rsi1 = r.rsi?.s1 ?? 50;
+    const ucluk = Math.abs(rsi1 - 50); // 50'den ne kadar uzaksa o kadar dip/tepede
+    const gh = r.goreceliHacim || 1;
+    return ucluk * 2 + fr * 600 + gh * 12 + Math.abs(r.degisim || 0) * 1.5;
+  };
+
+  const adaylar = [...havuz].sort((a, b) => adaySkorla(b) - adaySkorla(a)).slice(0, 16);
+
+  const bulunanlar = [];
+  for (let i = 0; i < adaylar.length; i += 4) {
+    const grup = adaylar.slice(i, i + 4);
+    const sonuclar = await Promise.all(grup.map(a => {
+      const sym = (a.kod + 'USDT').toUpperCase();
+      return likiditeAdayAnalizEt(a, btcDegisim, vadeli?.[sym]).catch(() => null);
+    }));
+    sonuclar.forEach(s => { if (s) bulunanlar.push(s); });
+  }
+
+  bulunanlar.sort((a, b) => b.puan - a.puan);
+  const ilkAlti = bulunanlar.slice(0, 6);
+
+  const sonuc = {
+    zaman: new Date().toISOString(),
+    mod: 'likidite',
+    tarananCoin: havuz.length,
+    derinIncelenen: adaylar.length,
+    netSayi: ilkAlti.length,
+    btc: { fiyat: btcFiyat, degisim: +btcDegisim.toFixed(2), kalkanMetin: '💧 BTC\'den Bağımsız Likidite Avı (SWEEP + Aşırı Fisher)' },
+    islemler: ilkAlti
+  };
+
+  _likiditeOnbellek.set(key, { ts: Date.now(), data: sonuc });
+  return { ...sonuc, onbellekten: false };
+}
+
+module.exports = { hazirIslemleriBul, likiditeAviIslemleriBul, demoGecmisStopTpKontrol };

@@ -416,7 +416,10 @@ const sunucu = http.createServer(async (req, res) => {
     if (p === '/api/hazir-islemler') {
       const sadeceOkx = url.searchParams.get('okx') !== '0';
       const zorla = url.searchParams.get('zorla') === '1';
-      const sonuc = await KararMotoru.hazirIslemleriBul({ sadeceOkx, zorla });
+      const mod = url.searchParams.get('mod') || 'trend';
+      const sonuc = mod === 'likidite'
+        ? await KararMotoru.likiditeAviIslemleriBul({ sadeceOkx, zorla })
+        : await KararMotoru.hazirIslemleriBul({ sadeceOkx, zorla });
       return gonder(res, 200, sonuc);
     }
     if (p === '/api/demo/gecmis-kontrol' && req.method === 'POST') {
