@@ -419,6 +419,11 @@ const sunucu = http.createServer(async (req, res) => {
       const sonuc = await KararMotoru.hazirIslemleriBul({ sadeceOkx, zorla });
       return gonder(res, 200, sonuc);
     }
+    if (p === '/api/demo/gecmis-kontrol' && req.method === 'POST') {
+      const g = await govdeOku(req);
+      const sonuc = await KararMotoru.demoGecmisStopTpKontrol(g.pozisyonlar || []);
+      return gonder(res, 200, sonuc);
+    }
     if (p === '/api/btc-radar') {
       const [kriptolar, btcCanli, vadeli] = await Promise.all([
         V.tumKriptoTara(),

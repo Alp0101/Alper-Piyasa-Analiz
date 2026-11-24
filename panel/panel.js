@@ -2637,29 +2637,51 @@ async function demoPortfoyYukle() {
       bildir(`${sebepTxt} ${emir.sembol.split(':')[1] || emir.sembol} ${emir.yon} pozisyonu ${sayi(acilisFiyati)} fiyatından açıldı!`, 6000);
     }
 
+    // Tarayıcı kapalıyken geçen 15dk mumlarında Stop veya TP1'e değip değmediğini gerçek High/Low ile kontrol et (25 sn önbellekli)
+    const gecmisTetik = {};
+    const kriptoKontrol = (yerel.acikPozisyonlar || []).filter(p => p.sembol && (p.sembol.startsWith('BINANCE:') || p.sembol.startsWith('OKX:')) && (p.stopFiyat > 0 || p.hedefFiyat > 0));
+    if (kriptoKontrol.length > 0 && (!window._sonGecmisStopKontrol || Date.now() - window._sonGecmisStopKontrol > 25_000)) {
+      window._sonGecmisStopKontrol = Date.now();
+      try {
+        const gk = await api('/api/demo/gecmis-kontrol', {
+          method: 'POST',
+          body: JSON.stringify({ pozisyonlar: kriptoKontrol.map(p => ({ id: p.id, sembol: p.sembol, yon: p.yon, alisTarih: p.alisTarih, stopFiyat: p.stopFiyat, hedefFiyat: p.hedefFiyat })) })
+        });
+        (gk?.tetiklenenler || []).forEach(t => { gecmisTetik[t.id] = t; });
+      } catch (_) {}
+    }
+
     // Otomatik Stop / Hedef Kontrolü (SADECE bu kullanıcının kendi açık pozisyonları için - İzole)
     for (let i = (yerel.acikPozisyonlar || []).length - 1; i >= 0; i--) {
       const poz = yerel.acikPozisyonlar[i];
       const anlikFiyat = fiyatHaritasi[poz.sembol];
-      if (!anlikFiyat || anlikFiyat <= 0) continue;
+      const gecmis = gecmisTetik[poz.id];
+      if (!gecmis && (!anlikFiyat || anlikFiyat <= 0)) continue;
 
       const isShort = poz.yon === 'SHORT';
       let kapandi = false;
       let sebep = '';
+      let cikisFiyat = anlikFiyat;
+      let cikisTarih = new Date().toISOString();
 
-      if (!isShort) {
-        if (poz.hedefFiyat && anlikFiyat >= poz.hedefFiyat) { kapandi = true; sebep = 'hedef'; }
-        else if (poz.stopFiyat && anlikFiyat <= poz.stopFiyat) { kapandi = true; sebep = 'stop'; }
+      if (gecmis) {
+        kapandi = true;
+        sebep = gecmis.sebep;
+        cikisFiyat = gecmis.cikisFiyat;
+        cikisTarih = gecmis.zaman || cikisTarih;
+      } else if (!isShort) {
+        if (poz.hedefFiyat && anlikFiyat >= poz.hedefFiyat) { kapandi = true; sebep = 'hedef'; cikisFiyat = poz.hedefFiyat; }
+        else if (poz.stopFiyat && anlikFiyat <= poz.stopFiyat) { kapandi = true; sebep = 'stop'; cikisFiyat = poz.stopFiyat; }
       } else {
-        if (poz.hedefFiyat && anlikFiyat <= poz.hedefFiyat) { kapandi = true; sebep = 'hedef'; }
-        else if (poz.stopFiyat && anlikFiyat >= poz.stopFiyat) { kapandi = true; sebep = 'stop'; }
+        if (poz.hedefFiyat && anlikFiyat <= poz.hedefFiyat) { kapandi = true; sebep = 'hedef'; cikisFiyat = poz.hedefFiyat; }
+        else if (poz.stopFiyat && anlikFiyat >= poz.stopFiyat) { kapandi = true; sebep = 'stop'; cikisFiyat = poz.stopFiyat; }
       }
 
       if (kapandi) {
         otomatikDegisiklikVar = true;
         const birim = poz.paraBirimi || paraBirimiAl(poz.sembol);
         const teminat = poz.teminat || +(poz.adet * poz.alisFiyat).toFixed(2);
-        const fiyatFarki = isShort ? (poz.alisFiyat - anlikFiyat) : (anlikFiyat - poz.alisFiyat);
+        const fiyatFarki = isShort ? (poz.alisFiyat - cikisFiyat) : (cikisFiyat - poz.alisFiyat);
         const karZarar = +(fiyatFarki * poz.adet).toFixed(2);
         const karZararYuzde = teminat > 0 ? +((karZarar / teminat) * 100).toFixed(2) : 0;
         const iadeTutar = Math.max(0, +(teminat + karZarar).toFixed(2));
@@ -2677,10 +2699,10 @@ async function demoPortfoyYukle() {
           kaldirac: poz.kaldirac || 1,
           adet: poz.adet,
           alisFiyat: poz.alisFiyat,
-          satisFiyat: anlikFiyat,
+          satisFiyat: cikisFiyat,
           paraBirimi: birim,
           alisTarih: poz.alisTarih || null,
-          satisTarih: new Date().toISOString(),
+          satisTarih: cikisTarih,
           stopFiyat: poz.stopFiyat || null,
           hedefFiyat: poz.hedefFiyat || null,
           planTf: poz.planTf || null,
@@ -5152,7 +5174,8 @@ async function hazirIslemlerYukle(zorla = false) {
       ozetEl.innerHTML = `
         <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
           <span style="font-size:13px; color:#e2e8f0;"><b>BTC:</b> ${b.fiyat ? sayi(b.fiyat) + ' $' : '—'} <b style="color:${bRenk};">${(b.degisim ?? 0) >= 0 ? '+' : ''}%${(b.degisim ?? 0).toFixed(2)}</b></span>
-          <span style="font-size:12px; color:#a7f3d0;">🔍 ${v.tarananCoin || 0} Coin Tarandı → ${v.derinIncelenen || 0} Derin İncelendi → <b>${v.netSayi || 0} NET İŞLEM</b></span>
+          ${b.kalkanMetin ? `<span style="font-size:12px; padding:3px 9px; border-radius:8px; background:#0f172a; color:#fde047; border:1px solid #f59e0b55; font-weight:700;">${esc(b.kalkanMetin)}</span>` : ''}
+          <span style="font-size:12px; color:#a7f3d0;">🔍 ${v.tarananCoin || 0} Coin → ${v.derinIncelenen || 0} Derin (4S+1S) → <b>${v.netSayi || 0} NET İŞLEM</b></span>
         </div>
         <div style="font-size:11px; color:#94a3b8;">Kural: TP1'de %50 kapat & Stop'u girişe çek · Kasanın max %1-2'sini riske at (Y.T.D)</div>
       `;
